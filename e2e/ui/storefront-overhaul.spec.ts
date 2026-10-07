@@ -295,7 +295,9 @@ test.describe("storefront overhaul", () => {
       await page.keyboard.press("Enter");
       await expect(sort).toContainText("low to high");
       await expect.poll(async () => (await page.locator(".shop-grid a.pcard-title").first().textContent())?.trim()).toBe("E2E UI Fil C");
+      await sort.focus();
       await page.keyboard.press("Enter");
+      await expect(page.getByRole("listbox", { name: "Sort products" })).toBeVisible();
       await page.keyboard.press("ArrowUp");
       await page.keyboard.press("Enter");
       await expect(sort).toContainText("Newest first");

@@ -125,7 +125,7 @@ export function ThemedSelect({
       {open && (
         <ul id={`${id}-list`} className={`ts-list${align === "right" ? " ts-right" : ""}`} role="listbox" aria-label={label} ref={list}>
           {options.map((option, index) => (
-            <li key={option.value} role="option" aria-selected={option.value === value} aria-disabled={option.disabled || undefined} className={`${index === active ? "is-active" : ""}${option.value === value ? " is-selected" : ""}${option.disabled ? " is-disabled" : ""}`} onMouseEnter={() => !option.disabled && setActive(index)} onMouseDown={(event) => event.preventDefault()} onClick={(event) => { event.preventDefault(); choose(index); }}>
+            <li key={option.value} role="option" aria-selected={option.value === value} aria-disabled={option.disabled || undefined} className={`${index === active ? "is-active" : ""}${option.value === value ? " is-selected" : ""}${option.disabled ? " is-disabled" : ""}`} onMouseMove={() => !option.disabled && index !== active && setActive(index)} onMouseDown={(event) => event.preventDefault()} onClick={(event) => { event.preventDefault(); choose(index); }}>
               <span>{option.label}</span>
               {option.hint && <small>{option.hint}</small>}
               {option.value === value && <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 7.5l3 3 7-7" fill="none" stroke="currentColor" strokeWidth="1.6" /></svg>}

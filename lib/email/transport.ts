@@ -23,20 +23,28 @@ export function splitFrom(from: string): { name: string; email: string } {
 
 /** A readable plain-text copy of an HTML email. Mail with both a text and an HTML part is trusted more by spam filters. */
 export function htmlToText(html: string): string {
-  return html
-    .replace(/<(style|script)[\s\S]*?<\/\1>/gi, "")
+  const entities: Record<string, string> = { nbsp: " ", amp: "&", lt: "<", gt: ">", "#39": "'", apos: "'", quot: '"' };
+  // keep removing until nothing is left to remove, so a tag hidden inside another one ("<scr<b>ipt>") cannot survive a single pass
+  const strip = (text: string, pattern: RegExp) => {
+    let previous: string;
+    do {
+      previous = text;
+      text = text.replace(pattern, "");
+    } while (text !== previous);
+    return text;
+  };
+  const withoutCode = strip(html, /<(style|script)[\s\S]*?<\/\1>/gi);
+  const withLinks = withoutCode
     .replace(/<br\s*\/?>|<\/(p|div|tr|h[1-6]|li)>/gi, "\n")
-    .replace(/<a [^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi, "$2 ($1)")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&#39;|&apos;/g, "'")
-    .replace(/&quot;/g, '"')
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+    .replace(/<a [^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi, "$2 ($1)");
+  return (
+    strip(withLinks, /<[^>]+>/g)
+      // every entity is decoded in one pass: decoding "&amp;" first and "&lt;" afterwards would turn "&amp;lt;" into "<" (double unescaping)
+      .replace(/&(nbsp|amp|lt|gt|#39|apos|quot);/g, (_whole, name: string) => entities[name])
+      .replace(/[ \t]+\n/g, "\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim()
+  );
 }
 
 /** Headers that mark a message as an important, expected one-to-one message (Outlook and Apple Mail show the flag; Gmail decides for itself). */

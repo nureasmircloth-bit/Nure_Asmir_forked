@@ -13,6 +13,14 @@ test.describe("email transport", () => {
     expect(text).not.toContain("color:red");
   });
 
+  test("plain-text copy: nested tags cannot survive and entities are decoded only once", () => {
+    expect(htmlToText("<scr<b>ipt>alert(1)</scr</b>ipt>Hi")).not.toMatch(/<\/?script/i);
+    expect(htmlToText("<<b>b>Hi<</b>/b>")).not.toContain("<b>");
+    expect(htmlToText("5 &amp;lt; 6")).toBe("5 &lt; 6");
+    expect(htmlToText("a&nbsp;b &quot;q&quot; &#39;s&#39;")).toBe("a b \"q\" 's'");
+    expect(htmlToText("")).toBe("");
+  });
+
   test("marks mail as important and only fails over for quota, key or outage problems", () => {
     expect(IMPORTANT_HEADERS.Importance).toBe("high");
     expect(IMPORTANT_HEADERS["X-Priority"]).toBe("1");

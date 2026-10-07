@@ -4,7 +4,7 @@ import { sendCheckoutOtpEmail } from "@/lib/email/resend";
 
 export const dynamic = "force-dynamic";
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/; // dots are excluded from the label parts so the pattern cannot backtrack badly
 
 export async function POST(request: Request) {
   let body: Record<string, unknown>;
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
 
   const email = String(body.email ?? "").trim();
   const turnstileToken = typeof body.turnstileToken === "string" ? body.turnstileToken : undefined;
-  if (!email || !EMAIL_RE.test(email)) {
+  if (!email || email.length > 254 || !EMAIL_RE.test(email)) {
     return Response.json({ error: "Enter a valid email address." }, { status: 400 });
   }
 

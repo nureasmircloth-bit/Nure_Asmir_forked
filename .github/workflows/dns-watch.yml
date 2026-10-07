@@ -1,0 +1,37 @@
+name: DNS watch
+
+# Shoppers who open the site through a resolver that cached an empty answer see "This site can't be reached /
+# ERR_NAME_NOT_RESOLVED". The cause is always a moment when the name had no address record. This check asks five independent
+# public resolvers (over HTTPS) for the address of every hostname every 15 minutes; if any of them gets no answer the run
+# fails and GitHub emails the repository owners, so a gap is noticed within minutes instead of after customers complain.
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+permissions: {}
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every hostname must resolve (IPv4 and IPv6) on every resolver
+        run: |
+          fail=0
+          for host in nureasmir.com www.nureasmir.com admin.nureasmir.com; do
+            for type in A AAAA; do
+              for resolver in \
+                "https://dns.google/resolve?name=$host&type=$type" \
+                "https://cloudflare-dns.com/dns-query?name=$host&type=$type" \
+                "https://dns.adguard-dns.com/resolve?name=$host&type=$type" \
+                "https://dns.nextdns.io/dns-query?name=$host&type=$type" \
+                "https://dns.alidns.com/resolve?name=$host&type=$type"; do
+                answers=$(curl -s -m 15 -H "accept: application/dns-json" "$resolver" | jq -r '[.Answer[]? | select(.type==1 or .type==28)] | length' 2>/dev/null || echo 0)
+                if [ "${answers:-0}" -lt 1 ]; then
+                  echo "::error::No $type answer for $host from ${resolver%%\?*}"
+                  fail=1
+                fi
+              done
+            done
+          done
+          exit $fail
