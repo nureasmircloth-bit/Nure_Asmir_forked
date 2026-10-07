@@ -48,7 +48,7 @@ function LoginForm() {
     <main className="adm-login-wrap">
       <div className="a-card adm-login">
         <div>
-          <Image src="/logo.png" alt="Nure Asmir" width={56} height={56} priority />
+          <Image src="/logo-icon.png" alt="Nure Asmir" width={56} height={56} priority />
         </div>
         <div>
           <h1>Welcome back</h1>

@@ -10,6 +10,9 @@ import { StoreJsonLd } from "./_components/store-jsonld";
 // always priced on the server regardless of what a cached page displays.
 export const revalidate = 60;
 
+// One address per page, so Google never treats "/?utm=…" or "/?ref=…" as separate pages.
+export const metadata = { alternates: { canonical: "/" } };
+
 export default async function Home() {
   // Only what this page shows is read: the newest dozen and the owner's featured picks, never the whole catalogue.
   const [products, featuredProducts, campaignSlides, categories] = await Promise.all([

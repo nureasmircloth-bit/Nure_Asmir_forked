@@ -46,6 +46,8 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
           featured: product.featured,
           badge: product.badge ?? "",
           seoTitle: product.seoTitle,
+          seoKeywords: product.seoKeywords,
+          seoLocked: product.seoLocked,
           seoDescription: product.seoDescription,
         }}
         variants={variants.filter((v) => v.status === "active").map((v) => ({ id: v.id, color: v.color, size: v.size ?? "", sku: v.sku, price: v.price, compareAtPrice: v.compareAtPrice, stockQuantity: v.stockQuantity, reservedQuantity: v.reservedQuantity, lowStockThreshold: v.lowStockThreshold }))}

@@ -39,8 +39,10 @@ const updateSchema = z.object({
   status: statusEnum.optional(),
   featured: z.boolean().optional(),
   badge: nullableString,
-  seoTitle: nullableString,
-  seoDescription: nullableString,
+  seoTitle: z.string().max(120).nullable().optional(),
+  seoDescription: z.string().max(320).nullable().optional(),
+  seoKeywords: z.string().max(500).nullable().optional(),
+  seoLocked: z.boolean().optional(),
   pattern: nullableString,
   primaryColour: nullableString,
   occasion: nullableString,
@@ -101,7 +103,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     data.description,
   ].some((value) => value !== undefined);
   let seo: { seoTitle: string; seoDescription: string } | null = null;
-  if (seoRelevantFieldsChanged && data.seoTitle === undefined && data.seoDescription === undefined) {
+  if (seoRelevantFieldsChanged && !existing.seoLocked && data.seoLocked !== true && data.seoTitle === undefined && data.seoDescription === undefined) {
     const categoryId = data.categoryId ?? existing.categoryId;
     const [category] = categoryId ? await db.select({ name: categories.name }).from(categories).where(eq(categories.id, categoryId)).limit(1) : [];
     seo = await generateSeoFields({
@@ -137,6 +139,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       ...(seo ? { seoTitle: seo.seoTitle, seoDescription: seo.seoDescription } : {}),
       ...(!seo && data.seoTitle !== undefined ? { seoTitle: data.seoTitle || null } : {}),
       ...(!seo && data.seoDescription !== undefined ? { seoDescription: data.seoDescription || null } : {}),
+      ...(data.seoKeywords !== undefined ? { seoKeywords: data.seoKeywords?.trim() || null } : {}),
+      ...(data.seoLocked !== undefined ? { seoLocked: data.seoLocked } : {}),
       ...(data.pattern !== undefined ? { pattern: data.pattern || null } : {}),
       ...(data.primaryColour !== undefined ? { primaryColour: data.primaryColour || null } : {}),
       ...(data.occasion !== undefined ? { occasion: data.occasion || null } : {}),

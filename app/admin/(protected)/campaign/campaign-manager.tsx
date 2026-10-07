@@ -5,8 +5,11 @@ import { FormEvent, useEffect, useState } from "react";
 import { cropImageClientSide, processImageClientSide } from "@/lib/client-image-processing";
 import { ImageCropper } from "./image-cropper";
 
-const DESKTOP_ASPECT = 16 / 9;
-const MOBILE_ASPECT = 9 / 16;
+// The crop frame is EXACTLY the frame the shop shows (see .banner-track in storefront.css), so what is cropped here is what customers see.
+const DESKTOP_ASPECT = 2048 / 768; // wide strip on computers and tablets
+const DESKTOP_LABEL = "wide, 8:3";
+const MOBILE_ASPECT = 4 / 5; // phones
+const MOBILE_LABEL = "tall, 4:5";
 
 type PixelCrop = { x: number; y: number; width: number; height: number };
 
@@ -319,7 +322,7 @@ export function CampaignManager() {
                   {editingSlideId === slide.id && (
                     <div className="campaign-image-slots campaign-image-slots-inline">
                       <div className="campaign-image-slot">
-                        <span>New desktop image (16:9, required)</span>
+                        <span>New desktop image ({DESKTOP_LABEL}, required)</span>
                         {editDesktopSlot.previewUrl ? (
                           <div className="campaign-slot-preview">
                             <Image src={editDesktopSlot.previewUrl} alt="" fill unoptimized sizes="220px" />
@@ -337,7 +340,7 @@ export function CampaignManager() {
                         )}
                       </div>
                       <div className="campaign-image-slot">
-                        <span>New mobile image (9:16, optional)</span>
+                        <span>New mobile image ({MOBILE_LABEL}, optional)</span>
                         {editMobileSlot.previewUrl ? (
                           <div className="campaign-slot-preview campaign-slot-preview-tall">
                             <Image src={editMobileSlot.previewUrl} alt="" fill unoptimized sizes="140px" />
@@ -386,7 +389,7 @@ export function CampaignManager() {
           <h2>Add campaign image</h2>
           <div className="campaign-image-slots">
             <div className="campaign-image-slot">
-              <span>Desktop image (16:9, required)</span>
+              <span>Desktop image ({DESKTOP_LABEL}, required)</span>
               {desktopSlot.previewUrl ? (
                 <div className="campaign-slot-preview">
                   <Image src={desktopSlot.previewUrl} alt="" fill unoptimized sizes="220px" />
@@ -404,7 +407,7 @@ export function CampaignManager() {
               )}
             </div>
             <div className="campaign-image-slot">
-              <span>Mobile image (9:16, optional — falls back to the desktop crop if skipped)</span>
+              <span>Mobile image ({MOBILE_LABEL}, optional — if skipped, phones show the middle of the computer picture)</span>
               {mobileSlot.previewUrl ? (
                 <div className="campaign-slot-preview campaign-slot-preview-tall">
                   <Image src={mobileSlot.previewUrl} alt="" fill unoptimized sizes="140px" />
@@ -464,7 +467,7 @@ export function CampaignManager() {
         <ImageCropper
           file={(cropTarget === "desktop" ? desktopSlot.file : mobileSlot.file) as File}
           aspect={cropTarget === "desktop" ? DESKTOP_ASPECT : MOBILE_ASPECT}
-          label={cropTarget === "desktop" ? "Crop desktop image (16:9)" : "Crop mobile image (9:16)"}
+          label={cropTarget === "desktop" ? `Crop the computer picture (${DESKTOP_LABEL})` : `Crop the phone picture (${MOBILE_LABEL})`}
           onConfirm={confirmCrop}
           onCancel={() => setCropTarget(null)}
         />
@@ -473,7 +476,7 @@ export function CampaignManager() {
         <ImageCropper
           file={(editCropTarget === "desktop" ? editDesktopSlot.file : editMobileSlot.file) as File}
           aspect={editCropTarget === "desktop" ? DESKTOP_ASPECT : MOBILE_ASPECT}
-          label={editCropTarget === "desktop" ? "Crop desktop image (16:9)" : "Crop mobile image (9:16)"}
+          label={editCropTarget === "desktop" ? `Crop the computer picture (${DESKTOP_LABEL})` : `Crop the phone picture (${MOBILE_LABEL})`}
           onConfirm={confirmEditCrop}
           onCancel={() => setEditCropTarget(null)}
         />

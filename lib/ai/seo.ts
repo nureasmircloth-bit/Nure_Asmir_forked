@@ -8,6 +8,8 @@ export type SeoFieldsInput = {
   material?: string;
   shortDescription?: string;
   description?: string;
+  /** Phrases the owner wants the page to be found for (comma separated). */
+  keywords?: string;
 };
 
 export type SeoFields = { seoTitle: string; seoDescription: string };
@@ -28,6 +30,7 @@ export async function generateSeoFields(input: SeoFieldsInput): Promise<SeoField
     input.color && `color: ${input.color}`,
     input.material && `material: ${input.material}`,
     (input.shortDescription || input.description) && `description: ${input.shortDescription || input.description}`,
+    input.keywords?.trim() && `phrases to work in naturally if they fit: ${input.keywords.trim()}`,
   ]
     .filter(Boolean)
     .join(", ");

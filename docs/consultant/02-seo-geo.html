@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nure Asmir – SEO and GEO: what is done</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top"><div class="in"><p class="eyebrow">Nure Asmir · Documentation</p><h1>SEO and GEO: what is done and what is left</h1><p>SEO = being found on Google. GEO = being found and recommended by AI assistants (ChatGPT, Gemini, Claude, Perplexity). Prepared 7 October 2026.</p></div></header>
+<nav class="docs" aria-label="Documentation"><div class="in"><a href="index.html">Overview and diagram</a><a href="01-architecture.html">Architecture, APIs, limits</a><a href="02-seo-geo.html" aria-current="page">SEO and GEO</a><a href="03-loading-and-indexing.html">Issues, speed and readiness</a></div></nav>
+<main>
+<ul class="toc" aria-label="On this page"><li><a href="#technical">Technical SEO</a></li><li><a href="#geo">GEO</a></li><li><a href="#tools">Admin tools</a></li><li><a href="#gaps">Gaps</a></li><li><a href="#plan">Plan</a></li><li><a href="#questions">Questions</a></li></ul>
+
+<div class="note bad"><strong>An honest word first.</strong> The website&rsquo;s technical side is strong, but nobody can promise to &ldquo;beat&rdquo; an established brand such as Ismail Farid. Google ranks mostly on <em>trust built over time</em>: how many respected sites link to you, how long the brand has existed, how many people search for it by name, and reviews. A new site cannot buy that in a month. What we <em>can</em> do is remove every technical obstacle, give Google and AI assistants clean facts, and choose battles we can win first (section 5).</div>
+
+<h2 id="technical">1. Technical SEO that is in place</h2>
+<table>
+<tr><th>Item</th><th>Status</th><th>Detail</th></tr>
+<tr><td>Page titles and descriptions</td><td><span class="tag good">Done</span></td><td>Every page has its own. Products get a title (under 60 characters) and description (under 155) written automatically when saved, or by the owner.</td></tr>
+<tr><td>One address per page (canonical)</td><td><span class="tag good">Done</span></td><td>All main pages declare their canonical address; the home page was added today. Filter and sort addresses (<code>/shop?sort=low</code>) point back to <code>/shop</code>.</td></tr>
+<tr><td>www and http redirect</td><td><span class="tag warn">Ready, goes live on next deploy</span></td><td><code>http</code> already redirects. <code>www.nureasmir.com</code> used to show the same page (duplicate); it now redirects permanently to <code>nureasmir.com</code>.</td></tr>
+<tr><td>robots.txt</td><td><span class="tag good">Done</span></td><td>Public pages open; admin, cart, checkout, wishlist and API closed. Picture and feed addresses explicitly allowed (Google Merchant needs them).</td></tr>
+<tr><td>sitemap.xml</td><td><span class="tag good">Done</span></td><td>24 addresses today: home, shop, about, contact, FAQ, track order, categories, every product, policies. Rebuilt automatically as products change.</td></tr>
+<tr><td>Structured data (JSON-LD)</td><td><span class="tag good">Done</span></td><td><code>Organization</code>, <code>WebSite</code> with search box, <code>Product</code> / <code>ProductGroup</code> with price, colour, size and stock, <code>BreadcrumbList</code>, <code>FAQPage</code>, and a <code>ClothingStore</code> for each physical shop (address, phone, map pin).</td></tr>
+<tr><td>Product feeds</td><td><span class="tag good">Done</span></td><td>Google Merchant Center and Meta feeds at <code>/api/feeds/google</code> and <code>/meta</code> (free product listings on Google).</td></tr>
+<tr><td>Pictures</td><td><span class="tag good">Done</span></td><td>Five WebP sizes, alt text, blur placeholders, one-year cache. Banners can now be uploaded separately for computers (wide) and phones (4:5) and are cropped on the owner&rsquo;s device to exactly the frame shown.</td></tr>
+<tr><td>Share picture and logo</td><td><span class="tag good">Done</span></td><td>New logo applied to the site, favicon, share picture and structured data.</td></tr>
+<tr><td>Correct errors</td><td><span class="tag good">Done</span></td><td>Unknown pages return a real 404. The old catch-all DNS record that could answer for any name was removed today.</td></tr>
+<tr><td>Secure and private</td><td><span class="tag good">Done</span></td><td>HTTPS everywhere with HSTS; the admin site is marked &ldquo;do not index&rdquo;.</td></tr>
+</table>
+
+<h2 id="geo">2. GEO: helping AI assistants</h2>
+<table>
+<tr><th>Item</th><th>Status</th><th>Detail</th></tr>
+<tr><td><code>llms.txt</code></td><td><span class="tag good">Done</span></td><td>A plain summary of the brand, shop, policies and delivery for AI assistants. Corrected today (it still mentioned bank deposit).</td></tr>
+<tr><td>AI crawlers allowed</td><td><span class="tag good">Done</span></td><td>GPTBot, OAI-SearchBot, ChatGPT-User, ClaudeBot, Claude-SearchBot, PerplexityBot, Google-Extended, Applebot-Extended may read public pages (never private ones).</td></tr>
+<tr><td>Clear facts in plain text</td><td><span class="tag good">Done</span></td><td>Price in PKR, sizes, colours, stock, care, delivery, returns and cash-on-delivery rules are written as text and in structured data, which is what AI answers quote.</td></tr>
+<tr><td>Questions and answers</td><td><span class="tag good">Done</span></td><td>The owner edits FAQs in the admin (Questions &amp; answers); they are published with <code>FAQPage</code> markup and use real shop numbers (free delivery amount, refund days).</td></tr>
+<tr><td>Local presence</td><td><span class="tag good">Done</span></td><td>Each physical shop is published with its address and map pin.</td></tr>
+</table>
+
+<h2 id="tools">3. Tools the owner has inside the admin</h2>
+<ul>
+<li><strong>On every product:</strong> phrases people really type (with a &ldquo;Try on Google&rdquo; button), a Google preview, and a checklist.</li>
+<li><strong>New today:</strong> a clear note that Google decides when to show a page and that it <em>can take up to a month</em> (so staff do not search on Chrome and blame the website); the preview is labelled &ldquo;not live yet&rdquo;.</li>
+<li><strong>New today, under &ldquo;Advanced&rdquo;:</strong> write the Google title and description yourself (kept when the product is saved again), a &ldquo;Write it for me&rdquo; button (Groq), and the owner&rsquo;s own search words. Honest note shown to the owner: Google ignores keyword lists; the words feed our own search, the product&rsquo;s structured data and the AI writer.</li>
+<li><strong>Settings:</strong> Google and Bing site-verification boxes, and analytics IDs.</li>
+</ul>
+
+<h2 id="gaps">4. What is NOT done yet (the real gaps)</h2>
+<table>
+<tr><th>Gap</th><th>Why it matters</th><th>Who</th></tr>
+<tr><td>Google Search Console not verified</td><td>We cannot ask Google to index, see errors or search terms until the owner verifies the site (the verification box in Settings is empty today).</td><td>Owner (10 minutes)</td></tr>
+<tr><td>Catalogue is still sample data</td><td>The live products are the sample set (their picture addresses start with &ldquo;seed&rdquo;). Google would index placeholder products and prices.</td><td>Owner: real products and photos first</td></tr>
+<tr><td>No customer reviews yet</td><td>Star ratings in results lift clicks a lot; we can add review markup only once real reviews exist.</td><td>Needs real orders</td></tr>
+<tr><td>No backlinks or brand mentions</td><td>The biggest ranking factor against established brands.</td><td>Marketing</td></tr>
+<tr><td>Google Business Profile</td><td>Free listing for the physical shops; strongest signal for &ldquo;near me&rdquo; searches.</td><td>Owner</td></tr>
+<tr><td>Written content</td><td>No guides (&ldquo;how to choose a kameez size&rdquo;, &ldquo;Eid outfit ideas&rdquo;), which is how smaller brands win long searches.</td><td>Owner + writer</td></tr>
+<tr><td>Sitemap dates</td><td>Every address says it changed &ldquo;now&rdquo;; Google ignores such dates. Should use each product&rsquo;s real last-edit date.</td><td>Developer (small)</td></tr>
+<tr><td>Urdu pages</td><td>Many customers search in Urdu or Roman Urdu; there are no Urdu pages.</td><td>Decision for owner</td></tr>
+</table>
+
+<h2 id="plan">5. A realistic plan against big brands</h2>
+<ol>
+<li><strong>Win your own name first.</strong> Searching &ldquo;Nure Asmir&rdquo; should show the shop first (usually within weeks of indexing). Verify Search Console, submit the sitemap, add Google Business Profile.</li>
+<li><strong>Free Google Shopping listings.</strong> Connect the product feed to Merchant Center; products can show in the Shopping tab without ads once real products are live.</li>
+<li><strong>Specific searches, not general ones.</strong> &ldquo;Ismail Farid&rdquo; will win &ldquo;men&rsquo;s shalwar kameez Pakistan&rdquo; for a long time. We can compete on narrower phrases: fabric, occasion, city (&ldquo;wash and wear kameez Lahore&rdquo;, &ldquo;Eid kurta for men&rdquo;), and our own collections.</li>
+<li><strong>Reviews and photos from real customers</strong> (then add star markup).</li>
+<li><strong>Links:</strong> fashion bloggers, local press, wedding and Eid features, supplier and partner sites.</li>
+<li><strong>Measure monthly</strong> in Search Console: impressions, clicks, average position per phrase. Judge progress after 3 months, not 3 days.</li>
+</ol>
+
+<div class="note"><strong>Timing the owner should expect:</strong> Google needs days to weeks to first list a new page and can take up to a month; moving up the rankings takes months. AI assistants update even more slowly and unpredictably.</div>
+
+<h2 id="questions">6. Questions for the consultant</h2>
+<ol>
+<li>Which 10 phrases should we aim at first, given competitors&rsquo; strength?</li>
+<li>Do we add Urdu or Roman-Urdu pages, and how?</li>
+<li>Best order for Search Console, Merchant Center and Google Business Profile.</li>
+<li>Any structured-data or content change you would make before we ask Google to index?</li>
+</ol>
+</main>
+<footer><div style="max-width:980px;margin:0 auto;padding:0 20px">Facts checked against the live site on 7 October 2026.</div></footer>
+</body>
+</html>

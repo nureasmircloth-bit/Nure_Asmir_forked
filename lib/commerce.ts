@@ -82,6 +82,7 @@ export type CatalogProduct = {
   careInstructions?: string;
   seoTitle?: string;
   seoDescription?: string;
+  seoKeywords?: string;
   blurDataUrl?: string;
   /** Admin-set "Featured on homepage" flag — see getCatalogProducts()'s use on the homepage. */
   featured: boolean;
@@ -291,6 +292,7 @@ export async function getProductBySlug(slug: string): Promise<CatalogProduct | n
       careInstructions: products.careInstructions,
       seoTitle: products.seoTitle,
       seoDescription: products.seoDescription,
+      seoKeywords: products.seoKeywords,
       featured: products.featured,
       categoryId: products.categoryId,
       categorySlug: categories.slug,
@@ -388,6 +390,7 @@ export async function getProductBySlug(slug: string): Promise<CatalogProduct | n
     careInstructions: row.careInstructions ?? "",
     seoTitle: row.seoTitle ?? undefined,
     seoDescription: row.seoDescription ?? undefined,
+    seoKeywords: row.seoKeywords ?? undefined,
     featured: row.featured,
     variants,
     images,

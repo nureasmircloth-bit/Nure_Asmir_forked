@@ -176,6 +176,20 @@
       "when": 1791312536418,
       "tag": "0024_short_ben_grimm",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1791360590051,
+      "tag": "0025_product_seo_keywords",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1791360617315,
+      "tag": "0026_product_seo_locked",
+      "breakpoints": true
     }
   ]
 }

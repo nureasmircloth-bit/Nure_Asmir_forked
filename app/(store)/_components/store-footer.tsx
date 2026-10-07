@@ -21,7 +21,7 @@ export async function StoreFooter() {
       <footer className="footer">
         <div className="footer-main">
           <div className="footer-brand">
-            <Image src="/brand/wordmark-light.png" alt={BRAND.name} width={395} height={100} unoptimized />
+            <Image src="/brand/wordmark-light-v2.png" alt={BRAND.name} width={969} height={155} unoptimized />
             <p>{BRAND.description}</p>
             <div className="footer-social">
               {settings.facebookUrl && (

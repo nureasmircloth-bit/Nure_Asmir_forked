@@ -46,7 +46,7 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
       <div className="adm-shell" data-side={side}>
         <aside className="adm-side">
           <div className="adm-brand">
-            <Image src="/logo.png" alt="" width={38} height={38} priority />
+            <Image src="/logo-icon.png" alt="" width={38} height={38} priority />
             <div>
               <strong>Nure Asmir</strong>
               <span>Shop manager</span>

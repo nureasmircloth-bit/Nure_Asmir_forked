@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nure Asmir – Architecture, APIs and limits</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top"><div class="in"><p class="eyebrow">Nure Asmir · Documentation</p><h1>Architecture, APIs and limits</h1><p>Nure Asmir online shop · prepared 7 October 2026 for the consultant discussion</p></div></header>
+<nav class="docs" aria-label="Documentation"><div class="in"><a href="index.html">Overview and diagram</a><a href="01-architecture.html" aria-current="page">Architecture, APIs, limits</a><a href="02-seo-geo.html">SEO and GEO</a><a href="03-loading-and-indexing.html">Issues, speed and readiness</a></div></nav>
+<main>
+<ul class="toc" aria-label="On this page"><li><a href="#overview">Big picture</a></li><li><a href="#stack">Technology</a></li><li><a href="#flow">What happens on a visit</a></li><li><a href="#api">API routes</a></li><li><a href="#limits">Limits</a></li><li><a href="#security">Security</a></li><li><a href="#questions">Questions</a></li></ul>
+
+<h2 id="overview">1. The big picture (in simple words)</h2>
+<p>Two websites run from one code base. The <strong>shop</strong> (what customers see) and the <strong>admin</strong> (what the owner and staff use). Both run on Cloudflare&rsquo;s network, close to the customer, and both talk to one database and two picture stores.</p>
+<div class="grid">
+  <div class="card"><h3>Shop</h3><p><span class="mono">nureasmir.com</span> (and <span class="mono">www</span>, which redirects to it). Cloudflare Worker named <code>nure-asmir</code>.</p></div>
+  <div class="card"><h3>Admin</h3><p><span class="mono">admin.nureasmir.com</span>. A separate Worker named <code>nure-asmir-admin</code>, never indexed by search engines.</p></div>
+  <div class="card"><h3>Why two?</h3><p>The free Cloudflare plan allows a program of at most 3&nbsp;MB (compressed). The shop and admin together were too big, so each is built separately (<code>scripts/build-target.mjs</code>).</p></div>
+</div>
+
+<h2 id="stack">2. Technology</h2>
+<table>
+<tr><th>Part</th><th>What we use</th><th>Why</th></tr>
+<tr><td>Website framework</td><td>Next.js 16.3.8 (App Router), React 19, TypeScript</td><td>Server-rendered pages that Google can read; fast navigation.</td></tr>
+<tr><td>Hosting</td><td>Cloudflare Workers through OpenNext (<code>@opennextjs/cloudflare</code>)</td><td>Runs near the customer (Lahore has a Cloudflare data centre); no servers to manage.</td></tr>
+<tr><td>Database</td><td>Neon Postgres (Singapore), Drizzle ORM, 27 migrations</td><td>Orders, products, customers, settings, FAQs, refunds. Applied automatically on every deploy before the new code goes live.</td></tr>
+<tr><td>Pictures</td><td>Two stores used together: Neon Storage and Cloudflare R2, served as five sizes of WebP through <code>/cdn/…</code></td><td>Doubles free space; pictures are cut to size in the browser before upload.</td></tr>
+<tr><td>Page cache</td><td>OpenNext incremental cache in R2 plus Cloudflare&rsquo;s regional cache</td><td>Pages re-render at most every 24–60 seconds, not on every visit.</td></tr>
+<tr><td>Search</td><td>Algolia, with a built-in search that takes over when Algolia&rsquo;s allowance ends</td><td>Fast search as you type.</td></tr>
+<tr><td>Emails</td><td>Resend (two accounts) then Brevo, tried in turn</td><td>Order and status emails keep flowing if one provider is full or down.</td></tr>
+<tr><td>AI writing</td><td>Groq (up to three keys used in turn)</td><td>&ldquo;Write it for me&rdquo; for product text and Google text.</td></tr>
+<tr><td>Couriers</td><td>TCS (booking and tracking)</td><td>Waiting for the final TCS credentials; &ldquo;follow TCS prices&rdquo; falls back to our own prices until then.</td></tr>
+<tr><td>Maps</td><td>Geoapify (address search, reverse lookup, map tiles through our own server so the key never reaches the browser)</td><td>Customers can use GPS, search or a map pin at checkout.</td></tr>
+<tr><td>Bot shield</td><td>Cloudflare Turnstile + one-time email codes</td><td>Stops fake orders.</td></tr>
+<tr><td>Alerts</td><td>Firebase Cloud Messaging (order alerts), Sentry (errors)</td><td>Owner is told about new orders; developer is told about errors.</td></tr>
+<tr><td>Tests</td><td>Playwright: 91 unit, 86 API and 123 browser tests (300 in total)</td><td>Run before every release.</td></tr>
+<tr><td>Deploy</td><td>GitHub Actions: tests, then migrations, then both Workers, then domain check</td><td>The owner merges to <code>main</code>; nothing deploys without that.</td></tr>
+</table>
+
+<h2 id="flow">3. What happens when someone opens a page</h2>
+<ol>
+<li>The browser asks DNS for <code>nureasmir.com</code>. Cloudflare answers.</li>
+<li>The request reaches Cloudflare in Lahore. A small program (<code>middleware.ts</code>) adds security headers and redirects <code>www</code> and <code>http</code> to the one real address.</li>
+<li>The Worker looks for a saved copy of the page (regional cache, then R2). If it is fresh, it answers at once (about 0.3&nbsp;s measured).</li>
+<li>If not, it builds the page from the database in Singapore and saves the copy (0.7–2.7&nbsp;s measured, see document 3).</li>
+<li>Pictures come from <code>/cdn/…</code> with a one-year cache, so a returning visitor downloads them once.</li>
+</ol>
+
+<h2 id="api">4. The API routes (what each group does)</h2>
+<p>93 routes under <code>app/api</code>. Customer-facing ones are public with limits; <code>/api/admin/*</code> needs a signed-in admin; <code>/api/cron/*</code> needs a secret.</p>
+<table>
+<tr><th>Group</th><th>Routes</th><th>Who can call it</th></tr>
+<tr><td>Catalogue</td><td><code>/api/catalog/page</code>, <code>/facets</code>, <code>/by-ids</code>, <code>/api/search/index</code>, <code>/api/cart-availability</code></td><td>Public (cached)</td></tr>
+<tr><td>Checkout</td><td><code>/api/checkout/options</code>, <code>/request-otp</code>, <code>/verify-otp</code>, <code>/validate-coupon</code>, <code>/api/orders</code></td><td>Public, with Turnstile + one-time code + rate limits</td></tr>
+<tr><td>Order follow-up</td><td><code>/api/orders/track</code>, <code>/cancel</code>, <code>/refund</code>, <code>/payment-proof</code></td><td>Customer who has the order number and phone</td></tr>
+<tr><td>Location</td><td><code>/api/geo/autocomplete</code>, <code>/reverse</code>, <code>/country</code>, <code>/tiles/{z}/{x}/{y}</code></td><td>Public, cached, key stays on the server</td></tr>
+<tr><td>Currency</td><td><code>/api/currency</code></td><td>Public (cached)</td></tr>
+<tr><td>Feeds</td><td><code>/api/feeds/google</code>, <code>/meta</code>, <code>/api/media/[id]</code>, <code>/api/campaign-media/[id]</code></td><td>Public (Google Merchant Center and Meta read these)</td></tr>
+<tr><td>Admin: shop content</td><td>products, variants, images, categories, collections, campaign (banners), site-images, faqs, settings, locations, delivery-zones, coupons, flash-sales</td><td>Signed-in admin</td></tr>
+<tr><td>Admin: orders</td><td>orders, place (phone orders), bulk, export, courier, label, cancel, status, refunds, payment-proofs</td><td>Signed-in admin</td></tr>
+<tr><td>Admin: AI and search</td><td><code>/api/admin/ai-description</code>, <code>/ai-seo</code>, <code>/search</code>, <code>/search-reindex</code></td><td>Signed-in admin</td></tr>
+<tr><td>Scheduled jobs</td><td><code>/api/cron/expire-reservations</code>, <code>/courier-sync</code>, <code>/sales</code>, <code>/maintenance</code>, <code>/search-reindex</code></td><td>Secret key, called by GitHub every 5–20 minutes</td></tr>
+<tr><td>Other</td><td><code>/api/health</code>, <code>/api/revalidate</code>, <code>/api/whatsapp/webhook</code>, <code>/api/push/customer</code>, <code>/api/newsletter</code>, <code>/api/usage/ping</code>, <code>/api/developer/storage</code></td><td>Mixed (webhook is signature-checked)</td></tr>
+</table>
+
+<h2 id="limits">5. Limits we live inside</h2>
+<div class="note">The numbers below are the free allowances as published when this was written; vendors change them, so the vendor&rsquo;s own page is the final word. The app&rsquo;s own <em>Developer</em> page counts usage against these and predicts what runs out first.</div>
+<table>
+<tr><th>Service</th><th>Free allowance</th><th>What happens at the limit</th><th>Upgrade</th></tr>
+<tr><td>Cloudflare Workers</td><td>100,000 requests a day; small CPU time per request; 3&nbsp;MB program size (ours: shop about 2.1&nbsp;MB, admin about 2.2&nbsp;MB compressed)</td><td>The whole site stops until the next day. Closest limit to a busy sale.</td><td>Workers Paid, about $5 a month. <strong>Recommended before launch ads.</strong></td></tr>
+<tr><td>Neon database</td><td>0.5&nbsp;GB, compute that sleeps when idle</td><td>Writes fail when full; first request after sleep is slow.</td><td>Paid Neon plan</td></tr>
+<tr><td>Pictures</td><td>Neon Storage + R2 (10&nbsp;GB free on R2; 1M writes and 10M reads a month)</td><td>Uploads refused; the app can shrink old sold-out photos to make room.</td><td>More R2 / Neon storage</td></tr>
+<tr><td>Algolia</td><td>10,000 search requests a month</td><td>Built-in search takes over automatically.</td><td>Algolia paid</td></tr>
+<tr><td>Resend</td><td>100 emails a day, 3,000 a month, per account (two accounts)</td><td>Brevo takes over (300 a day).</td><td>Paid Resend</td></tr>
+<tr><td>Groq</td><td>about 14,400 requests a day per key (three keys)</td><td>&ldquo;Write it for me&rdquo; says it is busy; owner types text.</td><td>Groq paid</td></tr>
+<tr><td>Geoapify</td><td>3,000 lookups a day</td><td>Address search switches off; customers type the address.</td><td>Geoapify paid</td></tr>
+<tr><td>WhatsApp Business</td><td>1,000 free service conversations a month</td><td>Messages that start a conversation are paid.</td><td>Pay per message</td></tr>
+<tr><td>Sentry</td><td>Free developer plan (small monthly event allowance)</td><td>New errors are dropped.</td><td>Paid Sentry</td></tr>
+<tr><td>Cloudflare DNS</td><td>Free plan: &ldquo;remember a missing answer&rdquo; time is fixed at 30 minutes</td><td>See document 3 (the DNS issue).</td><td>Unknown which plan lets us change it (to confirm with Cloudflare)</td></tr>
+</table>
+
+<h3>Measured on the live site (7 October 2026, one computer, read-only, 2,500 requests total)</h3>
+<table>
+<tr><th>Simultaneous users</th><th>Requests per second</th><th>Median</th><th>95th percentile</th><th>Errors</th></tr>
+<tr><td>1</td><td>7.7</td><td>40&nbsp;ms</td><td>583&nbsp;ms</td><td>0</td></tr>
+<tr><td>5</td><td>33</td><td>59&nbsp;ms</td><td>621&nbsp;ms</td><td>0</td></tr>
+<tr><td>10</td><td>54</td><td>95&nbsp;ms</td><td>643&nbsp;ms</td><td>0</td></tr>
+<tr><td>20</td><td>76</td><td>179&nbsp;ms</td><td>733&nbsp;ms</td><td>0</td></tr>
+</table>
+<div class="note">We stopped at 2,500 requests on purpose so we do not use up the free daily allowance. The breaking point is <strong>not yet known</strong>. Checkout and orders were not load-tested on the live site, only on the test copy.</div>
+
+<h2 id="security">6. Security in one paragraph</h2>
+<p>Admin sign-in is separate from the shop and rate-limited. Every price is recalculated on the server (the browser&rsquo;s numbers are never trusted). Secrets live only in GitHub and Cloudflare, never in the code. Security headers (CSP, HSTS, no framing) are set on every page. Dependencies were patched this week; one low-risk advisory remains in developer-only tooling (<code>braces</code>, no fixed version exists yet). The Firebase browser key is now limited to our own websites.</p>
+
+<h2 id="questions">7. Questions for the consultant</h2>
+<ol>
+<li>At what traffic should we move to Workers Paid and a paid Neon plan, and what should we watch to know?</li>
+<li>Is it worth putting the Worker close to the database (Smart Placement) or the database close to Pakistan?</li>
+<li>Which Cloudflare plan, if any, lets us shorten the DNS &ldquo;missing answer&rdquo; time?</li>
+</ol>
+</main>
+<footer><div style="max-width:980px;margin:0 auto;padding:0 20px">Generated from the project&rsquo;s own code and live measurements. Nothing here contains passwords or keys.</div></footer>
+</body>
+</html>

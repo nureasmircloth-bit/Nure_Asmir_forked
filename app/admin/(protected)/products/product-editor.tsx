@@ -11,7 +11,7 @@ import { callApi, Dialog, Hint, useToast } from "../../_ui/client";
 import { Icon } from "../../_ui/icons";
 import { pkr } from "../../_ui/ui";
 import { ProductPreview, type PreviewData } from "./product-preview";
-import { SeoPanel } from "./seo-panel";
+import { SeoPanel, type SeoDraft } from "./seo-panel";
 
 export type EditorCategory = { id: string; name: string };
 export type EditorProduct = {
@@ -30,6 +30,8 @@ export type EditorProduct = {
   /** Drafted automatically when the product is saved; shown only in the Google preview. */
   seoTitle?: string | null;
   seoDescription?: string | null;
+  seoKeywords?: string | null;
+  seoLocked?: boolean;
 };
 export type EditorVariantRow = { id: string; color: string; size: string; sku: string; price: number; compareAtPrice: number | null; stockQuantity: number; reservedQuantity: number; lowStockThreshold: number };
 export type EditorImageRow = { id: string; variantId: string | null; r2Key: string; variantWidths: number[] | null; isPrimary: boolean; sortOrder: number; altText: string };
@@ -92,6 +94,8 @@ export function ProductEditor({ categories, product, variants: initialVariants, 
     featured: product?.featured ?? false,
     badge: product?.badge ?? "",
   });
+  const [seo, setSeo] = useState<SeoDraft>(() => ({ title: product?.seoTitle ?? "", description: product?.seoDescription ?? "", keywords: product?.seoKeywords ?? "", edited: false, locked: product?.seoLocked ?? false }));
+  const [writingSeo, setWritingSeo] = useState(false);
   const [colors, setColors] = useState<ColorDraft[]>(() => buildColors(product?.primaryColour ?? "", initialVariants, initialImages));
   const [active, setActive] = useState(0);
   const [removedVariants, setRemovedVariants] = useState<string[]>([]);
@@ -258,6 +262,22 @@ export function ProductEditor({ categories, product, variants: initialVariants, 
     });
   }
 
+  async function writeSeo() {
+    if (!form.name.trim()) return;
+    setWritingSeo(true);
+    try {
+      const categoryName = categories.find((c) => c.id === form.categoryId)?.name;
+      const result = await callApi<{ seoTitle: string; seoDescription: string }>("/api/admin/ai-seo", "POST", { name: form.name, type: form.typeLabel, category: categoryName, color: colors.map((c) => c.name.trim()).filter(Boolean).join(", "), material: form.material, shortDescription: form.shortDescription, description: form.description, keywords: seo.keywords });
+      if (result.ok) {
+        setSeo((current) => ({ ...current, title: result.data.seoTitle, description: result.data.seoDescription, edited: true }));
+        touch();
+        toast("Written. Read it, change anything you like, then save the product.", "good");
+      } else toast(result.error, "bad");
+    } finally {
+      setWritingSeo(false);
+    }
+  }
+
   /* ------------------------------------ save ------------------------------------ */
   function validate(): string[] {
     const problems: string[] = [];
@@ -315,8 +335,11 @@ export function ProductEditor({ categories, product, variants: initialVariants, 
         status: form.status,
         featured: form.featured,
         badge: form.badge || null,
+        seoKeywords: seo.keywords.trim() || null,
+        // The Google text is only sent when the owner wrote it (or cleared it to hand it back to the helper); otherwise it is drafted automatically.
+        ...(seo.edited ? { seoTitle: seo.title.trim() || null, seoDescription: seo.description.trim() || null, seoLocked: Boolean(seo.title.trim() || seo.description.trim()) } : {}),
       };
-      const saved = await callApi<{ product: { id: string } }>(isNew ? "/api/admin/products" : `/api/admin/products/${product!.id}`, isNew ? "POST" : "PATCH", isNew ? { ...payload, material: payload.material ?? undefined, shortDescription: payload.shortDescription ?? undefined, description: payload.description ?? undefined, careInstructions: payload.careInstructions ?? undefined, badge: payload.badge ?? undefined } : payload);
+      const saved = await callApi<{ product: { id: string } }>(isNew ? "/api/admin/products" : `/api/admin/products/${product!.id}`, isNew ? "POST" : "PATCH", isNew ? { ...payload, material: payload.material ?? undefined, shortDescription: payload.shortDescription ?? undefined, description: payload.description ?? undefined, careInstructions: payload.careInstructions ?? undefined, badge: payload.badge ?? undefined, seoKeywords: payload.seoKeywords ?? undefined, seoTitle: payload.seoTitle ?? undefined, seoDescription: payload.seoDescription ?? undefined } : payload);
       if (!saved.ok) return fail(saved.error);
       const productId = saved.data.product.id;
 
@@ -751,8 +774,13 @@ export function ProductEditor({ categories, product, variants: initialVariants, 
           photoCounts: colors.map((c) => c.photos.length),
           hasPrice: colors.some((c) => c.variants.some((v) => Number(v.price) > 0)),
         }}
-        seoTitle={product?.seoTitle}
-        seoDescription={product?.seoDescription}
+        seo={seo}
+        onChange={(patch) => {
+          setSeo((current) => ({ ...current, ...patch }));
+          touch();
+        }}
+        onWrite={writeSeo}
+        writing={writingSeo}
       />
 
       <div className="a-savebar">

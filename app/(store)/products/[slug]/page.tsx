@@ -67,6 +67,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     const own = product.images.find((image) => image.variantId && sameColour.has(image.variantId));
     return own ? absolute(own.url) : primaryImage;
   };
+  const keywordList = product.seoKeywords?.split(",").map((word) => word.trim()).filter(Boolean).slice(0, 15).join(", ");
   const jsonLd =
     product.variants.length >= 2
       ? {
@@ -74,6 +75,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           "@type": "ProductGroup",
           name: product.name,
           description,
+          ...(keywordList ? { keywords: keywordList } : {}),
           brand: { "@type": "Brand", name: BRAND.name },
           productGroupID: product.id,
           variesBy: [...(sizeVaries ? ["https://schema.org/size"] : []), "https://schema.org/color"],
@@ -93,6 +95,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           name: product.name,
           image: [primaryImage],
           description,
+          ...(keywordList ? { keywords: keywordList } : {}),
           sku: product.sku,
           brand: { "@type": "Brand", name: BRAND.name },
           offers: offer(product.price, product.stock),

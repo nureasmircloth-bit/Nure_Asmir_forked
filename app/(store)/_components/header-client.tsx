@@ -113,7 +113,7 @@ export function HeaderClient({
           </button>
         </div>
         <Link href="/" className="logo" aria-label="Nure Asmir — home">
-          <Image src="/brand/wordmark.png" alt="Nure Asmir" width={395} height={100} priority unoptimized />
+          <Image src="/brand/wordmark-v2.png" alt="Nure Asmir" width={969} height={155} priority unoptimized />
         </Link>
         <div className="hdr-side hdr-right">
           <Link href="/wishlist" className="icon-btn" aria-label={`Wishlist, ${wishlistCount} saved`}>
@@ -136,7 +136,7 @@ export function HeaderClient({
       <aside className={`drawer ${menuOpen ? "is-open" : ""}`} aria-hidden={!menuOpen} aria-label="Menu">
         <div className="drawer-top">
           <Link href="/" className="logo" onClick={closeAll} aria-label="Nure Asmir — home">
-            <Image src="/brand/wordmark.png" alt="Nure Asmir" width={395} height={100} unoptimized />
+            <Image src="/brand/wordmark-v2.png" alt="Nure Asmir" width={969} height={155} unoptimized />
           </Link>
           <button type="button" className="icon-btn" aria-label="Close menu" onClick={() => setMenuOpen(false)}>
             {Icon.close}

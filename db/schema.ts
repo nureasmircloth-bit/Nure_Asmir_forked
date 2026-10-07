@@ -124,6 +124,10 @@ export const products = pgTable("products", {
   badge: text("badge"),
   seoTitle: text("seo_title"),
   seoDescription: text("seo_description"),
+  // Extra search phrases the owner adds by hand (comma separated). Google ignores keyword lists; the shop uses them for its own search, structured data and the AI writer.
+  seoKeywords: text("seo_keywords"),
+  // true once the owner has written the Google title/description by hand: saving the product then never replaces them with an AI draft.
+  seoLocked: boolean("seo_locked").notNull().default(false),
   // Google Merchant Center / Meta catalogue fields
   pattern: text("pattern"),
   primaryColour: text("primary_colour"),

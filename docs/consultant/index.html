@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nure Asmir – Documentation home</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top"><div class="in"><p class="eyebrow">Nure Asmir · Documentation</p><h1>How the website works</h1><p>Click any box in the picture to see what it is, how it connects, its limits and where it lives in the code. Last checked 7 October 2026.</p></div></header>
+<nav class="docs" aria-label="Documentation"><div class="in"><a href="index.html" aria-current="page">Overview and diagram</a><a href="01-architecture.html">Architecture, APIs, limits</a><a href="02-seo-geo.html">SEO and GEO</a><a href="03-loading-and-indexing.html">Issues, speed and readiness</a></div></nav>
+
+<main class="wide">
+
+<section aria-labelledby="how-to">
+  <h2 id="how-to">How to read this page</h2>
+  <div class="grid3">
+    <div class="card"><h3>1. Read top to bottom</h3><p>Each coloured band is one layer. A request starts at the top (a visitor) and travels down through the layers. The arrows between bands show the direction.</p></div>
+    <div class="card"><h3>2. Click a box</h3><p>The panel on the right (below the picture on a phone) explains the box in simple words, lists its limits and says which files hold the code.</p></div>
+    <div class="card"><h3>3. Follow an order</h3><p>Under the picture, &ldquo;Follow one order&rdquo; walks through a purchase step by step. Each step opens the boxes involved.</p></div>
+  </div>
+</section>
+
+<section aria-labelledby="diagram-title">
+  <h2 id="diagram-title">Architecture diagram</h2>
+  <div class="diagram-wrap">
+    <div id="diagram" class="diagram" aria-label="Architecture diagram"></div>
+    <aside id="panel" class="panel" aria-live="polite" tabindex="-1">
+      <p class="panel-empty"><strong>Pick a box.</strong><br>Details appear here. Start with <button class="linkish" data-open="shop">Shop Worker</button> or <button class="linkish" data-open="db">Neon Postgres</button>.</p>
+    </aside>
+  </div>
+  <p class="legend" id="legend"></p>
+</section>
+
+<section aria-labelledby="story-title">
+  <h2 id="story-title">Follow one order</h2>
+  <ol id="story" class="story"></ol>
+</section>
+
+<section aria-labelledby="docs-title">
+  <h2 id="docs-title">The other pages</h2>
+  <div class="grid3">
+    <a class="card linkcard" href="01-architecture.html"><h3>Architecture, APIs and limits</h3><p>Technology list, every API group, the free-plan allowances and the live load test.</p><span class="more">Open &rarr;</span></a>
+    <a class="card linkcard" href="02-seo-geo.html"><h3>SEO and GEO</h3><p>What is done for Google and AI assistants, what is missing, and a realistic plan against big brands.</p><span class="more">Open &rarr;</span></a>
+    <a class="card linkcard" href="03-loading-and-indexing.html"><h3>Issues, speed and readiness</h3><p>The DNS problem, slow pages and their fixes, whether we can ask Google to index, and the sandbox proposal.</p><span class="more">Open &rarr;</span></a>
+  </div>
+</section>
+
+<section aria-labelledby="gloss-title">
+  <h2 id="gloss-title">Words used in these pages</h2>
+  <dl class="gloss">
+    <div><dt>Worker</dt><dd>A small program that runs on Cloudflare&rsquo;s network, close to the visitor, instead of on one server.</dd></div>
+    <div><dt>DNS</dt><dd>The internet&rsquo;s phone book. It turns <code>nureasmir.com</code> into the address of a computer.</dd></div>
+    <div><dt>Cache</dt><dd>A saved copy kept nearby so the same answer need not be made again.</dd></div>
+    <div><dt>Cold start</dt><dd>The extra wait when something has been idle and must wake up before answering.</dd></div>
+    <div><dt>ISR (saved pages)</dt><dd>Pages are built once and reused for a short time, then quietly rebuilt.</dd></div>
+    <div><dt>Migration</dt><dd>A numbered database change, applied automatically before each release.</dd></div>
+    <div><dt>Canonical address</dt><dd>The one official address of a page, so Google counts it once.</dd></div>
+    <div><dt>Structured data (JSON-LD)</dt><dd>Hidden facts on a page (price, stock, address) written for machines.</dd></div>
+    <div><dt>SEO / GEO</dt><dd>Being found on Google / being recommended by AI assistants.</dd></div>
+    <div><dt>Sandbox</dt><dd>A safe practice copy where nothing touches real orders or customers.</dd></div>
+    <div><dt>PKR</dt><dd>Pakistani rupees. Every order is charged in PKR; other currencies are only shown as a guide.</dd></div>
+    <div><dt>CSP / HSTS</dt><dd>Browser safety rules the site sends: which scripts may run, and &ldquo;always use HTTPS&rdquo;.</dd></div>
+  </dl>
+</section>
+
+<section aria-labelledby="keep-title">
+  <h2 id="keep-title">Keeping this documentation true</h2>
+  <ul>
+    <li>The diagram&rsquo;s text lives in <code>docs/consultant/diagram.js</code>; each box is one entry. Edit it when something changes.</li>
+    <li>Numbers (routes, tests, migrations, speed) were counted on 7 October 2026. Re-count after big releases.</li>
+    <li>No passwords or keys are written anywhere in these files.</li>
+    <li>Open <code>docs/consultant/index.html</code> straight from the folder; no server is needed.</li>
+  </ul>
+</section>
+</main>
+<footer><div class="in">Nure Asmir documentation · built from the project&rsquo;s own code and live measurements.</div></footer>
+
+<script src="diagram.js"></script>
+<script>
+(function () {
+  var NODES = window.NODES, TIERS = window.TIERS, ARROWS = window.ARROWS, STORY = window.STORY;
+  var diagram = document.getElementById("diagram"), panel = document.getElementById("panel");
+
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+
+  // draw the bands, the boxes, and one arrow between neighbouring bands (arrows never cross because they only go straight down)
+  TIERS.forEach(function (tier, index) {
+    var band = document.createElement("section");
+    band.className = "tier"; band.style.setProperty("--c", tier.color);
+    band.innerHTML = '<header><h3>' + esc(tier.name) + '</h3><span>' + esc(tier.note) + '</span></header><div class="boxes"></div>';
+    var boxes = band.querySelector(".boxes");
+    tier.nodes.forEach(function (id) {
+      var n = NODES[id]; var b = document.createElement("button");
+      b.type = "button"; b.className = "node"; b.id = "node-" + id; b.setAttribute("data-id", id); b.setAttribute("aria-controls", "panel");
+      b.innerHTML = '<span class="t">' + esc(n.title) + '</span><span class="w">' + esc(n.what) + '</span>';
+      boxes.appendChild(b);
+    });
+    diagram.appendChild(band);
+    if (index < TIERS.length - 1 && ARROWS[tier.id]) {
+      var a = document.createElement("div"); a.className = "arrow"; a.setAttribute("aria-hidden", "true");
+      a.innerHTML = '<span class="line"></span><span class="label">' + esc(ARROWS[tier.id]) + '</span><span class="head">&#9660;</span>';
+      diagram.appendChild(a);
+    }
+  });
+  document.getElementById("legend").innerHTML = TIERS.map(function (t) { return '<span><i style="background:' + t.color + '"></i>' + esc(t.name) + '</span>'; }).join("");
+
+  // find a box by the words used in a "connects to" list
+  function findId(label) {
+    var l = label.toLowerCase();
+    if (NODES[label]) return label;
+    for (var id in NODES) { var t = NODES[id].title.toLowerCase(); if (t === l || t.indexOf(l) === 0 || l.indexOf(t) === 0) return id; }
+    return null;
+  }
+
+  function show(id, fromHash) {
+    var n = NODES[id]; if (!n) return;
+    Array.prototype.forEach.call(document.querySelectorAll(".node"), function (el) { el.classList.toggle("on", el.getAttribute("data-id") === id); });
+    var html = '<p class="panel-tier">' + esc(n.tier) + '</p><h3>' + esc(n.title) + '</h3><p class="panel-what">' + esc(n.what) + '</p>';
+    if (n.how && n.how.length) html += '<h4>How it works</h4><ul>' + n.how.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join("") + '</ul>';
+    if (n.links && n.links.length) html += '<h4>Talks to</h4><p class="chips">' + n.links.map(function (l) { var t = findId(l); return t ? '<button class="chip" data-open="' + t + '">' + esc(l) + '</button>' : '<span class="chip plain">' + esc(l) + '</span>'; }).join("") + '</p>';
+    html += '<h4>Limits and watch-outs</h4>' + (n.limits && n.limits.length ? '<ul>' + n.limits.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join("") + '</ul>' : '<p class="muted">Nothing special to watch.</p>');
+    if (n.code && n.code.length) html += '<h4>Where in the code</h4><p>' + n.code.map(function (c) { return '<code>' + esc(c) + '</code>'; }).join(" ") + '</p>';
+    if (n.doc) html += '<p class="more"><a href="' + esc(n.doc[1]) + '">' + esc(n.doc[0]) + ' &rarr;</a></p>';
+    panel.innerHTML = html;
+    if (!fromHash) { history.replaceState(null, "", "#" + id); }
+    if (window.matchMedia("(max-width: 900px)").matches && !fromHash) panel.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  document.addEventListener("click", function (e) {
+    var t = e.target.closest("[data-open], .node"); if (!t) return;
+    var id = t.getAttribute("data-open") || t.getAttribute("data-id"); if (id) { show(id); var el = document.getElementById("node-" + id); if (el && t.hasAttribute("data-open")) el.scrollIntoView({ block: "center", behavior: "smooth" }); }
+  });
+
+  // the story
+  var story = document.getElementById("story");
+  STORY.forEach(function (s) {
+    var li = document.createElement("li");
+    li.innerHTML = '<span>' + esc(s[0]) + '</span> <span class="chips">' + s[1].map(function (id) { return '<button class="chip" data-open="' + id + '">' + esc(NODES[id].title.replace(/\s*\(.*$/, "")) + '</button>'; }).join("") + '</span>';
+    story.appendChild(li);
+  });
+
+  var start = location.hash.slice(1); if (NODES[start]) show(start, true);
+})();
+</script>
+</body>
+</html>

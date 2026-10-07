@@ -48,7 +48,7 @@ export default async function PicturesPage() {
             <div className="a-photos" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
               {slides.map((slide) => (
                 <div key={slide.id} className="a-photo">
-                  <div className="img" style={{ aspectRatio: "16 / 9", position: "relative" }}>
+                  <div className="img" style={{ aspectRatio: "2048 / 768", position: "relative" }}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={`/api/campaign-media/${slide.id}?v=${slide.updatedAt.getTime()}`} alt={slide.altText} />
                   </div>

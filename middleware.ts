@@ -54,6 +54,15 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(httpsUrl, 308);
   }
 
+  // One address for the shop: "www.nureasmir.com/…" goes to "nureasmir.com/…" (a permanent redirect, so search engines keep a single copy of every page).
+  const host = (request.headers.get("host") ?? "").toLowerCase();
+  if (!allowInsecure && process.env.APP_TARGET !== "admin" && host.startsWith("www.")) {
+    const bare = new URL(request.url);
+    bare.host = host.slice(4);
+    bare.protocol = "https:";
+    return NextResponse.redirect(bare, 308);
+  }
+
   const response = NextResponse.next();
   response.headers.set("Content-Security-Policy", buildCsp(getNonce()));
   // The admin Worker (APP_TARGET=admin) must never be indexed.
