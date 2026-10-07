@@ -17,6 +17,11 @@
 
 export const FRESH_SECONDS = 45;
 export const KEEP_SECONDS = 600;
+/** Pages that hardly ever change (our story, contact, FAQ, policies) stay fresh longer and are kept for a week. */
+export const QUIET_FRESH_SECONDS = 120;
+export const QUIET_KEEP_SECONDS = 7 * 24 * 60 * 60;
+const QUIET_PAGE = /^\/(about|contact|faq|policies\/[a-z0-9-]+)$/;
+export const isQuietPage = (pathname: string): boolean => QUIET_PAGE.test(pathname);
 export const CACHE_HEADER = "x-edge-cache";
 
 /** Pages that look the same for every visitor. Everything else (cart, checkout, orders, search, API, admin) is never saved. */
@@ -63,11 +68,11 @@ export function isCacheableResponse(response: Response): boolean {
 }
 
 /** "fresh" / "stale" / "expired" from the moment the copy was made. */
-export function freshness(savedAt: number, now: number): "fresh" | "stale" | "expired" {
+export function freshness(savedAt: number, now: number, quiet = false): "fresh" | "stale" | "expired" {
   const age = (now - savedAt) / 1000;
   if (!Number.isFinite(age) || age < 0) return "expired";
-  if (age < FRESH_SECONDS) return "fresh";
-  return age < KEEP_SECONDS ? "stale" : "expired";
+  if (age < (quiet ? QUIET_FRESH_SECONDS : FRESH_SECONDS)) return "fresh";
+  return age < (quiet ? QUIET_KEEP_SECONDS : KEEP_SECONDS) ? "stale" : "expired";
 }
 
 function withMarker(response: Response, state: string, savedAt?: number): Response {
@@ -80,11 +85,11 @@ function withMarker(response: Response, state: string, savedAt?: number): Respon
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
 
-async function saveCopy(cache: EdgeCacheLike, key: Request, response: Response): Promise<void> {
+async function saveCopy(cache: EdgeCacheLike, key: Request, response: Response, keepSeconds: number): Promise<void> {
   const headers = new Headers(response.headers);
   headers.set("x-edge-saved-at", String(Date.now()));
   // The cache keeps an entry for as long as this says; freshness is decided by our own timestamp above.
-  headers.set("cache-control", `public, max-age=${KEEP_SECONDS}`);
+  headers.set("cache-control", `public, max-age=${keepSeconds}`);
   await cache.put(key, new Response(response.body, { status: response.status, statusText: response.statusText, headers }));
 }
 
@@ -95,16 +100,17 @@ export function withEdgePageCache(handler: EdgeHandler, getCache: () => EdgeCach
       const cache = getCache();
       if (!cache || String(env.EDGE_PAGE_CACHE ?? "1") === "0" || !isCacheableRequest(request)) return handler.fetch(request, env, ctx);
 
+      const quiet = isQuietPage(new URL(request.url).pathname);
       const key = cacheKeyFor(request, String(env.BUILD_ID ?? "dev"));
       const hit = await cache.match(key).catch(() => undefined);
       const savedAt = hit ? Number(hit.headers.get("x-edge-saved-at")) : 0;
-      const state = hit ? freshness(savedAt, Date.now()) : "expired";
+      const state = hit ? freshness(savedAt, Date.now(), quiet) : "expired";
 
       const rebuild = async (): Promise<Response> => {
         const fresh = await handler.fetch(request, env, ctx);
         if (isCacheableResponse(fresh)) {
           // one copy goes to the cache, the other goes to the visitor
-          await saveCopy(cache, key, fresh.clone()).catch(() => undefined);
+          await saveCopy(cache, key, fresh.clone(), quiet ? QUIET_KEEP_SECONDS : KEEP_SECONDS).catch(() => undefined);
           return fresh;
         }
         return fresh;

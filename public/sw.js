@@ -22,12 +22,17 @@ const KEEP = [STATIC_CACHE, PAGE_CACHE, IMAGE_CACHE];
 
 const TTLS = {
   page: 5 * 60 * 1000, // HTML is shown instantly from cache for up to 5 min (and refreshed in the background); older → network first
+  quietPage: 24 * 60 * 60 * 1000, // pages that hardly ever change (our story, contact, FAQ, policies): instant for a whole day
   pageMax: 7 * 24 * 60 * 60 * 1000, // offline fallback never older than a week
   api: 10 * 60 * 1000, // currency table, catalogue lookups
   image: 30 * 24 * 60 * 60 * 1000,
 };
 const MAX_ENTRIES = { [PAGE_CACHE]: 60, [IMAGE_CACHE]: 400, [STATIC_CACHE]: 200 };
 const NETWORK_TIMEOUT = 3500;
+// A returning visitor who has a saved copy waits at most this long for the network (a slow or stalled lookup must not hold the page back),
+// then sees the saved copy; the fresh one is stored for next time.
+const SAVED_COPY_RACE = 1500;
+const QUIET_PAGE = /^\/(about|contact|faq|policies\/[a-z0-9-]+)\/?$/;
 
 const IS_ADMIN_HOST = self.location.hostname.startsWith("admin.");
 
@@ -110,7 +115,7 @@ async function cacheFirst(request, cacheName, maxAge) {
 }
 
 /** Stale-while-revalidate: answer from cache immediately while it is fresh enough, refresh behind it. */
-async function staleWhileRevalidate(event, request, cacheName, ttl, hardMax) {
+async function staleWhileRevalidate(event, request, cacheName, ttl, hardMax, raceMs = NETWORK_TIMEOUT) {
   const cache = await caches.open(cacheName);
   const hit = await cache.match(request);
   const refresh = fetch(request).then((response) => {
@@ -126,7 +131,7 @@ async function staleWhileRevalidate(event, request, cacheName, ttl, hardMax) {
     // Older than the freshness window: prefer the network, but fall back to the cached copy when it
     // is slow/offline and not older than the hard limit.
     try {
-      return await Promise.race([refresh, new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), NETWORK_TIMEOUT))]);
+      return await Promise.race([refresh, new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), raceMs))]);
     } catch (error) {
       if (age < hardMax) return hit;
       throw error;
@@ -164,7 +169,7 @@ self.addEventListener("fetch", (event) => {
 
   if (request.mode === "navigate") {
     event.respondWith(
-      staleWhileRevalidate(event, request, PAGE_CACHE, TTLS.page, TTLS.pageMax).catch(async () => {
+      staleWhileRevalidate(event, request, PAGE_CACHE, QUIET_PAGE.test(url.pathname) ? TTLS.quietPage : TTLS.page, TTLS.pageMax, SAVED_COPY_RACE).catch(async () => {
         const cache = await caches.open(PAGE_CACHE);
         return (await cache.match("/")) || new Response("You appear to be offline. Please reconnect and try again.", { status: 503, headers: { "Content-Type": "text/plain; charset=utf-8" } });
       }),

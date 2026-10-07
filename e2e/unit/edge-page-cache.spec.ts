@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { CACHE_HEADER, FRESH_SECONDS, KEEP_SECONDS, cacheKeyFor, freshness, isCacheableRequest, isCacheableResponse, withEdgePageCache, type EdgeCacheLike } from "../../lib/edge-page-cache";
+import { CACHE_HEADER, FRESH_SECONDS, KEEP_SECONDS, QUIET_FRESH_SECONDS, QUIET_KEEP_SECONDS, cacheKeyFor, freshness, isQuietPage, isCacheableRequest, isCacheableResponse, withEdgePageCache, type EdgeCacheLike } from "../../lib/edge-page-cache";
 
 const ctx = () => {
   const pending: Promise<unknown>[] = [];
@@ -70,6 +70,17 @@ test.describe("edge page cache", () => {
     expect(freshness(t + 5000, t)).toBe("expired"); // a copy "from the future" is never trusted
   });
 
+  test("pages that hardly change stay fresh longer and are kept for a week; shop pages do not", () => {
+    const t = 1_000_000_000;
+    for (const path of ["/about", "/contact", "/faq", "/policies/returns"]) expect(isQuietPage(path), path).toBe(true);
+    for (const path of ["/", "/shop", "/collections/shirts", "/products/olive-cargo-pants"]) expect(isQuietPage(path), path).toBe(false);
+    expect(freshness(t, t + (FRESH_SECONDS + 5) * 1000, true)).toBe("fresh"); // would already be stale for a shop page
+    expect(freshness(t, t + (FRESH_SECONDS + 5) * 1000, false)).toBe("stale");
+    expect(freshness(t, t + QUIET_FRESH_SECONDS * 1000, true)).toBe("stale");
+    expect(freshness(t, t + (QUIET_KEEP_SECONDS - 1) * 1000, true)).toBe("stale");
+    expect(freshness(t, t + QUIET_KEEP_SECONDS * 1000, true)).toBe("expired");
+  });
+
   test("first visit builds the page, the next one is answered from the copy without touching the server", async () => {
     const cache = fakeCache();
     let built = 0;
@@ -88,16 +99,16 @@ test.describe("edge page cache", () => {
     const cache = fakeCache();
     let built = 0;
     const handler = withEdgePageCache({ fetch: async () => (built++, page(`<html>build ${built}</html>`)) }, () => cache);
-    await handler.fetch(get("/faq"), { BUILD_ID: "r1" }, ctx());
-    const key = cacheKeyFor(get("/faq"), "r1").url;
+    await handler.fetch(get("/shop"), { BUILD_ID: "r1" }, ctx());
+    const key = cacheKeyFor(get("/shop"), "r1").url;
     cache.store.get(key)!.headers.set("x-edge-saved-at", String(Date.now() - (FRESH_SECONDS + 5) * 1000));
     const c = ctx();
-    const answer = await handler.fetch(get("/faq"), { BUILD_ID: "r1" }, c);
+    const answer = await handler.fetch(get("/shop"), { BUILD_ID: "r1" }, c);
     expect(answer.headers.get(CACHE_HEADER)).toBe("STALE");
     expect(await answer.text()).toContain("build 1"); // the visitor does not wait for the rebuild
     await c.settle();
     expect(built).toBe(2);
-    const next = await handler.fetch(get("/faq"), { BUILD_ID: "r1" }, ctx());
+    const next = await handler.fetch(get("/shop"), { BUILD_ID: "r1" }, ctx());
     expect(await next.text()).toContain("build 2");
   });
 
