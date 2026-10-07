@@ -40,7 +40,8 @@ function parseCdnUrl(src: string): { key: string; widths: number[] } {
 export function cdnSrcForWidth(src: string, width: number): string {
   const { key, widths } = parseCdnUrl(src);
   if (!widths.length) return `${CDN_BASE}/${key}`;
-  const picked = widths.find((w) => w >= width) ?? widths[widths.length - 1];
+  // A file up to 20% narrower than asked is sharp enough once the browser scales it, and far lighter than jumping to the next size up.
+  const picked = widths.find((w) => w >= width * 0.8) ?? widths[widths.length - 1];
   return `${CDN_BASE}/${variantKeyFor(key, picked)}`;
 }
 

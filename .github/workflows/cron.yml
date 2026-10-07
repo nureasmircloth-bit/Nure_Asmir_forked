@@ -9,7 +9,9 @@ name: Reservation expiry cron + DB keep-alive
 # repo is public, so GitHub Actions minutes here are unlimited and free regardless of frequency.
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    # Safety net only: Cloudflare's own timer (worker-entry.ts) now does this every 3 minutes, exactly on time. GitHub
+    # in practice runs scheduled jobs about every 20 minutes, so it is no longer relied on.
+    - cron: "*/30 * * * *"
   workflow_dispatch: {}
 
 permissions: {}

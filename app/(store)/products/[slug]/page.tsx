@@ -16,8 +16,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const product = await getProductBySlug(slug);
   if (!product) return {};
   const title = product.seoTitle || product.name;
-  const description =
-    product.seoDescription || product.shortDescription || `${product.name} in ${product.color}. Nationwide delivery across Pakistan with cash on delivery available.`;
+  // the owner's own words first; otherwise a full sentence that says what it is and what the shopper gets (about 155 characters is where Google cuts it)
+  const fallback = `${product.name}${product.color ? ` in ${product.color}` : ""} from ${BRAND.name}. Delivered all over Pakistan with cash on delivery and easy exchanges.`;
+  const description = (product.seoDescription || (product.shortDescription && product.shortDescription.length >= 60 ? product.shortDescription : `${product.shortDescription ? product.shortDescription.replace(/\.$/, "") + ". " : ""}${fallback}`)).slice(0, 160);
   return {
     title,
     description,

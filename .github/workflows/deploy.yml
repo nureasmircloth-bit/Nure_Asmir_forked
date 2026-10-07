@@ -85,7 +85,7 @@ jobs:
         run: npm run cf:build:store
 
       - name: Deploy storefront
-        run: npx wrangler deploy -c "$STORE_CONFIG"
+        run: npx wrangler deploy -c "$STORE_CONFIG" --var BUILD_ID:${{ github.sha }}
 
       # The ISR page cache lives in a Cloudflare R2 bucket (nure-asmir-cache) that persists across
       # deploys, while every build's JS/CSS chunk filenames are freshly content-hashed. Without this, a

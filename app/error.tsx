@@ -1,11 +1,11 @@
 "use client";
 
-import * as Sentry from "@sentry/nextjs";
+import { reportError } from "@/lib/sentry-lazy";
 import { useEffect } from "react";
 
 export default function StoreError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
-    Sentry.captureException(error);
+    reportError(error);
     console.error("Storefront route error", error);
   }, [error]);
 

@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { getSiteImages } from "@/lib/site-images";
 import { StoreFooter } from "../_components/store-footer";
+import { Breadcrumbs } from "../_components/breadcrumbs";
 
 export const revalidate = 300;
 
@@ -16,6 +17,7 @@ export default async function AboutPage() {
   const photo = (await getSiteImages()).about_hero;
   return (
     <main>
+      <div className="crumb-bar"><Breadcrumbs trail={[{ name: "Our story" }]} path="/about" pageType="AboutPage" /></div>
       <section className="story-page">
         <div className="story-image">
           <Image src={photo?.url ?? "/og.jpg"} alt={photo?.alt || "Nure Asmir men's wear"} fill priority sizes="50vw" {...(photo?.blurDataUrl ? { placeholder: "blur" as const, blurDataURL: photo.blurDataUrl } : {})} />

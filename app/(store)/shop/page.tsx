@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { StoreFooter } from "../_components/store-footer";
+import { Breadcrumbs } from "../_components/breadcrumbs";
+import { ProductListJsonLd } from "../_components/product-list-jsonld";
 import { ShopGrid } from "./shop-grid";
 import { CATALOG_PAGE_SIZE, countCatalogProducts, getActiveCategories, getCatalogProducts, toCard } from "@/lib/commerce";
 
@@ -19,6 +21,8 @@ export default async function ShopPage() {
   return (
     <main className="page-fade-in">
       <header className="listing-head">
+        <Breadcrumbs trail={[{ name: "Shop" }]} path="/shop" />
+        <ProductListJsonLd name="New arrivals" path="/shop" products={products} />
         <h1 className="page-title">New arrivals</h1>
       </header>
       <ShopGrid products={products.map(toCard)} total={total} categories={categories.map((category) => ({ slug: category.slug, name: category.name }))} />

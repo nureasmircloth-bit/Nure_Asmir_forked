@@ -80,7 +80,7 @@
 .banner-slide picture, .banner-slide img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .banner-link { position: absolute; inset: 0; z-index: 2; }
 .banner-dots { position: absolute; z-index: 3; left: 0; right: 0; bottom: 14px; display: flex; justify-content: center; gap: 8px; }
-.banner-dots button { width: 28px; height: 14px; padding: 6px 0; border: 0; background: transparent; cursor: pointer; }
+.banner-dots button { width: 32px; height: 24px; padding: 11px 0; border: 0; background: transparent; cursor: pointer; }
 .banner-dots i { display: block; border-top: 2px solid rgba(255,255,255,.55); transition: border-color .2s; }
 .banner-dots button.active i { border-color: #fff; }
 .banner-arrow { position: absolute; z-index: 3; top: 50%; width: 44px; height: 44px; margin-top: -22px; display: grid; place-items: center; border: 0; border-radius: 50%; background: rgba(255,255,255,.8); color: var(--ink); cursor: pointer; opacity: 0; transition: opacity .2s; }
@@ -157,7 +157,7 @@
 .footer-links a { display: block; width: fit-content; margin: 0 0 11px; color: #a8a8a8; font-size: 13px; transition: color .2s; }
 .footer-links a:hover { color: #fff; }
 .footer-links p { margin: 0 0 11px; color: #a8a8a8; font-size: 13px; line-height: 1.6; }
-.footer-bottom { margin-top: 56px; padding-top: 20px; border-top: 1px solid #262626; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; color: #6f6f6f; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
+.footer-bottom { margin-top: 56px; padding-top: 20px; border-top: 1px solid #262626; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; color: #a3a3a3; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
 .footer-bottom div { display: flex; gap: 22px; }
 .footer-bottom a:hover { color: #fff; }
 
@@ -178,6 +178,9 @@
 .listing-head p { max-width: 560px; margin: 14px auto 0; color: var(--muted); line-height: 1.7; }
 .breadcrumb { margin: 0 0 14px; display: flex; justify-content: center; gap: 8px; color: var(--muted); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; }
 .breadcrumb a:hover { color: var(--ink); }
+.crumb-bar { padding: 18px 20px 0; }
+.crumb-bar .breadcrumb { margin: 0; justify-content: flex-start; }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .shop-shell { padding: 20px clamp(12px, 2vw, 28px) 100px; }
 .shop-toolbar { min-height: 56px; display: flex; align-items: center; justify-content: space-between; gap: 20px; border-bottom: 1px solid var(--line); }
 .filter-tabs { display: flex; gap: 26px; max-width: 100%; min-width: 0; overflow-x: auto; scrollbar-width: none; }
@@ -410,7 +413,7 @@
 /* ---- Floating buttons: flags, and a small ✕ on each ---- */
 .float-whatsapp-wrap { position: fixed; z-index: 70; left: max(16px, env(safe-area-inset-left)); bottom: max(16px, env(safe-area-inset-bottom)); }
 .float-whatsapp-wrap .float-whatsapp { position: static; }
-.float-close, .currency-close { display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 1px solid var(--line); border-radius: 50%; background: #fff; color: #444; font-size: 10px; line-height: 1; cursor: pointer; box-shadow: 0 2px 8px rgba(0, 0, 0, .18); }
+.float-close, .currency-close { display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 1px solid var(--line); border-radius: 50%; background: #fff; color: #444; font-size: 10px; line-height: 1; cursor: pointer; box-shadow: 0 2px 8px rgba(0, 0, 0, .18); }
 .float-close { position: absolute; top: -8px; right: -8px; }
 .float-close:hover, .currency-close:hover { background: #1b1714; color: #fff; }
 .currency-bar { display: flex; align-items: center; gap: 6px; }

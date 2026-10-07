@@ -1,7 +1,8 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "nure-asmir",
-  "main": ".open-next/worker.js",
+  // worker-entry.ts wraps .open-next/worker.js with the nearby page cache and the timer (see that file).
+  "main": "worker-entry.ts",
   "compatibility_date": "2026-07-29",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
@@ -16,7 +17,9 @@
     // Second picture store (10 GB free) used next to Neon Storage – see lib/storage.ts. Created by the deploy workflow.
     { "binding": "MEDIA_R2", "bucket_name": "nure-asmir-media-r2" }
   ],
-  "vars": { "APP_TARGET": "store" },
+  "vars": { "APP_TARGET": "store", "EDGE_PAGE_CACHE": "1" },
+  // Cloudflare's own timer: every 3 minutes (keeps the database awake; runs the shop's scheduled jobs on time).
+  "triggers": { "crons": ["*/3 * * * *"] },
   "observability": {
     "enabled": true
   },

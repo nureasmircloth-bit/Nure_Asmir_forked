@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { StoreFooter } from "../_components/store-footer";
+import { Breadcrumbs } from "../_components/breadcrumbs";
 import { getPublicSettings } from "@/lib/commerce";
 import { fillFaqTokens, getActiveFaqs } from "@/lib/faqs";
 import { getNonce } from "@/lib/nonce";
@@ -38,6 +39,7 @@ export default async function FaqPage() {
       <script type="application/ld+json" nonce={nonce} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <article className="content-page">
         <header>
+          <Breadcrumbs trail={[{ name: "FAQ" }]} path="/faq" />
           <p className="eyebrow">Customer care</p>
           <h1>Frequently asked questions</h1>
           <p>Straight answers on delivery, payment, exchanges and sizing.</p>

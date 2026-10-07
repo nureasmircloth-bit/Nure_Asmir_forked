@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { StoreFooter } from "../../_components/store-footer";
+import { Breadcrumbs } from "../../_components/breadcrumbs";
 import { getPublicSettings } from "@/lib/commerce";
 
 export const revalidate = 300;
@@ -180,6 +181,7 @@ export default async function PolicyPage({ params }: { params: Promise<{ slug: s
     <main>
       <article className="content-page">
         <header>
+          <Breadcrumbs trail={[{ name: policy.title }]} path={`/policies/${slug}`} />
           <p className="eyebrow">Customer care</p>
           <h1>{policy.title}</h1>
           <p>{policy.intro}</p>

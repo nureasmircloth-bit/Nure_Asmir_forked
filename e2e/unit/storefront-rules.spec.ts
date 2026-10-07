@@ -163,7 +163,7 @@ test.describe("currency", () => {
   test("every currency has a flag", () => {
     for (const { code } of CURRENCIES) {
       expect(FLAG_OF[code]).toMatch(/^[a-z]{2}$/);
-      expect(flagSrc(code)).toContain(`/${FLAG_OF[code]}.png`);
+      expect(flagSrc(code)).toBe(`/flags/${FLAG_OF[code]}.svg`);
     }
   });
 });

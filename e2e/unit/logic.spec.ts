@@ -51,7 +51,9 @@ test.describe("media URLs", () => {
   test("picks the smallest variant that covers the requested width", () => {
     const src = "/cdn/products/abc.jpg?vw=320.640.960";
     expect(cdnSrcForWidth(src, 300)).toBe("/cdn/products/abc-w320.webp");
-    expect(cdnSrcForWidth(src, 641)).toBe("/cdn/products/abc-w960.webp");
+    expect(cdnSrcForWidth(src, 641)).toBe("/cdn/products/abc-w640.webp"); // 640 is within 20% of 641
+    expect(cdnSrcForWidth(src, 900)).toBe("/cdn/products/abc-w960.webp"); // 640 would be more than 20% too small
+    expect(cdnSrcForWidth(src, 384)).toBe("/cdn/products/abc-w320.webp"); // a 384-wide slot no longer downloads the 640 file
     expect(cdnSrcForWidth(src, 5000)).toBe("/cdn/products/abc-w960.webp");
     expect(cdnSrcSet(src)).toBe("/cdn/products/abc-w320.webp 320w, /cdn/products/abc-w640.webp 640w, /cdn/products/abc-w960.webp 960w");
     expect(cdnSrcForWidth("/cdn/products/abc.jpg", 500)).toBe("/cdn/products/abc.jpg");

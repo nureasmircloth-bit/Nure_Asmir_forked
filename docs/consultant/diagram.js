@@ -41,11 +41,11 @@ window.NODES = {
   edge: {
     title: "Cloudflare edge: HTTPS, cache and shield", tier: "Cloudflare edge",
     what: "The front door in Lahore: secure connection, protection and a nearby cache.",
-    how: ["Forces HTTPS and sends security headers.", "Pictures are cached for a year; pages are cached only inside the Worker, not yet at the edge.", "Caching pages at the edge is the biggest speed win on the table and needs a careful test."],
+    how: ["Forces HTTPS and sends security headers.", "Pictures are cached for a year.", "Public pages (home, shop, categories, products, FAQ, policies) are now also kept in this data centre: fresh for 45 seconds, then served while a new copy is made (up to 10 minutes). Carts, checkout, orders, search, the API and anyone signed in always go to the real server.", "Each release has its own copies. A kill switch (EDGE_PAGE_CACHE=0) turns it off without code changes."],
     links: ["Shop Worker", "Admin Worker"],
-    limits: ["No Cache Rule for web pages yet (decision pending)."],
+    limits: ["Copies are per data centre, so a change shows within about 45 seconds, not instantly everywhere."],
     code: ["middleware.ts", "public/_headers"],
-    doc: ["Speed: causes and fixes", "03-loading-and-indexing.html#speed"],
+    doc: ["Caching and data design", "04-caching-design.html#layers"],
   },
   shop: {
     title: "Shop Worker (nure-asmir)", tier: "Workers",
@@ -95,10 +95,10 @@ window.NODES = {
   jobs: {
     title: "Scheduled jobs", tier: "Inside the app",
     what: "Tasks that run by the clock: release held stock, sync courier status, flash sales, clean-up, search rebuild.",
-    how: ["GitHub Actions calls /api/cron/* with a secret.", "The same call keeps the database from falling asleep.", "Planned every 5 minutes but GitHub really runs about every 20."],
+    how: ["Cloudflare's own timer (every 3 minutes, in worker-entry.ts) calls /api/health and /api/cron/* directly, so the database stays awake and jobs run on time.", "GitHub Actions still runs the same calls every 30 minutes as a safety net (GitHub in practice only runs about every 20 minutes, so it is no longer relied on)."],
     links: ["API routes", "Neon Postgres", "TCS"],
-    limits: ["Keep-warm is weaker than designed (see speed fixes)."],
-    code: [".github/workflows/cron.yml", "app/api/cron/"],
+    limits: ["Repeat calls are harmless: each job decides whether there is anything to do."],
+    code: ["worker-entry.ts", ".github/workflows/cron.yml", "app/api/cron/"],
     doc: ["Speed: causes and fixes", "03-loading-and-indexing.html#speed"],
   },
   training: {
@@ -140,11 +140,11 @@ window.NODES = {
   r2cache: {
     title: "Page cache (R2 and regional cache)", tier: "Data",
     what: "Saved copies of finished pages so they need not be rebuilt for every visitor.",
-    how: ["OpenNext stores page renders in an R2 bucket.", "Cloudflare's regional cache keeps a copy in the data centre that served it.", "Entries live at most about a minute so edits show quickly."],
+    how: ["OpenNext stores page renders in an R2 bucket.", "Cloudflare's regional cache keeps a copy in the data centre that served it.", "Entries live at most about a minute so edits show quickly.", "The admin tells the shop to purge these when something changes."],
     links: [],
     limits: [],
     code: ["open-next.config.ts"],
-    doc: ["Speed: causes and fixes", "03-loading-and-indexing.html#speed"],
+    doc: ["Caching and data design", "04-caching-design.html#layers"],
   },
   algolia: {
     title: "Algolia (search)", tier: "Outside services",

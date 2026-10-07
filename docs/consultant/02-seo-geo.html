@@ -8,9 +8,9 @@
 </head>
 <body>
 <header class="top"><div class="in"><p class="eyebrow">Nure Asmir · Documentation</p><h1>SEO and GEO: what is done and what is left</h1><p>SEO = being found on Google. GEO = being found and recommended by AI assistants (ChatGPT, Gemini, Claude, Perplexity). Prepared 7 October 2026.</p></div></header>
-<nav class="docs" aria-label="Documentation"><div class="in"><a href="index.html">Overview and diagram</a><a href="01-architecture.html">Architecture, APIs, limits</a><a href="02-seo-geo.html" aria-current="page">SEO and GEO</a><a href="03-loading-and-indexing.html">Issues, speed and readiness</a></div></nav>
+<nav class="docs" aria-label="Documentation"><div class="in"><a href="index.html">Overview and diagram</a><a href="01-architecture.html">Architecture, APIs, limits</a><a href="02-seo-geo.html" aria-current="page">SEO and GEO</a><a href="03-loading-and-indexing.html">Issues, speed and readiness</a><a href="04-caching-design.html">Caching and data design</a></div></nav>
 <main>
-<ul class="toc" aria-label="On this page"><li><a href="#technical">Technical SEO</a></li><li><a href="#geo">GEO</a></li><li><a href="#tools">Admin tools</a></li><li><a href="#gaps">Gaps</a></li><li><a href="#plan">Plan</a></li><li><a href="#questions">Questions</a></li></ul>
+<ul class="toc" aria-label="On this page"><li><a href="#technical">Technical SEO</a></li><li><a href="#geo">GEO</a></li><li><a href="#tools">Admin tools</a></li><li><a href="#gaps">Gaps</a></li><li><a href="#plan">Plan</a></li><li><a href="#checklist">Developer checklist</a></li><li><a href="#questions">Questions</a></li></ul>
 
 <div class="note bad"><strong>An honest word first.</strong> The website&rsquo;s technical side is strong, but nobody can promise to &ldquo;beat&rdquo; an established brand such as Ismail Farid. Google ranks mostly on <em>trust built over time</em>: how many respected sites link to you, how long the brand has existed, how many people search for it by name, and reviews. A new site cannot buy that in a month. What we <em>can</em> do is remove every technical obstacle, give Google and AI assistants clean facts, and choose battles we can win first (section 5).</div>
 
@@ -73,7 +73,31 @@
 
 <div class="note"><strong>Timing the owner should expect:</strong> Google needs days to weeks to first list a new page and can take up to a month; moving up the rankings takes months. AI assistants update even more slowly and unpredictably.</div>
 
-<h2 id="questions">6. Questions for the consultant</h2>
+<h2 id="checklist">6. The developer's SEO checklist: item by item</h2>
+<p>A developer reviewed the site and listed the usual things to check. Each one was tested on the live site on 7 October 2026 (the audit script is <code>scripts/seo-audit.mjs</code>; run it any time).</p>
+<table>
+<tr><th>Item</th><th>Status</th><th>What we found</th></tr>
+<tr><td>DNS, &ldquo;negative cache&rdquo;, name servers, do not change DNS often</td><td><span class="tag good">Checked</span></td><td>Name servers are Cloudflare&rsquo;s. The three website records were created on 6 October and have not changed through the four releases since, so releases do not touch DNS. A remembered &ldquo;not found&rdquo; answer lasts 30 minutes on the Free plan; measurements from a real affected router (page 3) point to that router&rsquo;s own DNS stalling, which clears on reload.</td></tr>
+<tr><td>Fast loading, Core Web Vitals</td><td><span class="tag warn">Improving</span></td><td>Phone Lighthouse: performance 88, largest paint 2.8&nbsp;s, layout shift 0. Fixes built (nearby page copies, lighter first load, better picture sizes); to be re-measured after release. Real-visitor numbers appear in Search Console only after enough visits.</td></tr>
+<tr><td>Mobile-first design; banner cropped on phones</td><td><span class="tag warn">Fixed for new uploads</span></td><td>Banners are now cropped on the owner&rsquo;s device to the exact frame shown (8:3 computers, 4:5 phones). <strong>Action:</strong> upload a phone picture for every slide; a slide without one shows only the middle of the computer picture.</td></tr>
+<tr><td>Clean URL structure, breadcrumbs on inner pages</td><td><span class="tag good">Done</span></td><td>Addresses are short words (<code>/products/olive-cargo-pants</code>). Breadcrumbs (visible and as structured data) were on products and categories; now also on Shop, Our story, Contact, FAQ and every policy page.</td></tr>
+<tr><td>Proper canonical addresses</td><td><span class="tag good">Done</span></td><td>Every public page declares its own canonical address (the private steps of buying are noindex and need none). Filters and sorting do not create new addresses.</td></tr>
+<tr><td>XML sitemap, listed in robots.txt</td><td><span class="tag good">Done</span></td><td>Sitemap lists only pages worth finding (checkout steps removed) and is named in robots.txt.</td></tr>
+<tr><td>robots.txt</td><td><span class="tag good">Done</span></td><td>Public pages open; admin, cart, checkout, API closed; AI crawlers allowed on public pages only.</td></tr>
+<tr><td>Correct indexing and noindex rules</td><td><span class="tag good">Done</span></td><td>Search results, wishlist, cart, checkout, track order, the 404 page and the admin site are all <code>noindex</code>. Everything public is indexable.</td></tr>
+<tr><td>No broken links</td><td><span class="tag good">Clean</span></td><td>26 different internal links followed from every page: none broken. 6 outside links: none broken.</td></tr>
+<tr><td>Correct permanent redirects</td><td><span class="tag good">Done</span></td><td><code>http</code> &rarr; <code>https</code> and <code>www</code> &rarr; <code>nureasmir.com</code> both answer 308 Permanent Redirect (Google treats 308 like 301).</td></tr>
+<tr><td>Internal linking</td><td><span class="tag good">Done</span></td><td>Header, footer, category tiles, breadcrumbs and &ldquo;You may also like&rdquo; (10 products from the same category) link pages together.</td></tr>
+<tr><td>Pagination and filter handling</td><td><span class="tag warn">Fine for now, plan needed</span></td><td>Filters run in the browser and never create separate addresses (good: no duplicate pages). &ldquo;Show more&rdquo; loads the next 24 products without a new address, so a crawler sees the first 24 from the page and the rest through the sitemap and category pages. With fewer than 24 products per category nothing is hidden. When a category grows past that, add numbered page links.</td></tr>
+<tr><td>Optimised images, WebP</td><td><span class="tag good">Done</span></td><td>Five WebP sizes per picture, compressed in the browser at upload; alt text present on every image (0 missing).</td></tr>
+<tr><td>Server-built HTML; text not hard-coded in templates</td><td><span class="tag warn">Mostly</span></td><td>Pages are built on the server. Products, categories, FAQs, banners and the top bar are editable in the admin. The <strong>four policy pages</strong> (shipping, returns, privacy, terms) are still written in the code; moving them into the admin is the remaining item.</td></tr>
+<tr><td>hreflang for several countries or languages</td><td><span class="tag good">Not needed yet</span></td><td>One country and language: the page language is now <code>en-PK</code>. Add hreflang only when an Urdu or other version exists.</td></tr>
+<tr><td>Structured data on every page</td><td><span class="tag good">Done</span></td><td>Organization and WebSite (with search box) on every page; Product with price and stock, BreadcrumbList, FAQPage, ClothingStore for physical shops; new: CollectionPage with ItemList for the shop and categories, AboutPage, ContactPage.</td></tr>
+<tr><td>Trending keywords on each page</td><td><span class="tag warn">Partly</span></td><td>The product editor suggests phrases shoppers type and opens Google for each. There is no live trend data yet. Best source after launch: Search Console&rsquo;s real queries (2&ndash;4 weeks), then Google Trends for Eid and wedding seasons.</td></tr>
+<tr><td>Meta titles and descriptions</td><td><span class="tag good">Improved</span></td><td>Found: sample products and categories had very short descriptions (12&ndash;45 characters). Now a short description is completed into a full sentence (what it is, delivery, cash on delivery). The home page also got its single main heading.</td></tr>
+</table>
+
+<h2 id="questions">7. Questions for the consultant</h2>
 <ol>
 <li>Which 10 phrases should we aim at first, given competitors&rsquo; strength?</li>
 <li>Do we add Urdu or Roman-Urdu pages, and how?</li>

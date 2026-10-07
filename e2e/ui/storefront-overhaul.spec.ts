@@ -22,8 +22,7 @@ test.describe("storefront overhaul", () => {
   });
   test.beforeEach(async ({ page }) => {
     // never talk to outside services from a test: rates and flag pictures are stubbed
-    await page.route("**/api/currency", (route) => route.fulfill({ json: { date: "2026-01-01", fetchedAt: Date.now(), rates: { PKR: 1, USD: 0.0036, GBP: 0.0027, EUR: 0.0033, AED: 0.0132, SAR: 0.0135, CAD: 0.005, AUD: 0.0055 } } }));
-    await page.route("https://flagcdn.com/**", (route) => route.fulfill({ contentType: "image/png", body: makePng(20, 15) }));
+    await page.route("**/api/currency", (route) => route.fulfill({ json: { date: "2026-01-01", fetchedAt: Date.now(), rates: { PKR: 1, USD: 0.0036, GBP: 0.0027, EUR: 0.0033, AED: 0.0132, SAR: 0.0135, CAD: 0.005, AUD: 0.0055 } } }));
   });
 
   test.describe("top bar", () => {
@@ -365,7 +364,7 @@ test.describe("storefront overhaul", () => {
       await page.goto("/");
       const main = page.locator(".currency-main");
       await expect(main).toContainText("AED", { timeout: 15_000 });
-      await expect(main.locator("img")).toHaveAttribute("src", /flagcdn\.com\/w20\/ae\.png/);
+      await expect(main.locator("img")).toHaveAttribute("src", /\/flags\/ae\.svg/);
       await main.click();
       const list = page.getByRole("listbox", { name: "Currency" });
       expect(await list.locator("img").count()).toBe(8);
@@ -381,8 +380,7 @@ test.describe("storefront overhaul", () => {
       await expect(page.locator(".currency-main")).toContainText("PKR");
       const fresh = await page.context().browser()!.newContext();
       const other = await fresh.newPage();
-      await other.route("**/api/geo/country", (route) => route.fulfill({ json: { country: null } }));
-      await other.route("https://flagcdn.com/**", (route) => route.fulfill({ contentType: "image/png", body: makePng(20, 15) }));
+      await other.route("**/api/geo/country", (route) => route.fulfill({ json: { country: null } }));
       await other.goto(`${BASE}/`);
       await expect(other.locator(".currency-main")).toContainText("PKR");
       await fresh.close();

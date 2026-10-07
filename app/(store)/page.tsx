@@ -5,6 +5,7 @@ import { StoreFooter } from "./_components/store-footer";
 import { CampaignCarousel } from "./_components/campaign-carousel";
 import { getActiveCategories, getCampaignSlides, getCatalogProducts, toCard } from "@/lib/commerce";
 import { StoreJsonLd } from "./_components/store-jsonld";
+import { BRAND } from "@/lib/brand";
 
 // Short ISR window: a flash sale that goes live (or ends) shows up within about a minute. Orders are
 // always priced on the server regardless of what a cached page displays.
@@ -31,6 +32,7 @@ export default async function Home() {
 
   return (
     <main className="page-fade-in">
+      <h1 className="sr-only">{BRAND.name} — {BRAND.descriptor}. {BRAND.tagline}.</h1>
       <StoreJsonLd />
       <CampaignCarousel slides={campaignSlides} />
 
@@ -49,7 +51,7 @@ export default async function Home() {
                 <div className="cat-tile-media">
                   <Image
                     src={category.imageUrl ?? "/placeholder.webp"}
-                    alt={category.name}
+                    alt="" /* the name is written right under the picture, so screen readers do not need it twice */
                     fill
                     sizes="(max-width: 700px) 46vw, 25vw"
                     priority={index < 4}

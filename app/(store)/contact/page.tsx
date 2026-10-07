@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { StoreFooter } from "../_components/store-footer";
+import { Breadcrumbs } from "../_components/breadcrumbs";
 import { getPublicSettings } from "@/lib/commerce";
 import { mapsLink } from "@/lib/geo";
 import { getStoreLocations } from "@/lib/locations";
@@ -21,6 +22,7 @@ export default async function ContactPage() {
   return (
     <main>
       <StoreJsonLd />
+      <div className="crumb-bar"><Breadcrumbs trail={[{ name: "Contact" }]} path="/contact" pageType="ContactPage" /></div>
       <section className="contact-page">
         <div>
           <p className="eyebrow">Customer care</p>

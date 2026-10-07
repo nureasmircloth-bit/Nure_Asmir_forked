@@ -83,4 +83,5 @@ export function currencyForCountry(country: string | null | undefined): Currency
 
 /** Two-letter flag code for each currency, for the flag pictures (Windows cannot draw flag emoji, so pictures are used). */
 export const FLAG_OF: Record<CurrencyCode, string> = { PKR: "pk", USD: "us", GBP: "gb", EUR: "eu", AED: "ae", SAR: "sa", CAD: "ca", AUD: "au" };
-export const flagSrc = (code: CurrencyCode, width: 20 | 40 = 20) => `https://flagcdn.com/w${width}/${FLAG_OF[code]}.png`;
+/** The flags are our own files (public/flags): one less outside website a visitor's router has to look up before the page can finish. */
+export const flagSrc = (code: CurrencyCode) => `/flags/${FLAG_OF[code]}.svg`;

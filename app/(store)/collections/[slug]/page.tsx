@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { StoreFooter } from "../../_components/store-footer";
+import { ProductListJsonLd } from "../../_components/product-list-jsonld";
 import { ShopGrid } from "../../shop/shop-grid";
 import { CATALOG_PAGE_SIZE, countCatalogProducts, getActiveCategories, getCatalogProducts, getCollectionBySlug, toCard } from "@/lib/commerce";
 import { BRAND, siteOrigin } from "@/lib/brand";
@@ -22,13 +23,21 @@ async function resolve(slug: string) {
   return null;
 }
 
+/** The owner's own words when they are a full sentence; otherwise they are completed with what the shopper gets (Google cuts descriptions at about 155 characters). */
+function collectionDescription(title: string, own: string): string {
+  const text = own.trim();
+  if (text.length >= 70) return text.slice(0, 160);
+  return `${text ? `${text.replace(/\.$/, "")}. ` : ""}Shop ${title} for men at ${BRAND.name}, delivered all over Pakistan with cash on delivery.`.slice(0, 160);
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const found = await resolve(slug);
   if (!found) return {};
   return {
     title: found.title,
-    description: found.description || `Shop ${found.title} from ${BRAND.name}.`,
+    // never a bare name: say what is here and what the shopper gets (stays under about 155 characters, where Google cuts it)
+    description: collectionDescription(found.title, found.description),
     alternates: { canonical: `/collections/${slug}` },
   };
 }
@@ -54,6 +63,7 @@ export default async function CollectionPage({ params }: { params: Promise<{ slu
   return (
     <main className="page-fade-in">
       <script type="application/ld+json" nonce={nonce} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
+      <ProductListJsonLd name={found.title} path={`/collections/${slug}`} products={products} />
       <header className="listing-head">
         <nav className="breadcrumb" aria-label="Breadcrumb">
           <Link href="/">Home</Link>

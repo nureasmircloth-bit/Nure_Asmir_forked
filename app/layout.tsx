@@ -106,7 +106,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   };
 
   return (
-    <html lang="en" data-scroll-behavior="smooth" className={`${display.variable} ${sans.variable}`}>
+    <html lang="en-PK" data-scroll-behavior="smooth" className={`${display.variable} ${sans.variable}`}>
       <head>
         <script type="application/ld+json" nonce={nonce} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       </head>

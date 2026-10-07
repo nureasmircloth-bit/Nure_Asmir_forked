@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nure Asmir – Caching and data design</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top"><div class="in"><p class="eyebrow">Nure Asmir · Documentation</p><h1>Fast pages without losing the truth</h1><p>How the shop keeps copies of pages and products near Lahore, what the big shops do, and what we built, versus what we only propose.</p></div></header>
+<nav class="docs" aria-label="Documentation"><div class="in"><a href="index.html">Overview and diagram</a><a href="01-architecture.html">Architecture, APIs, limits</a><a href="02-seo-geo.html">SEO and GEO</a><a href="03-loading-and-indexing.html">Issues, speed and readiness</a><a href="04-caching-design.html" aria-current="page">Caching and data design</a></div></nav>
+<main>
+<ul class="toc" aria-label="On this page"><li><a href="#idea">The idea</a></li><li><a href="#rules">Rules the big shops follow</a></li><li><a href="#layers">Our layers</a></li><li><a href="#money">Prices, stock and orders</a></li><li><a href="#region">Where the database lives</a></li><li><a href="#failures">What can go wrong</a></li><li><a href="#phases">Plan</a></li></ul>
+
+<h2 id="idea">1. The idea in simple words</h2>
+<p>Every time a visitor opens a page, the shop could ask the database in Singapore for the products and build the page. That is slow when nobody has asked recently, and wasteful when a hundred people ask for the same page. The better way: <strong>build the page once, keep a copy close to the visitor, and rebuild it only when something changes</strong>. The database stays the one true record; the copies are only photocopies.</p>
+<div class="note good"><strong>Your suggestion, in this vocabulary:</strong> &ldquo;prepare the first one or two pages in advance near Lahore, load the next pages as people scroll, and refresh the copy when someone buys or an admin edits.&rdquo; That is exactly the standard pattern. The one change we recommend is the <em>order</em> of the refresh (next section).</div>
+
+<h2 id="rules">2. Rules the big shops follow</h2>
+<table>
+<tr><th>Rule</th><th>What it means</th><th>Where you see it</th></tr>
+<tr><td>One source of truth</td><td>Orders, stock and prices are saved in one database. Copies are derived from it, never the other way round.</td><td>Standard practice in online shops</td></tr>
+<tr><td>Write the database first, then refresh the copies</td><td>If you update the copy first and the database save then fails, the shop shows something that never happened (a price, a stock number, an order). Doing it in this order means the worst case is a copy that is briefly old, never one that is wrong.</td><td>Known as &ldquo;Cache-aside with invalidation&rdquo;; event-driven refreshldquo;cache-aside with invalidation&ldquo;Cache-aside with invalidation&rdquo;; event-driven refreshrdquo;</td></tr>
+<tr><td>Browse from copies, buy from the truth</td><td>Product lists and pages may be a minute old. The cart, checkout and stock hold always check the real database.</td><td>Standard practice in large online shops (browsing is allowed to be slightly old; paying never is)</td></tr>
+<tr><td>Serve an old copy while making a new one (&ldquo;stale while revalidate&rdquo;)</td><td>The visitor never waits for the rebuild, and only one rebuild runs even if many people arrive at once.</td><td>Cloudflare, Fastly and other CDNs, Next.js</td></tr>
+<tr><td>Version the copies</td><td>Each release has its own copies, so a new release can never be shown pages that point to the old release&rsquo;s files.</td><td>Standard practice for sites that release often</td></tr>
+<tr><td>Separate reading from writing (CQRS)</td><td>A fast read model for browsing, the careful database for changes.</td><td>Large catalogues, and a standard design pattern</td></tr>
+</table>
+
+<h2 id="layers">3. Our layers, nearest to the visitor first</h2>
+<table>
+<tr><th>Layer</th><th>What it holds</th><th>Lifetime</th><th>Status</th></tr>
+<tr><td>0. Browser and Cloudflare static files</td><td>Scripts, styles, fonts, pictures (<code>/cdn</code>, one-year cache)</td><td>Months (file names change with each release)</td><td><span class="tag good">Done</span></td></tr>
+<tr><td>1. Page copy in Cloudflare&rsquo;s cache in the visitor&rsquo;s data centre</td><td>Finished HTML of public pages: home, shop, categories, products, FAQ, policies</td><td>Fresh 45 s, then served while rebuilding for up to 10 min; one set per release</td><td><span class="tag good">Built (live after merge)</span></td></tr>
+<tr><td>2. Saved page renders in R2 (OpenNext cache)</td><td>The same pages, as the server last built them</td><td>24&ndash;60 s, purged by the admin when something changes</td><td><span class="tag good">Done</span></td></tr>
+<tr><td>3. Product snapshot (proposed)</td><td>The first pages of the catalogue as a ready-made file (for example &ldquo;newest first, page 1 and 2&rdquo;), rebuilt after each admin change and nightly</td><td>Until the next change</td><td><span class="tag warn">Proposed</span></td></tr>
+<tr><td>4. Paged product API at the edge (proposed)</td><td>Pages 3, 4, 5&hellip; loaded as the shopper scrolls, each answer cached for 60 s</td><td>60 s plus stale</td><td><span class="tag warn">Proposed</span></td></tr>
+<tr><td>5. Database (truth)</td><td>Everything, and the only place orders, stock holds and prices are decided</td><td>Never cached</td><td><span class="tag good">Done</span></td></tr>
+</table>
+<p>Layers 1 and 2 already remove most database visits for public pages. Layers 3 and 4 matter once there are hundreds of products, or when pages differ by filter and sort.</p>
+
+<h2 id="money">4. Prices, stock and orders: how we stay honest</h2>
+<ul>
+<li><strong>A page can be up to about a minute old.</strong> Prices, &ldquo;in stock&rdquo; and flash-sale labels on pages come from the copy.</li>
+<li><strong>The server never trusts the page.</strong> When the shopper adds to the bag and again at checkout, the real database is asked, and the price is recalculated on the server.</li>
+<li><strong>Stock is protected in the database, not in the copy.</strong> An order holds stock with an atomic update; two people cannot buy the last item.</li>
+<li><strong>When the owner edits something,</strong> the admin tells the shop to throw away its saved pages (&ldquo;purge&rdquo;), so the change shows in seconds on the nearest copy and within about 45 seconds elsewhere.</li>
+<li><strong>When someone buys,</strong> stock changes in the database first; the copies catch up within the same window. A sold-out item may show for up to a minute but cannot be ordered.</li>
+</ul>
+
+<h2 id="region">5. Where the database lives</h2>
+<table>
+<tr><th>Option</th><th>Gain</th><th>Cost / risk</th></tr>
+<tr><td>Keep Singapore, rely on copies (today)</td><td>No migration; most visits never reach the database</td><td>First visit after a quiet period is slower</td></tr>
+<tr><td>Smart Placement for the Worker</td><td>The Worker runs near the database for pages that must be built</td><td>Cached pages may then travel further; must be measured both ways</td></tr>
+<tr><td>Database region closer to Pakistan</td><td>Shorter trips for every uncached query</td><td>Migration, downtime plan; the nearest region must be checked with Neon</td></tr>
+<tr><td>Read copy close to Lahore (replica or Cloudflare Hyperdrive)</td><td>Reads near the visitor, writes still go to the truth</td><td>Replica lag; extra cost; needs a different database driver</td></tr>
+</table>
+<div class="note"><strong>Recommendation:</strong> do the cheap layers first (done), measure for two weeks after launch, then decide. Moving the database is a big step; do it only if measurements show uncached pages are still too slow.</div>
+
+<h2 id="failures">6. What can go wrong, and the answer</h2>
+<table>
+<tr><th>Problem</th><th>What happens</th><th>Our protection</th></tr>
+<tr><td>A copy is older than it should be</td><td>Customer sees an old price for a minute</td><td>Short life; checkout re-prices on the server</td></tr>
+<tr><td>The purge after an admin edit fails</td><td>Old page stays until it expires</td><td>It expires in 45 s anyway</td></tr>
+<tr><td>The database is down</td><td>Pages that must be built fail</td><td>Copies up to 10 minutes old still serve (stale while rebuilding)</td></tr>
+<tr><td>A release changes the script files</td><td>Old copies would point to missing files</td><td>Every release has its own copies (build number in the key)</td></tr>
+<tr><td>Many visitors arrive just as a copy expires</td><td>A rush on the database</td><td>Stale copy is served while one rebuild runs</td></tr>
+<tr><td>A private page is saved by mistake</td><td>One person sees another&rsquo;s data</td><td>Only a short list of public pages; never with a login cookie, a script request or an API call; tested</td></tr>
+<tr><td>The cache itself misbehaves</td><td>Wrong pages</td><td>Kill switch: set <code>EDGE_PAGE_CACHE</code> to 0 and redeploy (no code change)</td></tr>
+</table>
+
+<h2 id="phases">7. Plan</h2>
+<ol>
+<li><strong>Now (built):</strong> page copies in the visitor&rsquo;s data centre, Cloudflare timer, lighter first load. Measure after the merge: look for the <code>x-edge-cache</code> header (<code>HIT</code>, <code>STALE</code>, <code>MISS</code>).</li>
+<li><strong>After launch, two weeks of numbers:</strong> hit rate, time to first byte from Lahore, database wake-ups.</li>
+<li><strong>If still slow:</strong> product snapshot (layer 3) and cached product pages API (layer 4); then Smart Placement test; then a region decision.</li>
+</ol>
+</main>
+<footer><div class="in">Design note, 7 October 2026. The behaviour described as &ldquo;built&rdquo; is covered by automated tests (<code>e2e/unit/edge-page-cache.spec.ts</code>).</div></footer>
+</body>
+</html>

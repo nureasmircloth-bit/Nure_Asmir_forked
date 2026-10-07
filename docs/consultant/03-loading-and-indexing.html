@@ -8,7 +8,7 @@
 </head>
 <body>
 <header class="top"><div class="in"><p class="eyebrow">Nure Asmir · Documentation</p><h1>Loading issues, likely fixes and Google readiness</h1><p>What customers can run into, what we measured, what we think causes it, and what to decide. Prepared 7 October 2026.</p></div></header>
-<nav class="docs" aria-label="Documentation"><div class="in"><a href="index.html">Overview and diagram</a><a href="01-architecture.html">Architecture, APIs, limits</a><a href="02-seo-geo.html">SEO and GEO</a><a href="03-loading-and-indexing.html" aria-current="page">Issues, speed and readiness</a></div></nav>
+<nav class="docs" aria-label="Documentation"><div class="in"><a href="index.html">Overview and diagram</a><a href="01-architecture.html">Architecture, APIs, limits</a><a href="02-seo-geo.html">SEO and GEO</a><a href="03-loading-and-indexing.html" aria-current="page">Issues, speed and readiness</a><a href="04-caching-design.html">Caching and data design</a></div></nav>
 <main>
 <ul class="toc" aria-label="On this page"><li><a href="#dns">DNS problem</a></li><li><a href="#speed">Speed</a></li><li><a href="#ready">Google readiness</a></li><li><a href="#sandbox">Sandbox</a></li><li><a href="#decisions">Decisions</a></li></ul>
 
@@ -27,6 +27,27 @@
 <tr><td>Shorten the &ldquo;remember a missing answer&rdquo; time (SOA minimum 1800 seconds)</td><td><span class="tag bad">Not possible on Free; unknown which plan allows it</span></td></tr>
 <tr><td>Fast fix for one customer: flush the name in Google&rsquo;s public DNS cache tool, or ask them to use 1.1.1.1 or mobile data</td><td><span class="tag good">Available</span></td></tr>
 </table>
+<h3>Measured on a real affected router (7 October 2026)</h3>
+<div class="card">
+<p>The site was tested from a computer on the home router where the site sometimes would not open on the first try and opened after pressing reload several times. That computer asks the <strong>router itself</strong> (192.168.100.1) for DNS, and the router asks the internet provider.</p>
+<table>
+<tr><th>Test</th><th>Result</th><th>What it tells us</th></tr>
+<tr><td>First lookup after a quiet time, through the router</td><td><strong>8.6 seconds</strong> once; later 1.06 s and 0.9 s on some lookups; usually 20&ndash;50 ms</td><td>The router&rsquo;s DNS sometimes stalls for seconds. Chrome gives up or shows &ldquo;can&rsquo;t be reached&rdquo; during a stall; the next reload finds the answer saved and works. This matches the complaint exactly.</td></tr>
+<tr><td>30 fresh lookups: router / Cloudflare 1.1.1.1 / Google 8.8.8.8</td><td>median 25 ms, worst 906 ms / median 18 ms, worst 290 ms / median 249 ms, worst 323 ms</td><td>1.1.1.1 was both faster and steadier than the router. Google is slower but steady.</td></tr>
+<tr><td>Quad9 (9.9.9.9)</td><td>about 11 seconds for every lookup</td><td>That DNS service is effectively unusable from this connection. Anyone set to it will see the site fail.</td></tr>
+<tr><td>Packets to the router itself (50 pings)</td><td>2% lost, slowest 5% over 37 ms</td><td>The Wi-Fi link has some loss, which also causes a stray one-second pause when a connection is set up (seen twice).</td></tr>
+<tr><td>Our server from this router</td><td>connect about 30 ms, page start 0.12&ndash;0.5 s, all 12 loads succeeded</td><td>Cloudflare and the shop are reachable and fast. The delay is before our server is reached.</td></tr>
+<tr><td>Outside websites the home page needs</td><td>only <code>flagcdn.com</code> (currency flags) and Cloudflare&rsquo;s analytics script besides our own</td><td>Few extra lookups. The flags are now our own files, so that outside lookup is gone too.</td></tr>
+</table>
+<p><strong>Plain conclusion:</strong> the website is not at fault; this connection&rsquo;s DNS and Wi-Fi are occasionally slow. Because our records are kept for 5 minutes (Cloudflare fixes this for proxied names), the lookup repeats every few minutes, and each repeat has a small chance of hitting a stall.</p>
+<p><strong>What fixes it for a customer (no change to the website needed):</strong></p>
+<ol>
+<li>In Chrome: Settings &rarr; Privacy and security &rarr; Security &rarr; <em>Use secure DNS</em> &rarr; choose Cloudflare (1.1.1.1) or Google. This skips the router&rsquo;s DNS.</li>
+<li>On Android: Settings &rarr; Network &rarr; <em>Private DNS</em> &rarr; <code>one.one.one.one</code>.</li>
+<li>On the router: set the DNS servers to <code>1.1.1.1</code> and <code>1.0.0.1</code> (backup <code>8.8.8.8</code>). Do not use 9.9.9.9 here.</li>
+<li>Restart the router; use the 5&nbsp;GHz Wi-Fi band when close to it.</li>
+</ol>
+</div>
 <h3>For the consultant</h3>
 <ul>
 <li>Can Cloudflare logs or the audit trail show whether the Worker custom-domain records were ever missing during a deploy?</li>
@@ -51,13 +72,13 @@
 <h3>Likely causes and fixes (most useful first)</h3>
 <table>
 <tr><th>#</th><th>Likely cause</th><th>Fix</th><th>Effort / risk</th><th>Status</th></tr>
-<tr><td>1</td><td><strong>Cold start of the Worker and the database.</strong> The Neon database sleeps after 5 idle minutes; the Worker is re-created after quiet periods. The &ldquo;keep warm&rdquo; job is set for every 5 minutes but GitHub actually runs it about every 20 minutes (seen in the run history), so it keeps little warm.</td><td>Ping every 1–5 minutes from a reliable place (Cloudflare Cron Trigger, or a free uptime monitor), including a light page and the database health route.</td><td>Small, low risk</td><td><span class="tag warn">To do</span></td></tr>
-<tr><td>2</td><td><strong>Pages built far from the database.</strong> The database is in Singapore; the Worker runs in Lahore. A page that is not in the cache makes several database trips across that distance.</td><td>(a) Cloudflare Smart Placement for the Worker; (b) fewer queries per page; (c) longer cache time for stable pages (policies, FAQ, about); (d) move the database nearer if a region exists.</td><td>(a) one line but must be tested; (b)(c) small</td><td><span class="tag warn">To decide</span></td></tr>
-<tr><td>3</td><td><strong>HTML is not cached at Cloudflare&rsquo;s edge.</strong> Every page view runs the Worker. Our CSP value is a fixed secret (not per request), so caching the HTML is technically possible.</td><td>A Cloudflare Cache Rule for public pages (home, shop, categories, products) with a short time (30–60&nbsp;s) and &ldquo;serve stale while updating&rdquo;. Needs a careful test (cart count, flash-sale timers, admin previews).</td><td>Medium; <strong>biggest win, needs testing</strong></td><td><span class="tag warn">To decide</span></td></tr>
-<tr><td>4</td><td><strong>Cloudflare Workers Free limits.</strong> 100,000 requests a day, tiny CPU allowance, 3&nbsp;MB program (we use about 2.1&ndash;2.2&nbsp;MB). A busy sale can stop the site.</td><td>Workers Paid ($5 a month): much higher limits and a 10&nbsp;MB program.</td><td>Trivial, cheap</td><td><span class="tag warn">Recommended before ads</span></td></tr>
-<tr><td>5</td><td><strong>Main-thread work in the browser</strong> (3.5&nbsp;s on a simulated phone): analytics and shop scripts, 66&nbsp;KB unused JavaScript.</td><td>Load analytics later (it already waits for consent), split rarely used code, trim unused code.</td><td>Medium</td><td><span class="tag warn">Later</span></td></tr>
-<tr><td>6</td><td><strong>Pictures larger than needed</strong> (Lighthouse: about 730&nbsp;KB could be saved).</td><td>Check the sizes requested for product cards and the banner; ask for the next size down.</td><td>Small</td><td><span class="tag warn">To do</span></td></tr>
-<tr><td>7</td><td>Small accessibility items (colour contrast, redundant alt text, button names, tap-target size).</td><td>Fix each; they also help rankings slightly.</td><td>Small</td><td><span class="tag warn">To do</span></td></tr>
+<tr><td>1</td><td><strong>Cold start of the Worker and the database.</strong> The Neon database sleeps after 5 idle minutes; the Worker is re-created after quiet periods. The &ldquo;keep warm&rdquo; job is set for every 5 minutes but GitHub actually runs it about every 20 minutes (seen in the run history), so it keeps little warm.</td><td>Ping every 1–5 minutes from a reliable place (Cloudflare Cron Trigger, or a free uptime monitor), including a light page and the database health route.</td><td>Small, low risk</td><td><span class="tag good">Built: Cloudflare timer every 3 minutes (GitHub is now only a 30-minute safety net)</span></td></tr>
+<tr><td>2</td><td><strong>Pages built far from the database.</strong> The database is in Singapore; the Worker runs in Lahore. A page that is not in the cache makes several database trips across that distance.</td><td>(a) Cloudflare Smart Placement for the Worker; (b) fewer queries per page; (c) longer cache time for stable pages (policies, FAQ, about); (d) move the database nearer if a region exists.</td><td>(a) one line but must be tested; (b)(c) small</td><td><span class="tag warn">Design written (page 4); measure first</span></td></tr>
+<tr><td>3</td><td><strong>HTML is not cached at Cloudflare&rsquo;s edge.</strong> Every page view runs the Worker. Our CSP value is a fixed secret (not per request), so caching the HTML is technically possible.</td><td>A Cloudflare Cache Rule for public pages (home, shop, categories, products) with a short time (30–60&nbsp;s) and &ldquo;serve stale while updating&rdquo;. Needs a careful test (cart count, flash-sale timers, admin previews).</td><td>Medium; <strong>biggest win</strong></td><td><span class="tag good">Built: page copies near the visitor (live after merge)</span></td></tr>
+<tr><td>4</td><td><strong>Cloudflare Workers Free limits.</strong> 100,000 requests a day, tiny CPU allowance, 3&nbsp;MB program (we use about 2.1&ndash;2.2&nbsp;MB). A busy sale can stop the site.</td><td>Workers Paid ($5 a month): much higher limits and a 10&nbsp;MB program.</td><td>Trivial, cheap</td><td><span class="tag warn">Owner is buying it</span></td></tr>
+<tr><td>5</td><td><strong>Main-thread work in the browser</strong> (3.5&nbsp;s on a simulated phone): analytics and shop scripts, 66&nbsp;KB unused JavaScript.</td><td>Load analytics later (it already waits for consent), split rarely used code, trim unused code.</td><td>Medium</td><td><span class="tag good">Built: the error-reporting code (about 140&nbsp;KB) no longer loads with the first page</span></td></tr>
+<tr><td>6</td><td><strong>Pictures larger than needed</strong> (Lighthouse: about 730&nbsp;KB could be saved).</td><td>Check the sizes requested for product cards and the banner; ask for the next size down.</td><td>Small</td><td><span class="tag good">Built: a nearer picture size is chosen</span></td></tr>
+<tr><td>7</td><td>Small accessibility items (colour contrast, redundant alt text, button names, tap-target size).</td><td>Fix each; they also help rankings slightly.</td><td>Small</td><td><span class="tag good">Built</span></td></tr>
 </table>
 
 <h2 id="ready">C. Are we ready for Google to index us?</h2>

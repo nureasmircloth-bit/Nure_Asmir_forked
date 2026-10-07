@@ -16,7 +16,7 @@ export function ProductCard({ product, priority = false, sizes }: { product: Car
   const cardSizes = sizes ?? "(max-width: 700px) 46vw, (max-width: 1100px) 25vw, 20vw";
   return (
     <article className="pcard">
-      <Link href={`/products/${product.slug}`} className={`pcard-media${alt ? " has-alt" : ""}`} aria-label={product.name}>
+      <Link href={`/products/${product.slug}`} className={`pcard-media${alt ? " has-alt" : ""}`}>
         <Image
           src={product.imageUrl ?? "/placeholder.webp"}
           alt={product.name}
