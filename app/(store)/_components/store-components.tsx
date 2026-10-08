@@ -11,7 +11,7 @@ import { WishlistButton } from "./wishlist-button";
 
 export function ProductCard({ product, priority = false, sizes }: { product: CardProduct; priority?: boolean; sizes?: string }) {
   const soldOut = product.stock < 1;
-  const saleLabel = product.saleEndsAt ? discountLabel(product.price, product.compareAtPrice) : null;
+  const saleLabel = discountLabel(product.price, product.compareAtPrice);
   const alt = product.altImageUrl;
   const cardSizes = sizes ?? "(max-width: 700px) 46vw, (max-width: 1100px) 25vw, 20vw";
   return (
@@ -39,7 +39,7 @@ export function ProductCard({ product, priority = false, sizes }: { product: Car
         <Link href={`/products/${product.slug}`} className="pcard-title">
           {product.name}
         </Link>
-        <p className="pcard-price">
+        <p className={`pcard-price${saleLabel ? " is-sale" : ""}`}>
           {product.compareAtPrice && product.compareAtPrice > product.price && (
             <s>
               <Price amount={product.compareAtPrice} />

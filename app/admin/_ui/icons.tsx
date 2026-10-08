@@ -47,6 +47,8 @@ const PATHS = {
   lock: "M6 11h12v9H6zM8.5 11V8a3.5 3.5 0 0 1 7 0v3",
   grid: "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z",
   mail: "M3.5 6h17v12h-17zM3.5 7l8.5 6.5L20.5 7",
+  panel: "M4 5h16v14H4zM9.5 5v14M6.8 9.2h.01M6.8 12h.01M6.8 14.8h.01",
+  send: "M21 3 10.5 13.5M21 3l-6.5 18-4-7.5L3 9.5z",
   camera: "M4 8h3l1.5-2.5h7L17 8h3v11H4zM12 16.5a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z",
 } as const;
 

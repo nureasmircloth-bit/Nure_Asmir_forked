@@ -11,6 +11,7 @@ import { matchZone } from "@/lib/geo";
 import { computeDeliveryCharge, freeDeliveryHint, isDeliveryMode } from "@/lib/shop-rules";
 import { useLockedAction } from "@/lib/use-locked-action";
 import { ThemedSelect } from "../_components/themed-select";
+import { CopyButton } from "../_components/copy-button";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 const GOOGLE_MERCHANT_ID = process.env.NEXT_PUBLIC_GOOGLE_MERCHANT_ID;
@@ -437,7 +438,7 @@ export default function CheckoutPage() {
           <div>
             <span>Order number</span>
             <strong>{result.orderNumber}</strong>
-            <button onClick={() => navigator.clipboard.writeText(result.orderNumber)}>Copy</button>
+            <CopyButton value={result.orderNumber} label="Copy" doneMessage="Order number copied" />
           </div>
           <p>
             {result.customerEmail

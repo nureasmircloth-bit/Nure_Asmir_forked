@@ -3,10 +3,11 @@
 import { useRouter } from "next/navigation";
 import { FormEvent, ReactNode, useState } from "react";
 import { useLockedAction } from "@/lib/use-locked-action";
-import { callApi, Hint, useToast } from "../../_ui/client";
+import { AnnouncementBar } from "@/components/announcement-bar";
+import { callApi, Dialog, Hint, useToast } from "../../_ui/client";
 import { Icon } from "../../_ui/icons";
 import { Badge } from "../../_ui/ui";
-import { buildAnnouncements, isAnnouncementMode, isDeliveryMode } from "@/lib/shop-rules";
+import { buildAnnouncements, isAnnouncementMode, isAnnouncementStyle, isDeliveryMode } from "@/lib/shop-rules";
 import { PhotoShrinker } from "./photo-shrinker";
 
 export type SettingsValues = {
@@ -34,6 +35,7 @@ export type SettingsValues = {
   soldoutHideDays: number;
   announcementMode: string;
   announcementLines: string;
+  announcementStyle: string;
   bankDepositEnabled: boolean;
   deliveryMode: string;
   flatDeliveryCharge: number;
@@ -67,6 +69,7 @@ export function SettingsForm({ initial, status }: { initial: SettingsValues; sta
   const testing = useLockedAction();
   const [form, setForm] = useState(initial);
   const [dirty, setDirty] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null);
 
   const set = (key: keyof SettingsValues) => (event: { target: { value: string } }) => {
@@ -77,7 +80,7 @@ export function SettingsForm({ initial, status }: { initial: SettingsValues; sta
     setForm((current) => ({ ...current, [key]: value }));
     setDirty(true);
   };
-  const choice = (key: "announcementMode" | "deliveryMode", value: string, title: string, detail: string) => (
+  const choice = (key: "announcementMode" | "announcementStyle" | "deliveryMode", value: string, title: string, detail: string) => (
     <label className="a-check" key={value}>
       <input type="radio" name={`s-${key}`} checked={form[key] === value} onChange={() => setValue(key, value)} />
       <span>
@@ -227,6 +230,14 @@ export function SettingsForm({ initial, status }: { initial: SettingsValues; sta
             <textarea id="s-announcementLines" rows={4} value={form.announcementLines} onChange={(event) => setValue("announcementLines", event.target.value)} placeholder={"New arrivals every week\nEid collection is live"} maxLength={1200} />
           </div>
         )}
+        {form.announcementMode !== "off" && (
+          <fieldset className="wide" style={{ border: 0, margin: 0, padding: 0, display: "grid", gap: 10 }}>
+            <legend style={{ fontWeight: 600, marginBottom: 6 }}>How the lines move</legend>
+            {choice("announcementStyle", "rotate", "One line at a time", "Each line slides in after a few seconds, then the next one. The way it works today.")}
+            {choice("announcementStyle", "scroll-left", "Scrolling, towards the left", "All lines glide across in one loop, like a news ticker. Touching it pauses it.")}
+            {choice("announcementStyle", "scroll-right", "Scrolling, towards the right", "The same loop, moving the other way.")}
+          </fieldset>
+        )}
         <div className="wide">
           <p className="a-help" style={{ marginBottom: 6 }}>How it will look (your website updates when you press Save):</p>
           {topBarPreview.length ? (
@@ -237,6 +248,11 @@ export function SettingsForm({ initial, status }: { initial: SettingsValues; sta
             </ul>
           ) : (
             <p className="a-muted">The top bar is hidden.</p>
+          )}
+          {topBarPreview.length > 0 && (
+            <button type="button" className="a-btn" style={{ marginTop: 10 }} onClick={() => setPreviewOpen(true)}>
+              <Icon name="eye" size={16} /> Preview on phone and computer
+            </button>
           )}
         </div>
       </Section>
@@ -303,6 +319,36 @@ export function SettingsForm({ initial, status }: { initial: SettingsValues; sta
           {saving.pending ? <span className="busy-label"><span className="spinner spinner-light" aria-hidden="true" /> Saving…</span> : "Save settings"}
         </button>
       </div>
+      {previewOpen && (
+        <Dialog title="Top bar preview" wide onClose={() => setPreviewOpen(false)}>
+          <TopBarPreview messages={topBarPreview} style={isAnnouncementStyle(form.announcementStyle) ? form.announcementStyle : "rotate"} />
+        </Dialog>
+      )}
     </form>
+  );
+}
+
+/** The real top bar, drawn twice: in a phone-sized frame and in a computer-sized frame, moving exactly as it will on the website. */
+function TopBarPreview({ messages, style }: { messages: string[]; style: "rotate" | "scroll-left" | "scroll-right" }) {
+  const frame = (label: string, width: number | string) => (
+    <div>
+      <p className="a-help" style={{ margin: "0 0 6px" }}>{label}</p>
+      <div className="a-device" style={{ width, maxWidth: "100%" }}>
+        <AnnouncementBar key={`${style}-${messages.join("|")}`} messages={messages} style={style} />
+        <div className="a-device-header">
+          <span />
+          <strong>NURE ASMIR</strong>
+          <span />
+        </div>
+        <div className="a-device-body" />
+      </div>
+    </div>
+  );
+  return (
+    <div className="a-device-row">
+      {frame("On a phone", 375)}
+      {frame("On a computer", "100%")}
+      <p className="a-help">This is the same top bar your shoppers get. Press Save settings to put it on your website.</p>
+    </div>
   );
 }

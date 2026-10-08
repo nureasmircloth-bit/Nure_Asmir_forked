@@ -1,6 +1,6 @@
 import { escapeHtml as esc } from "../escape";
 
-export type OrderEventKind = "confirmed" | "paid" | "shipped" | "delivered" | "cancelled" | "returned" | "refund_approved" | "refund_declined" | "refunded";
+export type OrderEventKind = "confirmed" | "paid" | "booked" | "shipped" | "delivered" | "cancelled" | "returned" | "refund_approved" | "refund_declined" | "refunded";
 
 export type OrderStatusEmailPayload = {
   event: OrderEventKind;
@@ -14,6 +14,10 @@ export type OrderStatusEmailPayload = {
 export const ORDER_EVENT_COPY: Record<OrderEventKind, { title: string; body: (n: string, tracking?: string | null) => string }> = {
   confirmed: { title: "Order confirmed", body: (n) => `Your order ${n} is confirmed and is being prepared.` },
   paid: { title: "Payment received", body: (n) => `We've received your payment for order ${n}. Thank you — we're preparing your parcel.` },
+  booked: {
+    title: "Your parcel is booked with TCS",
+    body: (n, tracking) => `Order ${n} is packed and booked with TCS${tracking ? ` (tracking ${tracking})` : ""}. The rider will collect it soon — you can follow it any time.`,
+  },
   shipped: {
     title: "Your order is on its way",
     body: (n, tracking) => `Order ${n} has been handed to the courier${tracking ? ` (tracking ${tracking})` : ""} and is on its way to you.`,

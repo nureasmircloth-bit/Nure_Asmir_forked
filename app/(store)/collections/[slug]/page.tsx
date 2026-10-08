@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { StoreFooter } from "../../_components/store-footer";
 import { ProductListJsonLd } from "../../_components/product-list-jsonld";
 import { ShopGrid } from "../../shop/shop-grid";
-import { CATALOG_PAGE_SIZE, countCatalogProducts, getActiveCategories, getCatalogProducts, getCollectionBySlug, toCard } from "@/lib/commerce";
+import { CATALOG_PAGE_SIZE, countCatalogProducts, getActiveCategories, getCatalogProducts, getCategoryDiscounts, getCollectionBySlug, toCard } from "@/lib/commerce";
 import { BRAND, siteOrigin } from "@/lib/brand";
 import { getNonce } from "@/lib/nonce";
 
@@ -51,6 +51,7 @@ export default async function CollectionPage({ params }: { params: Promise<{ slu
   // A category is read one page at a time (the rest comes from the cached /api/catalog/page); a hand-made collection is small and shown whole.
   const [products, total] = found.kind === "collection" ? [found.collection.products, found.collection.products.length] : await Promise.all([getCatalogProducts({ categorySlug: slug, limit: CATALOG_PAGE_SIZE }), countCatalogProducts({ categorySlug: slug })]);
   const origin = siteOrigin();
+  const categoryDiscount = found.kind === "category" ? ((await getCategoryDiscounts().catch(() => new Map<string, number>())).get(found.category.id) ?? 0) : 0;
   const breadcrumbJsonLd = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
@@ -71,6 +72,7 @@ export default async function CollectionPage({ params }: { params: Promise<{ slu
           <span>{found.title}</span>
         </nav>
         <h1 className="page-title">{found.title}</h1>
+        {categoryDiscount > 0 && <p className="listing-sale">Sale on now — up to −{categoryDiscount}% off</p>}
         {found.description && <p>{found.description}</p>}
       </header>
       <ShopGrid products={products.map(toCard)} total={total} scopeCategory={found.kind === "category" ? slug : undefined} />

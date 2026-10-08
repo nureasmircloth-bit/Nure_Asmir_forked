@@ -3,7 +3,8 @@
   // The owner's admin panel – a separate Worker from the storefront (see scripts/build-target.mjs):
   // shoppers never download or share a bundle with it, and it has its own origin, cookies and robots rules.
   "name": "nure-asmir-admin",
-  "main": ".open-next/worker.js",
+  // admin-entry.ts wraps .open-next/worker.js with a timer that keeps the database and the admin code warm (see that file).
+  "main": "admin-entry.ts",
   "compatibility_date": "2026-07-29",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
@@ -16,6 +17,7 @@
     { "binding": "MEDIA_R2", "bucket_name": "nure-asmir-media-r2" }
   ],
   "vars": { "APP_TARGET": "admin" },
+  "triggers": { "crons": ["*/3 * * * *"] },
   "observability": { "enabled": true },
   "workers_dev": true,
   "routes": [{ "pattern": "admin.nureasmir.com", "custom_domain": true }]

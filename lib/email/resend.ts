@@ -83,6 +83,11 @@ export async function sendAdminAlertEmail(subject: string, html: string): Promis
   await send({ from: fromAddress(), to, subject, html });
 }
 
+/** An email the owner wrote by hand in the admin ("Messages"). Returns whether a provider accepted it. */
+export async function sendCustomEmail(to: string, subject: string, html: string): Promise<boolean> {
+  return send({ from: fromAddress(), to, subject, html });
+}
+
 /** Lifecycle email (paid / on its way / delivered / cancelled …). Best-effort: never throws. */
 export async function sendOrderStatusEmail(payload: Omit<OrderStatusEmailPayload, "whatsappNumber"> & { toEmail?: string }): Promise<void> {
   const to = payload.toEmail;

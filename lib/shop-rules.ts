@@ -3,6 +3,9 @@
  * is told and what they are charged can never disagree. Pure functions: easy to test, no database.
  */
 export type AnnouncementMode = "auto" | "custom" | "off";
+/** How the top strip moves: one line at a time, or every line scrolling in a loop (to the left or to the right). */
+export type AnnouncementStyle = "rotate" | "scroll-left" | "scroll-right";
+export const isAnnouncementStyle = (value: unknown): value is AnnouncementStyle => value === "rotate" || value === "scroll-left" || value === "scroll-right";
 export type DeliveryMode = "zones" | "flat" | "tcs";
 export type PaymentMethod = "cod" | "bank_deposit";
 

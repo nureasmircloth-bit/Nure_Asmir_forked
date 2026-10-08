@@ -448,6 +448,12 @@ export const siteSettings = pgTable("site_settings", {
   // "custom" shows only the owner's own lines; "off" hides it. The owner's extra lines (one per line) are added in "auto" mode.
   announcementMode: text("announcement_mode").notNull().default("auto"),
   announcementLines: text("announcement_lines").notNull().default(""),
+  // How the lines move: "rotate" (one line slides in after another) or "scroll" (all lines glide from left to right in one loop).
+  announcementStyle: text("announcement_style").notNull().default("rotate"),
+  // The "Our story" page text, editable in the admin. Empty = the built-in wording. Paragraphs are separated by a blank line;
+  // a paragraph starting with "> " is shown as the large quote.
+  aboutHeading: text("about_heading").notNull().default(""),
+  aboutBody: text("about_body").notNull().default(""),
   // Customers can pay by bank transfer only when this is switched on (cash on delivery is always offered).
   bankDepositEnabled: boolean("bank_deposit_enabled").notNull().default(false),
   // How the delivery charge is worked out: "zones" (a price per area), "flat" (one price everywhere) or "tcs" (TCS tariff by city,
@@ -600,3 +606,17 @@ export const faqs = pgTable(
   },
   (table) => [index("faqs_order_idx").on(table.sortOrder)],
 );
+
+/** Notifications and emails the owner sent from the admin "Messages" page (a short history so the same thing is not sent twice by accident). */
+export const adminMessages = pgTable("admin_messages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  kind: text("kind").notNull(), // "push" | "email"
+  audience: text("audience").notNull(), // "all" | "sales" | "test" | "list" | "one"
+  title: text("title").notNull(),
+  body: text("body").notNull().default(""),
+  link: text("link"),
+  recipients: integer("recipients").notNull().default(0),
+  delivered: integer("delivered").notNull().default(0),
+  createdBy: text("created_by").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});

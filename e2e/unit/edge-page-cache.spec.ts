@@ -70,7 +70,7 @@ test.describe("edge page cache", () => {
     expect(freshness(t + 5000, t)).toBe("expired"); // a copy "from the future" is never trusted
   });
 
-  test("pages that hardly change stay fresh longer and are kept for a week; shop pages do not", () => {
+  test("pages that hardly change stay fresh longer and are kept longer; shop pages do not", () => {
     const t = 1_000_000_000;
     for (const path of ["/about", "/contact", "/faq", "/policies/returns"]) expect(isQuietPage(path), path).toBe(true);
     for (const path of ["/", "/shop", "/collections/shirts", "/products/olive-cargo-pants"]) expect(isQuietPage(path), path).toBe(false);

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ProductCard, ProductRail } from "./_components/store-components";
 import { StoreFooter } from "./_components/store-footer";
 import { CampaignCarousel } from "./_components/campaign-carousel";
-import { getActiveCategories, getCampaignSlides, getCatalogProducts, toCard } from "@/lib/commerce";
+import { getActiveCategories, getCampaignSlides, getCatalogProducts, getCategoryDiscounts, toCard } from "@/lib/commerce";
 import { StoreJsonLd } from "./_components/store-jsonld";
 import { BRAND } from "@/lib/brand";
 
@@ -16,11 +16,12 @@ export const metadata = { alternates: { canonical: "/" } };
 
 export default async function Home() {
   // Only what this page shows is read: the newest dozen and the owner's featured picks, never the whole catalogue.
-  const [products, featuredProducts, campaignSlides, categories] = await Promise.all([
+  const [products, featuredProducts, campaignSlides, categories, discounts] = await Promise.all([
     getCatalogProducts({ limit: 12 }),
     getCatalogProducts({ featuredOnly: true, limit: 8 }),
     getCampaignSlides(),
     getActiveCategories(),
+    getCategoryDiscounts().catch(() => new Map<string, number>()),
   ]);
 
   // `products` arrives newest-first. "New arrivals" is the newest dozen; "Featured" is whatever the
@@ -58,6 +59,7 @@ export default async function Home() {
                     {...(category.blurDataUrl ? { placeholder: "blur" as const, blurDataURL: category.blurDataUrl } : {})}
                   />
                 </div>
+                {discounts.get(category.id) ? <span className="cat-tile-sale">Up to −{discounts.get(category.id)}%</span> : null}
                 <h3>{category.name}</h3>
               </Link>
             ))}

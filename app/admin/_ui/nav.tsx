@@ -24,6 +24,7 @@ export const NAV: NavGroup[] = [
     items: [
       { href: "/admin/flash-sales", label: "Flash sales", icon: "bolt" },
       { href: "/admin/coupons", label: "Discount codes", icon: "tag" },
+      { href: "/admin/messages", label: "Messages", icon: "send" },
       { href: "/admin/subscribers", label: "Email list", icon: "mail" },
     ],
   },
@@ -31,6 +32,7 @@ export const NAV: NavGroup[] = [
     label: "Your website",
     items: [
       { href: "/admin/pictures", label: "Website pictures", icon: "image" },
+      { href: "/admin/story", label: "Our story page", icon: "sheet" },
       { href: "/admin/faqs", label: "Questions & answers", icon: "info" },
       { href: "/admin/locations", label: "Shop locations", icon: "pin" },
       { href: "/admin/delivery", label: "Delivery charges", icon: "truck" },
@@ -56,9 +58,9 @@ export function NavLinks({ counts, role }: { counts: Partial<Record<"orders" | "
             const active = item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`);
             const count = item.countKey ? counts[item.countKey] : 0;
             return (
-              <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined} prefetch={false}>
+              <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined} prefetch={false} title={item.label}>
                 <Icon name={item.icon} />
-                {item.label}
+                <span className="adm-nav-text">{item.label}</span>
                 {count ? <span className="count" aria-label={`${count} waiting`}>{count > 99 ? "99+" : count}</span> : null}
               </Link>
             );

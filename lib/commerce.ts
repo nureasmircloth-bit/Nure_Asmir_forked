@@ -542,6 +542,46 @@ export type CategoryWithImage = {
   heroBlurDataUrl?: string;
 };
 
+/** The biggest percentage off any product in each category right now (categoryId → whole percent), so category tiles can say
+ * "Up to −30%". Empty when no sale is running, in which case no extra database work is done. */
+export const getCategoryDiscounts = cache(async (): Promise<Map<string, number>> => {
+  const result = new Map<string, number>();
+  const sales = await getActiveSales();
+  if (!sales.length) return result;
+  const rows = await db
+    .select({ id: products.id, categoryId: products.categoryId, price: productVariants.price })
+    .from(products)
+    .innerJoin(productVariants, and(eq(productVariants.productId, products.id), eq(productVariants.isDefault, true)))
+    .where(eq(products.status, "published"));
+  for (const row of rows) {
+    const sale = applySales(row.price, row.id, sales);
+    if (!sale) continue;
+    const percent = Math.round(((sale.originalPrice - sale.price) / sale.originalPrice) * 100);
+    if (percent > (result.get(row.categoryId) ?? 0)) result.set(row.categoryId, percent);
+  }
+  return result;
+});
+
+/** Current price and strike-through price for some products (by id), used to show a search result's discount. */
+export async function getSalePricesByIds(ids: string[]): Promise<Record<string, { price: number; compareAtPrice: number }>> {
+  const out: Record<string, { price: number; compareAtPrice: number }> = {};
+  if (!ids.length) return out;
+  const [rows, sales] = await Promise.all([
+    db
+      .select({ id: products.id, price: productVariants.price, compareAtPrice: productVariants.compareAtPrice })
+      .from(products)
+      .innerJoin(productVariants, and(eq(productVariants.productId, products.id), eq(productVariants.isDefault, true)))
+      .where(inArray(products.id, ids.slice(0, 40))),
+    getActiveSales(),
+  ]);
+  for (const row of rows) {
+    const sale = applySales(row.price, row.id, sales);
+    const compareAt = sale ? sale.originalPrice : row.compareAtPrice;
+    if (compareAt && compareAt > (sale?.price ?? row.price)) out[row.id] = { price: sale?.price ?? row.price, compareAtPrice: compareAt };
+  }
+  return out;
+}
+
 /** Active categories with their (optional) admin-uploaded cover photos — drives the homepage
  * "Objects of everyday elegance" cards (in sortOrder, via imageUrl) and each /collections/[slug]
  * hero banner (via heroImageUrl, falling back to imageUrl). Categories without an uploaded image
@@ -657,6 +697,9 @@ export type PublicSettings = {
   bingSiteVerification: string;
   announcementMode: string;
   announcementLines: string;
+  announcementStyle: string;
+  aboutHeading: string;
+  aboutBody: string;
   bankDepositEnabled: boolean;
   deliveryMode: string;
   flatDeliveryCharge: number;
@@ -674,6 +717,7 @@ export type PublicSettings = {
   brandName: string;
   codReservationHours: number;
   bankReservationHours: number;
+  refundWindowDays: number;
 };
 
 export const getPublicSettings = cache(async (): Promise<PublicSettings> => {
@@ -692,10 +736,14 @@ export const getPublicSettings = cache(async (): Promise<PublicSettings> => {
     brandName: row?.brandName ?? "Nure Asmir",
     codReservationHours: row?.codReservationHours ?? 6,
     bankReservationHours: row?.bankReservationHours ?? 6,
+    refundWindowDays: row?.refundWindowDays ?? 7,
     googleSiteVerification: row?.googleSiteVerification ?? "",
     bingSiteVerification: row?.bingSiteVerification ?? "",
     announcementMode: row?.announcementMode ?? "auto",
     announcementLines: row?.announcementLines ?? "",
+    announcementStyle: row?.announcementStyle ?? "rotate",
+    aboutHeading: row?.aboutHeading ?? "",
+    aboutBody: row?.aboutBody ?? "",
     bankDepositEnabled: row?.bankDepositEnabled ?? false,
     deliveryMode: row?.deliveryMode ?? "zones",
     flatDeliveryCharge: row?.flatDeliveryCharge ?? 250,

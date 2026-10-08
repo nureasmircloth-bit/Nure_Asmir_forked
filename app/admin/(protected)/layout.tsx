@@ -47,12 +47,15 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
         <aside className="adm-side">
           <div className="adm-brand">
             <Image src="/logo-icon.png" alt="" width={38} height={38} priority />
-            <div>
+            <div className="adm-brand-text">
               <strong>Nure Asmir</strong>
               <span>Shop manager</span>
             </div>
+            <SideToggle initialCollapsed={side === "collapsed"} />
           </div>
-          <NavLinks counts={counts} role={user.role} />
+          <div className="adm-side-scroll">
+            <NavLinks counts={counts} role={user.role} />
+          </div>
           <div className="adm-side-foot">
             <div className="adm-push">
               <PushToggle />
@@ -69,7 +72,6 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
         </aside>
         <div className="adm-main">
           <div className="adm-top">
-            <SideToggle initialCollapsed={side === "collapsed"} />
             <SearchPalette />
             <div className="adm-top-right">
               <a className="a-btn a-btn-sm" href={storeUrl} target="_blank" rel="noopener noreferrer" title="Open your shop the way customers see it">

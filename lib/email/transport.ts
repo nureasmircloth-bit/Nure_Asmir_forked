@@ -99,6 +99,16 @@ export function orderProviders<T extends { service: ServiceName }>(providers: T[
 /** Failures worth trying another provider for: out of allowance, a bad key, or the provider being down. Anything else (bad address) would fail everywhere. */
 export const shouldFailOver = (status: number) => status === 401 || status === 402 || status === 403 || status === 429 || status >= 500;
 
+/** How many emails can still go out today across every configured provider (their free daily allowances, minus what was already sent). */
+export async function emailAllowance(): Promise<{ limit: number; used: number; left: number; providers: number }> {
+  const ready = PROVIDERS.filter((provider) => provider.configured());
+  if (!ready.length) return { limit: 0, used: 0, left: 0, providers: 0 };
+  const used = await usedToday(ready.map((provider) => provider.service));
+  const limit = ready.reduce((sum, provider) => sum + (SERVICES[provider.service].limit ?? 0), 0);
+  const spent = ready.reduce((sum, provider) => sum + (used.get(provider.service) ?? 0), 0);
+  return { limit, used: spent, left: Math.max(0, limit - spent), providers: ready.length };
+}
+
 export async function sendMail(mail: Mail): Promise<boolean> {
   const ready = PROVIDERS.filter((provider) => provider.configured());
   if (!ready.length) return false;

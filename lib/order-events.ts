@@ -10,6 +10,9 @@ import { notifyAdmins, sendToCustomerTokens } from "@/lib/push/notify";
 export type { OrderEventKind };
 
 const ADMIN_LABEL: Partial<Record<OrderEventKind, string>> = {
+  booked: "TCS booked",
+  shipped: "TCS has the parcel",
+  delivered: "Order delivered",
   cancelled: "Order cancelled",
   paid: "Payment verified",
   returned: "Order returned",
@@ -65,10 +68,11 @@ async function deliver(orderId: string, event: OrderEventKind, actor: "admin" | 
   ]);
 
   const adminLabel = ADMIN_LABEL[event];
-  if (actor !== "admin" && adminLabel) {
+  // A booking is news to every admin device, even when a colleague made it; other changes only when the owner did not do them.
+  if ((actor !== "admin" || event === "booked") && adminLabel) {
     notifyAdmins({
       title: adminLabel,
-      body: `${order.orderNumber} — ${actor === "customer" ? "by the customer" : "automatically"}`.slice(0, 200),
+      body: (event === "booked" ? `${order.orderNumber} — tracking ${tracking ?? "pending"}` : `${order.orderNumber} — ${actor === "customer" ? "by the customer" : "automatically"}`).slice(0, 200),
       url: "/admin/orders",
       tag: `order-${order.orderNumber}`,
     });

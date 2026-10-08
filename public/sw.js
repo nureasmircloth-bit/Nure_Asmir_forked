@@ -22,7 +22,7 @@ const KEEP = [STATIC_CACHE, PAGE_CACHE, IMAGE_CACHE];
 
 const TTLS = {
   page: 5 * 60 * 1000, // HTML is shown instantly from cache for up to 5 min (and refreshed in the background); older → network first
-  quietPage: 24 * 60 * 60 * 1000, // pages that hardly ever change (our story, contact, FAQ, policies): instant for a whole day
+  quietPage: 60 * 60 * 1000, // pages that hardly ever change (our story, contact, FAQ, policies): instant for an hour (the admin promises edits within minutes)
   pageMax: 7 * 24 * 60 * 60 * 1000, // offline fallback never older than a week
   api: 10 * 60 * 1000, // currency table, catalogue lookups
   image: 30 * 24 * 60 * 60 * 1000,

@@ -38,6 +38,7 @@ export default async function SettingsPage() {
     soldoutHideDays: row?.soldoutHideDays ?? 90,
     announcementMode: row?.announcementMode ?? "auto",
     announcementLines: row?.announcementLines ?? "",
+    announcementStyle: row?.announcementStyle ?? "rotate",
     bankDepositEnabled: row?.bankDepositEnabled ?? false,
     deliveryMode: row?.deliveryMode ?? "zones",
     flatDeliveryCharge: row?.flatDeliveryCharge ?? 250,

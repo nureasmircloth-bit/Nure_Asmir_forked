@@ -27,12 +27,23 @@ if (active && typeof window !== "undefined") {
         tracesSampleRate: 0.1,
         // Storefront visitors are anonymous shoppers: don't attach identity data, IPs or request bodies.
         dataCollection: { userInfo: false },
+        // Session replay: a video-like recording of what the visitor did. Text, inputs and media are masked by default
+        // (names, phones and addresses never leave the phone). Free quota is small, so only a few ordinary visits are
+        // recorded; every visit that ends in an error is recorded.
+        integrations: [module.replayIntegration({ maskAllText: true, maskAllInputs: true, blockAllMedia: true })],
+        replaysSessionSampleRate: 0.02,
+        replaysOnErrorSampleRate: 1.0,
         ignoreErrors: [
           // Harmless browser noise.
           "ResizeObserver loop limit exceeded",
           "ResizeObserver loop completed with undelivered notifications.",
           /^Non-Error promise rejection captured/,
+          // The visitor closed the page or lost signal while it was still loading – not a fault of the shop.
+          "Connection closed.",
+          "The destination stream closed early.",
         ],
+        // Our own test runs (localhost) must not show up as real problems.
+        beforeSend: (event) => (/^https?:\/\/(localhost|127\.0\.0\.1)/.test(event.request?.url ?? "") ? null : event),
       });
       sentry = module;
       window.removeEventListener("error", remember);

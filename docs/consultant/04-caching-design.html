@@ -63,12 +63,16 @@
 <tr><th>Problem</th><th>What happens</th><th>Our protection</th></tr>
 <tr><td>A copy is older than it should be</td><td>Customer sees an old price for a minute</td><td>Short life; checkout re-prices on the server</td></tr>
 <tr><td>The purge after an admin edit fails</td><td>Old page stays until it expires</td><td>It expires in 45 s anyway</td></tr>
-<tr><td>The database is down</td><td>Pages that must be built fail</td><td>Copies up to 10 minutes old still serve (stale while rebuilding)</td></tr>
+<tr><td>The database is down</td><td>Pages that must be built fail</td><td>Copies up to 3 minutes old (15 for About, Contact, FAQ and policies) still serve while rebuilding</td></tr>
+<tr><td>The owner changes a price, banner or setting</td><td>The website shows it after a few minutes, not instantly</td><td>The admin says so after every save: &ldquo;about 3 minutes (around 3:45 pm)&rdquo;, or 5 for the settings, questions and Our story page. One watcher in the admin (<code>lib/storefront-delay.ts</code>) writes the promise, so no form can promise a wrong time</td></tr>
 <tr><td>A release changes the script files</td><td>Old copies would point to missing files</td><td>Every release has its own copies (build number in the key)</td></tr>
 <tr><td>Many visitors arrive just as a copy expires</td><td>A rush on the database</td><td>Stale copy is served while one rebuild runs</td></tr>
 <tr><td>A private page is saved by mistake</td><td>One person sees another&rsquo;s data</td><td>Only a short list of public pages; never with a login cookie, a script request or an API call; tested</td></tr>
 <tr><td>The cache itself misbehaves</td><td>Wrong pages</td><td>Kill switch: set <code>EDGE_PAGE_CACHE</code> to 0 and redeploy (no code change)</td></tr>
 </table>
+
+<h2 id="admin-warm">The admin site</h2>
+<p>The admin never saves pages (they are private and change all day). It does have its own Cloudflare timer (<code>admin-entry.ts</code>, every 3 minutes) that asks for the health check and the sign-in page, so the database and the admin code are awake when the owner opens the panel. On 8 October the owner noticed the first admin page of the day was slow while a simple page was fast; this is the fix.</p>
 
 <h2 id="phases">7. Plan</h2>
 <ol>

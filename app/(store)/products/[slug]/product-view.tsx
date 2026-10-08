@@ -18,12 +18,14 @@ export function ProductView({
   product,
   fallback,
   codReservationHours,
-  bankReservationHours,
+  freeDeliveryThreshold,
+  refundWindowDays,
 }: {
   product: CatalogProduct;
   fallback: string;
   codReservationHours: number;
-  bankReservationHours: number;
+  freeDeliveryThreshold: number;
+  refundWindowDays: number;
 }) {
   const variants = useMemo<CatalogVariant[]>(
     () =>
@@ -52,9 +54,10 @@ export function ProductView({
   const [sizeId, setSizeId] = useState<string | null>(null);
 
   const colorVariants = variants.filter((variant) => variant.color === color);
-  const sized = colorVariants.some((variant) => variant.size);
-  // With no size choice to make (single-variant colours, accessories) the variant is implied.
-  const selected: CatalogVariant | null = sized ? (colorVariants.find((variant) => variant.id === sizeId) ?? null) : (colorVariants[0] ?? null);
+  const sizeOptions = colorVariants.filter((variant) => variant.size);
+  // A shopper is only asked for a size when there is a real choice. One size (or none) is implied: colour is a choice, a single size is not.
+  const choosesSize = sizeOptions.length > 1;
+  const selected: CatalogVariant | null = choosesSize ? (colorVariants.find((variant) => variant.id === sizeId) ?? null) : (colorVariants[0] ?? null);
   const shown = selected ?? colorVariants.find((variant) => variant.isDefault) ?? colorVariants[0] ?? defaultVariant;
 
   const gallery = useMemo(() => {
@@ -101,7 +104,8 @@ export function ProductView({
             setSizeId(null);
           }}
           colorVariants={colorVariants}
-          sized={sized}
+          choosesSize={choosesSize}
+          fixedSize={!choosesSize ? sizeOptions[0]?.size : undefined}
           selected={selected}
           onSize={setSizeId}
         />
@@ -129,10 +133,20 @@ export function ProductView({
             <summary>
               Delivery &amp; returns <span>+</span>
             </summary>
-            <p>
-              Nationwide delivery across Pakistan. Cash-on-delivery orders are reserved for {codReservationHours} hours; bank-deposit orders
-              for {bankReservationHours} hours. Exchange details are shown before checkout.
-            </p>
+            <ul className="product-facts">
+              <li>
+                <strong>Delivery all over Pakistan</strong> with TCS, usually in a few working days. The exact charge and timing for your city are shown at checkout.
+              </li>
+              <li>
+                <strong>{freeDeliveryThreshold > 0 ? `Free delivery on orders above Rs. ${freeDeliveryThreshold.toLocaleString("en-PK")}.` : "Delivery charged by your area."}</strong> Cash on delivery: pay the rider when your parcel arrives.
+              </li>
+              <li>
+                <strong>Easy exchange within {refundWindowDays} days</strong> of delivery if the piece is unworn, unwashed and has its tags. <Link href="/policies/returns">Read the full policy</Link>.
+              </li>
+              <li>
+                <strong>Your order is held for you</strong> for {codReservationHours} hours while we confirm it by phone or WhatsApp.
+              </li>
+            </ul>
           </details>
         </div>
         <Link className="whatsapp-help" href="/contact">

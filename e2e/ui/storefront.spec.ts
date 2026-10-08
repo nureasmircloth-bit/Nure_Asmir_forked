@@ -76,12 +76,12 @@ test.describe("product page: sizes, bag, double-taps", () => {
   test("must choose a size; adding twice by double-tap adds one piece, not two", async ({ page }) => {
     await openProduct(page, "olive-cargo-pants");
     await page.getByRole("button", { name: "Add to bag" }).click();
-    await expect(page.locator(".purchase-message")).toContainText(/select a size/i);
+    await expect(page.locator(".size-hint")).toContainText(/choose a size/i);
 
     await pickSize(page, "32");
     const add = page.getByRole("button", { name: /Add to bag/ });
     await add.dblclick();
-    await expect(page.getByRole("button", { name: /Added/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Added to bag/ })).toBeVisible();
     expect(await cartCountInHeader(page)).toBe(1);
     // After the short lock lifts, a deliberate second add works.
     await expect(page.getByRole("button", { name: "Add to bag" })).toBeEnabled({ timeout: 3000 });

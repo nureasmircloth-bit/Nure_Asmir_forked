@@ -190,6 +190,20 @@
       "when": 1791360617315,
       "tag": "0026_product_seo_locked",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1791435207751,
+      "tag": "0027_site_text_and_ticker",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1791435983250,
+      "tag": "0028_admin_messages",
+      "breakpoints": true
     }
   ]
 }

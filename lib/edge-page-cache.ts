@@ -16,10 +16,11 @@
  */
 
 export const FRESH_SECONDS = 45;
-export const KEEP_SECONDS = 600;
-/** Pages that hardly ever change (our story, contact, FAQ, policies) stay fresh longer and are kept for a week. */
+// An old copy is never served for longer than this, so an edit in the admin is on the website within a few minutes (the admin says so).
+export const KEEP_SECONDS = 180;
+/** Pages that hardly ever change (our story, contact, FAQ, policies) stay fresh longer and are kept a little longer. */
 export const QUIET_FRESH_SECONDS = 120;
-export const QUIET_KEEP_SECONDS = 7 * 24 * 60 * 60;
+export const QUIET_KEEP_SECONDS = 15 * 60;
 const QUIET_PAGE = /^\/(about|contact|faq|policies\/[a-z0-9-]+)$/;
 export const isQuietPage = (pathname: string): boolean => QUIET_PAGE.test(pathname);
 export const CACHE_HEADER = "x-edge-cache";

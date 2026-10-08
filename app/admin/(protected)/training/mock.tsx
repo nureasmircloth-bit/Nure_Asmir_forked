@@ -31,11 +31,15 @@ export function Shell({ nav, title, intro, actions, children }: { nav: string; t
         <div className="adm-brand">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="" width={38} height={38} />
-          <div>
+          <div className="adm-brand-text">
             <strong>Nure Asmir</strong>
             <span>Shop manager</span>
           </div>
+          <span className="a-icon-btn adm-fold">
+            <Icon name="panel" size={20} />
+          </span>
         </div>
+        <div className="adm-side-scroll">
         <nav className="adm-nav">
           {NAV.map((group, index) => (
             <div key={group.label ?? index} style={{ display: "grid", gap: 2 }}>
@@ -43,12 +47,13 @@ export function Shell({ nav, title, intro, actions, children }: { nav: string; t
               {group.items.map((item) => (
                 <a key={item.href} aria-current={item.label === nav ? "page" : undefined}>
                   <Icon name={item.icon} />
-                  {item.label}
+                  <span className="adm-nav-text">{item.label}</span>
                 </a>
               ))}
             </div>
           ))}
         </nav>
+        </div>
       </aside>
       <div className="adm-main tf-main">
         <div className="adm-top" style={{ position: "static" }} aria-hidden="true">

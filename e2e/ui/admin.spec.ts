@@ -572,10 +572,12 @@ test.describe("admin (desktop Chromium)", () => {
       const side = page.locator(".adm-shell > .adm-side");
       await expect(side).toBeVisible();
       await page.getByRole("button", { name: "Hide the menu" }).click();
-      await expect(side).toBeHidden();
+      // folded = a slim rail of icons, not a vanished menu
+      await expect(page.locator(".adm-shell")).toHaveAttribute("data-side", "collapsed");
+      await expect.poll(async () => (await side.boundingBox())!.width, "the menu folds to a narrow rail").toBeLessThan(100);
       await page.reload();
       await expect(page.locator(".adm-shell")).toHaveAttribute("data-side", "collapsed");
-      await expect(side).toBeHidden();
+      expect((await side.boundingBox())!.width).toBeLessThan(100);
 
       // wide view: the lesson list steps aside and the pretend screen gets bigger
       const stage = page.locator(".tour-stage");
@@ -596,7 +598,7 @@ test.describe("admin (desktop Chromium)", () => {
       await page.evaluate(() => document.fullscreenElement && document.exitFullscreen());
 
       await page.getByRole("button", { name: "Show the menu" }).click();
-      await expect(side).toBeVisible();
+      await expect.poll(async () => (await side.boundingBox())!.width).toBeGreaterThan(200);
       await page.evaluate(() => (document.cookie = "adm-side=open; Path=/"));
     });
 

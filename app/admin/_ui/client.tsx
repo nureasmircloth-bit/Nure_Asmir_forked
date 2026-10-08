@@ -5,6 +5,7 @@
 
 import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { storefrontDelayMessage, storefrontDelayMinutes } from "@/lib/storefront-delay";
 import { useLockedAction } from "@/lib/use-locked-action";
 import { Icon } from "./icons";
 
@@ -16,16 +17,53 @@ const ToastContext = createContext<(text: string, tone?: ToastTone) => void>(() 
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ToastItem[]>([]);
+  const [note, setNote] = useState<{ id: number; text: string } | null>(null);
   const counter = useRef(0);
   const push = useCallback((text: string, tone: ToastTone = "good") => {
     const id = ++counter.current;
     setItems((current) => [...current.slice(-3), { id, text, tone }]);
     // Errors stay longer: people need time to read what went wrong.
-    window.setTimeout(() => setItems((current) => current.filter((item) => item.id !== id)), tone === "bad" ? 9000 : 4500);
+    window.setTimeout(() => setItems((current) => current.filter((item) => item.id !== id)), tone === "good" ? 4500 : 9000);
+  }, []);
+  // After any successful change to something shoppers see, say when it will show up: the website keeps saved copies of its pages, so
+  // a change is not instant. One place watches every admin save (instead of every form promising its own, possibly wrong, time).
+  useEffect(() => {
+    const original = window.fetch;
+    let lastAt = 0;
+    window.fetch = async (input, init) => {
+      const response = await original(input, init);
+      try {
+        const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url, window.location.origin);
+        const method = init?.method ?? (typeof input === "object" && "method" in input ? input.method : "GET");
+        const minutes = response.ok && url.origin === window.location.origin ? storefrontDelayMinutes(url.pathname, method) : null;
+        if (minutes && Date.now() - lastAt > 20_000) {
+          lastAt = Date.now();
+          // a moment after the form's own "Saved" message, so the two read in order
+          const id = ++counter.current;
+          setNote({ id, text: storefrontDelayMessage(minutes) });
+          window.setTimeout(() => setNote((current) => (current?.id === id ? null : current)), 12_000);
+        }
+      } catch {
+        // the notice is a courtesy; it must never break a save
+      }
+      return response;
+    };
+    return () => {
+      window.fetch = original;
+    };
   }, []);
   return (
     <ToastContext.Provider value={push}>
       {children}
+      {note && (
+        <div className="a-delay-note" role="status" aria-live="polite">
+          <Icon name="info" />
+          <span>{note.text}</span>
+          <button type="button" aria-label="Close note" onClick={() => setNote(null)}>
+            ×
+          </button>
+        </div>
+      )}
       <div className="a-toasts" aria-live="polite" aria-atomic="false">
         {items.map((item) => (
           <div key={item.id} className={`a-toast ${item.tone}`} role={item.tone === "bad" ? "alert" : "status"}>

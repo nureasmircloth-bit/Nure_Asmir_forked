@@ -1,0 +1,25 @@
+/* The strip at the top of every page (components/announcement-bar.tsx). Used by the shop and by the admin preview, so it carries its own colours. */
+.announcement { height: 36px; padding: 0 3vw; background: var(--announce-bg, #111); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; text-transform: uppercase; letter-spacing: .18em; overflow: hidden; }
+.announcement-ticker { position: relative; overflow: hidden; height: 1.4em; width: 100%; }
+.announcement-ticker span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; white-space: nowrap; transform: translateX(100%); opacity: 0; transition: transform .45s cubic-bezier(.4,0,.2,1), opacity .45s ease; }
+.announcement-ticker .ticker-current { transform: translateX(0); opacity: 1; }
+.announcement-ticker .ticker-prev { transform: translateX(-100%); opacity: 0; }
+
+/* scrolling version: two identical runs side by side, the belt moves by exactly one run, so the loop has no jump */
+.announcement-scroll { padding: 0; justify-content: flex-start; }
+.announcement-belt { display: flex; width: max-content; animation: announce-left linear infinite; will-change: transform; }
+.announcement-scroll[data-direction="right"] .announcement-belt { animation-name: announce-right; }
+.announcement-scroll:hover .announcement-belt, .announcement-scroll:active .announcement-belt { animation-play-state: paused; }
+.announcement-run { display: flex; flex: none; align-items: center; }
+.announcement-item { flex: none; padding: 0 2.2em; white-space: nowrap; }
+.announcement-item::after { content: "\2022"; margin-left: 2.2em; opacity: .5; }
+@keyframes announce-left { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@keyframes announce-right { from { transform: translateX(-50%); } to { transform: translateX(0); } }
+
+@media (max-width: 700px) {
+  .announcement { height: 34px; font-size: 11px; letter-spacing: .1em; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .announcement-belt { animation: none; }
+  .announcement-ticker span { transition: none; }
+}

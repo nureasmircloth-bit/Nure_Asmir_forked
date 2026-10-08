@@ -30,5 +30,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules", ".build-excluded", ".open-next", "worker-entry.ts", ".next-prod", "e2e/.artifacts"]
+  "exclude": ["node_modules", ".build-excluded", ".open-next", "worker-entry.ts", "admin-entry.ts", ".next-prod", "e2e/.artifacts"]
 }

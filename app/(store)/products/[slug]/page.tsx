@@ -111,7 +111,8 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           product={product}
           fallback={fallbackImage}
           codReservationHours={settings.codReservationHours}
-          bankReservationHours={settings.bankReservationHours}
+          freeDeliveryThreshold={settings.freeDeliveryThreshold}
+          refundWindowDays={settings.refundWindowDays}
         />
       </section>
       {related.length > 0 && (

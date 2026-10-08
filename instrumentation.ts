@@ -8,6 +8,8 @@ export function onRequestError(
   context: { routePath: string; routeType: string; renderSource?: string },
 ) {
   const err = (error ?? {}) as { name?: string; message?: string; stack?: string; digest?: string };
+  // The visitor left (closed the tab, lost signal, pressed reload) while the page was still streaming – not a fault of ours.
+  if (/destination stream closed early|^Connection closed\.?$/i.test(err.message ?? "")) return;
   logError({ source: `${context.routeType}:${context.routePath}`, message: `${err.name ?? "Error"}: ${err.message ?? "Unknown error"}`, path: request.path, stack: err.stack });
   reportServerError(err, {
     method: request.method,

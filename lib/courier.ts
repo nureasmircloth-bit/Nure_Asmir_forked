@@ -142,6 +142,7 @@ export async function bookOrderWithTcs(orderId: string, actorEmail: string, over
     actorEmail,
   });
   await auditLogEntry({ actorEmail, action: "order.tcs_book", entityType: "order", entityId: orderId, detail: { trackingNumber, cityName, codAmount } });
+  announceOrderEvent(orderId, "booked", "admin");
   return { ok: true, trackingNumber };
 }
 
@@ -160,6 +161,7 @@ export async function saveManualTracking(orderId: string, trackingNumber: string
   if (!saved) return fail("conflict", "This order changed just now – refresh and try again.");
   await db.insert(orderStatusHistory).values({ orderId, fromStatus: order.orderStatus, toStatus: order.orderStatus, note: `TCS tracking number added by hand: ${cn}`, actorEmail });
   await auditLogEntry({ actorEmail, action: "order.tcs_manual", entityType: "order", entityId: orderId, detail: { trackingNumber: cn } });
+  announceOrderEvent(orderId, "booked", "admin");
   return { ok: true, trackingNumber: cn };
 }
 

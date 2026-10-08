@@ -16,8 +16,8 @@ export function SideToggle({ initialCollapsed }: { initialCollapsed: boolean }) 
   }
 
   return (
-    <button type="button" className="a-icon-btn" onClick={toggle} aria-pressed={collapsed} aria-label={collapsed ? "Show the menu" : "Hide the menu"} title={collapsed ? "Show the menu" : "Hide the menu to get more room"}>
-      <Icon name="menu" size={20} />
+    <button type="button" className="a-icon-btn adm-fold" onClick={toggle} aria-pressed={collapsed} aria-label={collapsed ? "Show the menu" : "Hide the menu"} title={collapsed ? "Show the menu" : "Hide the menu to get more room"}>
+      <Icon name="panel" size={20} />
     </button>
   );
 }
