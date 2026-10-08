@@ -113,6 +113,9 @@ export function ProductPurchase({
   function undo() {
     if (!added) return;
     updateCartItemQuantity(added.variantId, added.inBag - 1);
+    // Cancel the first addition's timers, so they can not unlock the buttons in the middle of a second addition's feedback.
+    timers.current.forEach((timer) => window.clearTimeout(timer));
+    timers.current = [];
     setAdded(null);
     setPhase("idle");
   }

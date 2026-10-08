@@ -38,12 +38,16 @@ if (active && typeof window !== "undefined") {
           "ResizeObserver loop limit exceeded",
           "ResizeObserver loop completed with undelivered notifications.",
           /^Non-Error promise rejection captured/,
-          // The visitor closed the page or lost signal while it was still loading – not a fault of the shop.
-          "Connection closed.",
-          "The destination stream closed early.",
         ],
-        // Our own test runs (localhost) must not show up as real problems.
-        beforeSend: (event) => (/^https?:\/\/(localhost|127\.0\.0\.1)/.test(event.request?.url ?? "") ? null : event),
+        beforeSend: (event) => {
+          // Our own test runs (localhost) are not real problems.
+          if (/^https?:\/\/(localhost|127\.0\.0\.1)/.test(event.request?.url ?? "")) return null;
+          // The page's data stream was cut because the visitor left or lost signal. Only React's own, already-handled report of it is dropped
+          // (exact wording AND marked as handled); the same words from anywhere else stay visible.
+          const first = event.exception?.values?.[0];
+          if (first?.value === "Connection closed." && first.mechanism?.handled === true) return null;
+          return event;
+        },
       });
       sentry = module;
       window.removeEventListener("error", remember);

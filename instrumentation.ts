@@ -8,8 +8,9 @@ export function onRequestError(
   context: { routePath: string; routeType: string; renderSource?: string },
 ) {
   const err = (error ?? {}) as { name?: string; message?: string; stack?: string; digest?: string };
-  // The visitor left (closed the tab, lost signal, pressed reload) while the page was still streaming – not a fault of ours.
-  if (/destination stream closed early|^Connection closed\.?$/i.test(err.message ?? "")) return;
+  // The visitor left (closed the tab, lost signal, pressed reload) while the page was still streaming – not a fault of ours. A message alone is
+  // not proof, so it must be the exact wording AND happen while a page is being rendered; any other error with these words is still reported.
+  if (context.routeType === "render" && /^(The destination stream closed early|Connection closed)\.?$/.test((err.message ?? "").trim())) return;
   logError({ source: `${context.routeType}:${context.routePath}`, message: `${err.name ?? "Error"}: ${err.message ?? "Unknown error"}`, path: request.path, stack: err.stack });
   reportServerError(err, {
     method: request.method,

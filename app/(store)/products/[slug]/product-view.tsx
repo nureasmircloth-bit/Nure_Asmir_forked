@@ -138,7 +138,15 @@ export function ProductView({
                 <strong>Delivery all over Pakistan</strong> with TCS, usually in a few working days. The exact charge and timing for your city are shown at checkout.
               </li>
               <li>
-                <strong>{freeDeliveryThreshold > 0 ? `Free delivery on orders above Rs. ${freeDeliveryThreshold.toLocaleString("en-PK")}.` : "Delivery charged by your area."}</strong> Cash on delivery: pay the rider when your parcel arrives.
+                <strong>
+                  {freeDeliveryThreshold > 0 ? (
+                    <>
+                      Free delivery on orders above <Price amount={freeDeliveryThreshold} />.
+                    </>
+                  ) : (
+                    "Delivery charged by your area."
+                  )}
+                </strong> Cash on delivery: pay the rider when your parcel arrives.
               </li>
               <li>
                 <strong>Easy exchange within {refundWindowDays} days</strong> of delivery if the piece is unworn, unwashed and has its tags. <Link href="/policies/returns">Read the full policy</Link>.

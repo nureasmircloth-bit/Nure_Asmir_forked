@@ -1,4 +1,4 @@
-import { asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { adminMessages, adminPushDevices, customerPushDevices } from "@/db/schema";
@@ -9,7 +9,9 @@ import { pushConfigured, sendPush } from "@/lib/push/fcm";
 export const dynamic = "force-dynamic";
 
 // A Worker may only make a limited number of outside calls per request, so a big audience is sent in slices: the page asks again
-// with the next offset until everyone has been reached, and shows the progress.
+// with the last device it reached (a "cursor") until everyone has been reached, and shows the progress. Paging by "everything after
+// this device" (instead of "skip N") means phones that register, leave or change their choice during the send are never skipped
+// or sent to twice.
 const SLICE = 40;
 
 const schema = z.object({
@@ -18,7 +20,8 @@ const schema = z.object({
   /** A page on your website to open when the notification is tapped, like /shop or /collections/shirts. */
   url: z.string().trim().max(200).optional(),
   audience: z.enum(["all", "sales", "test"]),
-  offset: z.number().int().min(0).default(0),
+  /** The last device token of the previous slice (empty for the first slice). */
+  cursor: z.string().max(4096).optional(),
   /** The id of the history row, once the first slice has created it. */
   messageId: z.string().uuid().optional(),
 });
@@ -31,30 +34,40 @@ export async function POST(request: Request) {
   if (!pushConfigured()) return Response.json({ error: "Notifications are not connected yet (the Firebase key is missing)." }, { status: 400 });
   const parsed = schema.safeParse(await request.json().catch(() => ({})));
   if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message ?? "Please check the message." }, { status: 400 });
-  const { title, body, audience, offset } = parsed.data;
+  const { title, body, audience, cursor } = parsed.data;
   const url = audience === "test" ? "/admin" : cleanPath(parsed.data.url);
 
   const isTest = audience === "test";
   const table = isTest ? adminPushDevices : customerPushDevices;
-  const where = audience === "sales" ? eq(customerPushDevices.salesOptIn, true) : undefined;
-  const [{ total }] = await db.select({ total: sql<number>`count(*)::int` }).from(table).where(where);
-  const rows = await db.select({ token: table.token }).from(table).where(where).orderBy(asc(table.token)).limit(SLICE).offset(offset);
+  const audienceFilter = audience === "sales" ? eq(customerPushDevices.salesOptIn, true) : undefined;
 
-  const results = await Promise.all(rows.map(async (row) => ({ token: row.token, result: await sendPush(row.token, { title, body, url, tag: `msg-${Date.now()}` }) })));
-  const delivered = results.filter((entry) => entry.result === "ok").length;
-  const dead = results.filter((entry) => entry.result === "dead").map((entry) => entry.token);
-  if (dead.length) await db.delete(table).where(inArray(table.token, dead));
-
-  // devices that were removed shift the next slice back by the same amount
-  const next = offset + rows.length - dead.length;
-  const done = rows.length < SLICE || offset + rows.length >= total;
+  // The history row exists BEFORE anything is sent, so a failed write afterwards can never leave sent notifications unrecorded.
   let messageId = parsed.data.messageId;
+  let total = 0;
   if (!messageId) {
-    const [row] = await db.insert(adminMessages).values({ kind: "push", audience, title, body, link: url, recipients: total, delivered, createdBy: admin.email }).returning({ id: adminMessages.id });
+    const [{ count }] = await db.select({ count: sql<number>`count(*)::int` }).from(table).where(audienceFilter);
+    total = count;
+    const [row] = await db.insert(adminMessages).values({ kind: "push", audience, title, body, link: url, recipients: total, delivered: 0, createdBy: admin.email }).returning({ id: adminMessages.id });
     messageId = row.id;
     await auditLogEntry({ actorEmail: admin.email, action: "message.push", entityType: "message", entityId: messageId, detail: { audience, title, recipients: total } });
   } else {
-    await db.update(adminMessages).set({ delivered: sql`${adminMessages.delivered} + ${delivered}` }).where(eq(adminMessages.id, messageId));
+    const [row] = await db.select({ recipients: adminMessages.recipients }).from(adminMessages).where(eq(adminMessages.id, messageId)).limit(1);
+    if (!row) return Response.json({ error: "That message could not be found." }, { status: 404 });
+    total = row.recipients;
   }
-  return Response.json({ messageId, total, delivered, next, done });
+
+  const rows = await db
+    .select({ token: table.token })
+    .from(table)
+    .where(and(audienceFilter, cursor ? gt(table.token, cursor) : undefined))
+    .orderBy(asc(table.token))
+    .limit(SLICE);
+
+  const results = await Promise.all(rows.map(async (row) => ({ token: row.token, result: await sendPush(row.token, { title, body, url, tag: `msg-${messageId}` }) })));
+  const delivered = results.filter((entry) => entry.result === "ok").length;
+  const dead = results.filter((entry) => entry.result === "dead").map((entry) => entry.token);
+  if (dead.length) await db.delete(table).where(inArray(table.token, dead)).catch((error) => console.error("could not remove dead devices", error));
+  if (delivered) await db.update(adminMessages).set({ delivered: sql`${adminMessages.delivered} + ${delivered}` }).where(eq(adminMessages.id, messageId));
+
+  return Response.json({ messageId, total, delivered, cursor: rows.length ? rows[rows.length - 1].token : cursor ?? "", done: rows.length < SLICE });
 }

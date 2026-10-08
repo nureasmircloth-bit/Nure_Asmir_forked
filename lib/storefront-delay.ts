@@ -6,7 +6,7 @@
 
 /** Pages that hardly ever change (our story, FAQ, policies, contact) are kept a little longer than product pages. */
 const SLOW_AREAS = /^\/api\/admin\/(settings|faqs|story)(\/|$)/;
-const STOREFRONT_AREAS = /^\/api\/admin\/(products|categories|collections|campaign|delivery-zones|faqs|flash-sales|settings|locations|images|site-images|variants|stock)(\/|$)/;
+const STOREFRONT_AREAS = /^\/api\/admin\/(products|categories|collections|campaign|delivery-zones|faqs|flash-sales|settings|story|locations|images|site-images|variants|stock)(\/|$)/;
 
 export const FAST_MINUTES = 3;
 export const SLOW_MINUTES = 5;

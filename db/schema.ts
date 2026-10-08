@@ -448,7 +448,7 @@ export const siteSettings = pgTable("site_settings", {
   // "custom" shows only the owner's own lines; "off" hides it. The owner's extra lines (one per line) are added in "auto" mode.
   announcementMode: text("announcement_mode").notNull().default("auto"),
   announcementLines: text("announcement_lines").notNull().default(""),
-  // How the lines move: "rotate" (one line slides in after another) or "scroll" (all lines glide from left to right in one loop).
+  // How the lines move: "rotate" (one line slides in after another), "scroll-left" or "scroll-right" (all lines glide in one endless loop, towards that side).
   announcementStyle: text("announcement_style").notNull().default("rotate"),
   // The "Our story" page text, editable in the admin. Empty = the built-in wording. Paragraphs are separated by a blank line;
   // a paragraph starting with "> " is shown as the large quote.

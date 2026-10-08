@@ -26,11 +26,12 @@ const ADMIN_LABEL: Partial<Record<OrderEventKind, string>> = {
  *
  * Runs in the background and never throws, so it is safe to call from any status-changing route.
  */
-export function announceOrderEvent(orderId: string, event: OrderEventKind, actor: "admin" | "customer" | "system" = "admin"): void {
-  runInBackground(deliver(orderId, event, actor), `announceOrderEvent(${event})`);
+export function announceOrderEvent(orderId: string, event: OrderEventKind, actor: "admin" | "customer" | "system" = "admin", variant?: string): void {
+  runInBackground(deliver(orderId, event, actor, variant), `announceOrderEvent(${event})`);
 }
 
-async function deliver(orderId: string, event: OrderEventKind, actor: "admin" | "customer" | "system"): Promise<void> {
+/** `variant` tells two announcements of the same kind apart (a corrected TCS tracking number is a new "booked" news; the same one twice is not). */
+async function deliver(orderId: string, event: OrderEventKind, actor: "admin" | "customer" | "system", variant?: string): Promise<void> {
   const [order] = await db
     .select({
       id: orders.id,
@@ -45,13 +46,25 @@ async function deliver(orderId: string, event: OrderEventKind, actor: "admin" | 
   if (!order) return;
 
   // Idempotency: only the first caller for this (order, event) proceeds.
-  const claimed = await db.insert(orderEventsSent).values({ orderId, event }).onConflictDoNothing().returning({ event: orderEventsSent.event });
+  const claimed = await db.insert(orderEventsSent).values({ orderId, event: variant ? `${event}:${variant}` : event }).onConflictDoNothing().returning({ event: orderEventsSent.event });
   if (!claimed.length) return;
 
   const copy = ORDER_EVENT_COPY[event];
   const tracking = order.trackingNumber && order.trackingNumber !== "PENDING" ? order.trackingNumber : null;
   const trackUrl = `${siteOrigin()}/track-order?order=${encodeURIComponent(order.orderNumber)}`;
 
+  const adminLabel = ADMIN_LABEL[event];
+  // A booking is news to every admin device, even when a colleague made it; other changes only when the owner did not do them.
+  if ((actor !== "admin" || event === "booked") && adminLabel) {
+    notifyAdmins({
+      title: adminLabel,
+      body: (event === "booked" ? `${order.orderNumber} — tracking ${tracking ?? "pending"}` : `${order.orderNumber} — ${actor === "customer" ? "by the customer" : "automatically"}`).slice(0, 200),
+      url: "/admin/orders",
+      tag: `order-${order.orderNumber}`,
+    });
+  }
+
+  // The owner's alert is already on its way above: a problem while telling the customer can not stop it.
   const devices = await db
     .select({ token: customerPushDevices.token })
     .from(customerPushDevices)
@@ -66,15 +79,4 @@ async function deliver(orderId: string, event: OrderEventKind, actor: "admin" | 
       ? sendOrderStatusEmail({ toEmail: order.customerEmail, event, orderNumber: order.orderNumber, customerName: order.customerName, trackingNumber: tracking, trackUrl })
       : Promise.resolve(),
   ]);
-
-  const adminLabel = ADMIN_LABEL[event];
-  // A booking is news to every admin device, even when a colleague made it; other changes only when the owner did not do them.
-  if ((actor !== "admin" || event === "booked") && adminLabel) {
-    notifyAdmins({
-      title: adminLabel,
-      body: (event === "booked" ? `${order.orderNumber} — tracking ${tracking ?? "pending"}` : `${order.orderNumber} — ${actor === "customer" ? "by the customer" : "automatically"}`).slice(0, 200),
-      url: "/admin/orders",
-      tag: `order-${order.orderNumber}`,
-    });
-  }
 }

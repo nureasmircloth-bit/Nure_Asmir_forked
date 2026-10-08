@@ -239,6 +239,9 @@ function SearchOverlay({
   }, [query]);
 
   useEffect(() => {
+    // New results never inherit the previous results' discounts (a failed lookup or an empty list leaves no stale sale price behind).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDeals({});
     const ids = hits.map((hit) => hit.objectID).filter((id) => /^[0-9a-f-]{36}$/i.test(id));
     if (!ids.length) return;
     let cancelled = false;

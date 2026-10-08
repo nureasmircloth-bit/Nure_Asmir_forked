@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { CatalogProduct } from "@/lib/commerce";
 import { Portal } from "../../_components/portal";
 
@@ -32,28 +32,60 @@ const PANTS = {
 
 const isPants = (product: Pick<CatalogProduct, "type" | "category" | "name">) => /pant|trouser|jean|chino|cargo/i.test(`${product.type} ${product.category} ${product.name}`);
 
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 /** "Size guide" link beside the size choice; opens a table of measurements for this kind of product. */
 export function SizeGuideLink({ product }: { product: Pick<CatalogProduct, "type" | "category" | "name"> }) {
   const [open, setOpen] = useState(false);
   const titleId = useId();
+  const trigger = useRef<HTMLButtonElement>(null);
+  const dialog = useRef<HTMLDivElement>(null);
   const guide = isPants(product) ? PANTS : TOPS;
 
+  // While the guide is open: focus moves into it, Tab and Shift+Tab stay inside it, Escape closes it, and focus goes back to the link afterwards.
   useEffect(() => {
     if (!open) return;
-    const onKey = (event: KeyboardEvent) => event.key === "Escape" && setOpen(false);
+    const opener = trigger.current;
+    const box = dialog.current;
+    box?.querySelector<HTMLElement>(FOCUSABLE)?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        return;
+      }
+      if (event.key !== "Tab" || !box) return;
+      const items = [...box.querySelectorAll<HTMLElement>(FOCUSABLE)];
+      if (!items.length) {
+        event.preventDefault();
+        return;
+      }
+      const first = items[0];
+      const last = items[items.length - 1];
+      const inside = box.contains(document.activeElement);
+      if (event.shiftKey && (document.activeElement === first || !inside)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !inside)) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      opener?.focus();
+    };
   }, [open]);
 
   return (
     <>
-      <button type="button" className="size-guide-link" onClick={() => setOpen(true)}>
+      <button ref={trigger} type="button" className="size-guide-link" onClick={() => setOpen(true)} aria-haspopup="dialog">
         Size guide
       </button>
       {open && (
         <Portal>
           <div className="size-guide-scrim" onClick={() => setOpen(false)}>
-            <div className="size-guide" role="dialog" aria-modal="true" aria-labelledby={titleId} onClick={(event) => event.stopPropagation()}>
+            <div ref={dialog} className="size-guide" role="dialog" aria-modal="true" aria-labelledby={titleId} onClick={(event) => event.stopPropagation()}>
               <button type="button" className="size-guide-close" aria-label="Close size guide" onClick={() => setOpen(false)}>
                 ×
               </button>

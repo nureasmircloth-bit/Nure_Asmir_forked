@@ -22,6 +22,8 @@ export function AnnouncementBar({ messages, style = "rotate" }: { messages: stri
   }, [rotating, messages.length]);
 
   if (!messages.length) return null;
+  // the list can get shorter while the bar is on screen (the owner edits the lines): never point past its end
+  const current = index % messages.length;
 
   if (!rotating) {
     // A whole loop takes longer the more text there is, so reading speed stays the same for one line or six.
@@ -49,8 +51,8 @@ export function AnnouncementBar({ messages, style = "rotate" }: { messages: stri
     <div className="announcement" role="status">
       <div className="announcement-ticker">
         {messages.map((message, position) => {
-          const previous = (index - 1 + messages.length) % messages.length;
-          const state = position === index ? "ticker-current" : position === previous ? "ticker-prev" : "ticker-hidden";
+          const previous = (current - 1 + messages.length) % messages.length;
+          const state = position === current ? "ticker-current" : position === previous ? "ticker-prev" : "ticker-hidden";
           return (
             <span key={message} className={state}>
               {message}

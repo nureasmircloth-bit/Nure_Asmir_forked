@@ -542,23 +542,36 @@ export type CategoryWithImage = {
   heroBlurDataUrl?: string;
 };
 
+// Remembered for a few seconds across requests (like the list of active sales), so a busy shop does not read its products on every page view.
+let discountMemo: { at: number; value: Map<string, number> } | null = null;
+const DISCOUNT_MEMO_MS = Number(process.env.SALES_MEMO_MS ?? 15_000); // (the test suite sets 0 so a sale it just made shows at once)
+
 /** The biggest percentage off any product in each category right now (categoryId → whole percent), so category tiles can say
- * "Up to −30%". Empty when no sale is running, in which case no extra database work is done. */
+ * "Up to −30%". Empty when no sale is running, in which case no extra database work is done. A sale on chosen products only reads
+ * those products; only a sale on everything reads the whole catalogue. */
 export const getCategoryDiscounts = cache(async (): Promise<Map<string, number>> => {
+  if (discountMemo && Date.now() - discountMemo.at < DISCOUNT_MEMO_MS) return discountMemo.value;
   const result = new Map<string, number>();
   const sales = await getActiveSales();
-  if (!sales.length) return result;
-  const rows = await db
-    .select({ id: products.id, categoryId: products.categoryId, price: productVariants.price })
-    .from(products)
-    .innerJoin(productVariants, and(eq(productVariants.productId, products.id), eq(productVariants.isDefault, true)))
-    .where(eq(products.status, "published"));
-  for (const row of rows) {
-    const sale = applySales(row.price, row.id, sales);
-    if (!sale) continue;
-    const percent = Math.round(((sale.originalPrice - sale.price) / sale.originalPrice) * 100);
-    if (percent > (result.get(row.categoryId) ?? 0)) result.set(row.categoryId, percent);
+  if (sales.length) {
+    const everything = sales.some((sale) => sale.appliesToAll);
+    const saleProductIds = [...new Set(sales.flatMap((sale) => [...sale.productIds]))];
+    if (everything || saleProductIds.length) {
+      const published = eq(products.status, "published");
+      const rows = await db
+        .select({ id: products.id, categoryId: products.categoryId, price: productVariants.price })
+        .from(products)
+        .innerJoin(productVariants, and(eq(productVariants.productId, products.id), eq(productVariants.isDefault, true)))
+        .where(everything ? published : and(published, inArray(products.id, saleProductIds)));
+      for (const row of rows) {
+        const sale = applySales(row.price, row.id, sales);
+        if (!sale) continue;
+        const percent = Math.round(((sale.originalPrice - sale.price) / sale.originalPrice) * 100);
+        if (percent > (result.get(row.categoryId) ?? 0)) result.set(row.categoryId, percent);
+      }
+    }
   }
+  discountMemo = { at: Date.now(), value: result };
   return result;
 });
 
