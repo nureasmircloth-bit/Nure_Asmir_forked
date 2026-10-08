@@ -67,7 +67,8 @@ export async function POST(request: Request) {
   const delivered = results.filter((entry) => entry.result === "ok").length;
   const dead = results.filter((entry) => entry.result === "dead").map((entry) => entry.token);
   if (dead.length) await db.delete(table).where(inArray(table.token, dead)).catch((error) => console.error("could not remove dead devices", error));
-  if (delivered) await db.update(adminMessages).set({ delivered: sql`${adminMessages.delivered} + ${delivered}` }).where(eq(adminMessages.id, messageId));
+  // The notifications of this slice are already out: a failed record must not stop the answer, or the page would lose its place and send again.
+  if (delivered) await db.update(adminMessages).set({ delivered: sql`${adminMessages.delivered} + ${delivered}` }).where(eq(adminMessages.id, messageId)).catch((error) => console.error("could not record the delivery", error));
 
   return Response.json({ messageId, total, delivered, cursor: rows.length ? rows[rows.length - 1].token : cursor ?? "", done: rows.length < SLICE });
 }

@@ -1,4 +1,4 @@
-import { asc, count } from "drizzle-orm";
+import { asc, count, sql } from "drizzle-orm";
 import { sandboxRoomMessage } from "@/lib/sandbox";
 import { db } from "@/db";
 import { faqs } from "@/db/schema";
@@ -23,7 +23,9 @@ export async function POST(request: Request) {
   if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message ?? "Invalid question." }, { status: 400 });
   const [{ n }] = await db.select({ n: count() }).from(faqs);
   if (n >= MAX_FAQS) return Response.json({ error: `You can keep up to ${MAX_FAQS} questions.` }, { status: 400 });
-  const [row] = await db.insert(faqs).values({ question: parsed.data.question, answer: parsed.data.answer, active: parsed.data.active ?? true, sortOrder: n }).returning();
+  // the new question goes last: one after the highest position in use (the number of rows is not that, once one has been deleted)
+  const [{ top }] = await db.select({ top: sql<number>`coalesce(max(${faqs.sortOrder}), -1)::int` }).from(faqs);
+  const [row] = await db.insert(faqs).values({ question: parsed.data.question, answer: parsed.data.answer, active: parsed.data.active ?? true, sortOrder: top + 1 }).returning();
   await auditLogEntry({ actorEmail: admin.email, action: "faq.create", entityType: "faq", entityId: row.id, detail: { question: row.question } });
   return Response.json({ faq: row }, { status: 201 });
 }

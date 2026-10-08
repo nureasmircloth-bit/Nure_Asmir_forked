@@ -19,14 +19,19 @@ async function purgeEdgeCopies(): Promise<number> {
   if (typeof caches === "undefined") return 0;
   const [categoryRows, productRows] = await Promise.all([
     db.select({ slug: categories.slug }).from(categories),
-    db.select({ slug: products.slug }).from(products).where(eq(products.status, "published")).limit(500),
+    db.select({ slug: products.slug }).from(products).where(eq(products.status, "published")), // every published product, not just the first few hundred
   ]);
   const paths = [...PUBLIC_PAGES, ...categoryRows.map((row) => `/collections/${row.slug}`), ...productRows.map((row) => `/products/${row.slug}`)];
   const cache = (caches as unknown as { default: Cache }).default;
   const build = String(process.env.BUILD_ID ?? "dev");
   const origin = siteOrigin();
-  const results = await Promise.all(paths.map((path) => cache.delete(cacheKeyFor(new Request(`${origin}${path}`), build)).catch(() => false)));
-  return results.filter(Boolean).length;
+  // in groups, so a large catalogue does not open thousands of cache calls at once
+  let removed = 0;
+  for (let i = 0; i < paths.length; i += 50) {
+    const results = await Promise.all(paths.slice(i, i + 50).map((path) => cache.delete(cacheKeyFor(new Request(`${origin}${path}`), build)).catch(() => false)));
+    removed += results.filter(Boolean).length;
+  }
+  return removed;
 }
 
 /**

@@ -94,6 +94,9 @@ async function saveCopy(cache: EdgeCacheLike, key: Request, response: Response, 
   await cache.put(key, new Response(response.body, { status: response.status, statusText: response.statusText, headers }));
 }
 
+/** Pages being rebuilt right now in this Worker instance (see the stale branch below). */
+const rebuilding = new Map<string, Promise<void>>();
+
 /** Wraps the shop's handler. `enabled` is the kill switch (set EDGE_PAGE_CACHE=0 to turn it off without a code change). */
 export function withEdgePageCache(handler: EdgeHandler, getCache: () => EdgeCacheLike | undefined): EdgeHandler {
   return {
@@ -110,16 +113,25 @@ export function withEdgePageCache(handler: EdgeHandler, getCache: () => EdgeCach
       const rebuild = async (): Promise<Response> => {
         const fresh = await handler.fetch(request, env, ctx);
         if (isCacheableResponse(fresh)) {
-          // one copy goes to the cache, the other goes to the visitor
-          await saveCopy(cache, key, fresh.clone(), quiet ? QUIET_KEEP_SECONDS : KEEP_SECONDS).catch(() => undefined);
-          return fresh;
+          // One copy goes to the visitor straight away; the other is saved after the answer has been sent, so a slow cache write never
+          // delays anyone's first visit.
+          ctx.waitUntil(saveCopy(cache, key, fresh.clone(), quiet ? QUIET_KEEP_SECONDS : KEEP_SECONDS).catch(() => undefined));
         }
         return fresh;
       };
 
       if (hit && state === "fresh") return withMarker(hit, "HIT", savedAt);
       if (hit && state === "stale") {
-        ctx.waitUntil(rebuild().then((r) => r.arrayBuffer()).catch(() => undefined)); // reading it lets the saved copy finish too
+        // A burst of visitors right after a copy goes stale starts ONE rebuild per page in this Worker instance, not one each.
+        // (Other instances run their own: the guarantee is per instance, not global.)
+        if (!rebuilding.has(key.url)) {
+          const job = rebuild()
+            .then((r) => r.arrayBuffer()) // reading it lets the saved copy finish too
+            .then(() => undefined, () => undefined)
+            .finally(() => rebuilding.delete(key.url));
+          rebuilding.set(key.url, job);
+          ctx.waitUntil(job);
+        }
         return withMarker(hit, "STALE", savedAt);
       }
       const built = await rebuild();

@@ -4,7 +4,7 @@ import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { BRAND } from "@/lib/brand";
 import { mediaUrl } from "@/lib/media-url";
-import { applySales, getActiveSales } from "@/lib/sales";
+import { applySales, getActiveSales, getActiveSalesChecked } from "@/lib/sales";
 import { campaignSlides, categories, collections, productCollections, productImages, products, productVariants, siteSettings } from "@/db/schema";
 
 export type CatalogVariant = {
@@ -475,6 +475,7 @@ export async function getCollectionBySlug(
       sku: productVariants.sku,
       color: productVariants.color,
       price: productVariants.price,
+      compareAtPrice: productVariants.compareAtPrice,
       stock: productVariants.stockQuantity,
       reserved: productVariants.reservedQuantity,
       imageKey: productImages.r2Key,
@@ -490,6 +491,7 @@ export async function getCollectionBySlug(
     .orderBy(desc(products.publishedAt));
 
   const [extras, collectionSales] = await Promise.all([getListingExtras(rows.map((row) => row.id)), getActiveSales()]);
+  const sales = new Map(rows.map((row) => [row.id, applySales(row.price, row.id, collectionSales)]));
 
   return {
     name: collection.name,
@@ -501,9 +503,9 @@ export async function getCollectionBySlug(
       category: row.categorySlug,
       categoryId: row.categoryId,
       type: row.type,
-      price: collectionSales ? (applySales(row.price, row.id, collectionSales)?.price ?? row.price) : row.price,
-      compareAtPrice: collectionSales ? applySales(row.price, row.id, collectionSales)?.originalPrice : undefined,
-      saleEndsAt: collectionSales ? applySales(row.price, row.id, collectionSales)?.sale.endsAt.toISOString() : undefined,
+      price: sales.get(row.id)?.price ?? row.price,
+      compareAtPrice: sales.get(row.id)?.originalPrice ?? row.compareAtPrice ?? undefined,
+      saleEndsAt: sales.get(row.id)?.sale.endsAt.toISOString(),
       color: row.color,
       badge: row.badge ?? "",
       sku: row.sku,
@@ -552,7 +554,7 @@ const DISCOUNT_MEMO_MS = Number(process.env.SALES_MEMO_MS ?? 15_000); // (the te
 export const getCategoryDiscounts = cache(async (): Promise<Map<string, number>> => {
   if (discountMemo && Date.now() - discountMemo.at < DISCOUNT_MEMO_MS) return discountMemo.value;
   const result = new Map<string, number>();
-  const sales = await getActiveSales();
+  const { sales, ok } = await getActiveSalesChecked();
   if (sales.length) {
     const everything = sales.some((sale) => sale.appliesToAll);
     const saleProductIds = [...new Set(sales.flatMap((sale) => [...sale.productIds]))];
@@ -571,7 +573,8 @@ export const getCategoryDiscounts = cache(async (): Promise<Map<string, number>>
       }
     }
   }
-  discountMemo = { at: Date.now(), value: result };
+  // A failed sales load gave an empty list that is not the truth: it is shown this once, but not remembered.
+  if (ok) discountMemo = { at: Date.now(), value: result };
   return result;
 });
 

@@ -146,6 +146,7 @@ export async function POST(request: Request) {
           material: data.material,
           shortDescription: data.shortDescription,
           description: data.description,
+          keywords: data.seoKeywords,
         });
 
   let row;

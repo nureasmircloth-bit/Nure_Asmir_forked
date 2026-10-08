@@ -593,3 +593,4 @@
   .alerts-prompt { bottom: calc(136px + env(safe-area-inset-bottom)); }
   .shop-toast { bottom: calc(136px + env(safe-area-inset-bottom)); }
 }
+.ts-error { margin: 6px 0 0; color: #8d2929; font-size: 13px; }

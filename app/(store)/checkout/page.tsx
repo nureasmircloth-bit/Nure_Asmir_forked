@@ -6,7 +6,7 @@ import Script from "next/script";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { clearCart, readCart, type CartItem } from "@/lib/cart";
 import { checkoutAttemptKey, clearCheckoutAttempt, syncCartWithServer } from "@/lib/cart-sync";
-import { hasCustomerPushToken, pushSupport, registerCustomerPush } from "@/lib/customer-push";
+import { pushSupport, registerCustomerPush } from "@/lib/customer-push";
 import { matchZone } from "@/lib/geo";
 import { computeDeliveryCharge, freeDeliveryHint, isDeliveryMode } from "@/lib/shop-rules";
 import { useLockedAction } from "@/lib/use-locked-action";
@@ -474,7 +474,7 @@ export default function CheckoutPage() {
               {receiptMessage && <small>{receiptMessage}</small>}
             </aside>
           )}
-          {pushSupport() === "available" && !hasCustomerPushToken() && pushState !== "on" && (
+          {pushSupport() === "available" && pushState !== "on" && (
             <div className="push-optin">
               <button
                 type="button"

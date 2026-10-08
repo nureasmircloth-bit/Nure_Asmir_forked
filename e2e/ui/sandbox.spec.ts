@@ -33,15 +33,15 @@ test("practice shop: banner, the allowance running out, sign-in still possible, 
   await expect(page.getByText("PRACTICE question?")).toHaveCount(0);
 
   // spend the allowance: calls are answered with a plain 429, pages with a friendly page, sign-in still works
-  let blocked = 0;
+  let blocked = false;
   for (let i = 0; i < 90 && !blocked; i++) {
     const response = await request.get(`${URL}/api/admin/messages`);
     if (response.status() === 429) {
-      blocked = i;
+      blocked = true; // (a flag, not a count: the very first call may already be blocked)
       expect((await response.json()).error).toMatch(/practice/i);
     }
   }
-  expect(blocked, "the allowance ran out").toBeGreaterThan(0);
+  expect(blocked, "the allowance ran out").toBe(true);
   const pageResponse = await page.goto(`${URL}/admin/orders`);
   expect(pageResponse!.status()).toBe(429);
   await expect(page.locator("body")).toContainText("enough practice for today");

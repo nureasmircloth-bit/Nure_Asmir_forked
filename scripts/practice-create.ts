@@ -22,7 +22,7 @@ async function main() {
 
   const existing = (await sql`select 1 from pg_roles where rolname = ${ROLE}`) as unknown[];
   const rotate = process.argv.includes("--rotate");
-  if (existing.length && !rotate && !process.argv.includes("--url-only")) {
+  if (existing.length && !rotate) {
     console.log(`${ROLE} already exists. Nothing to do (use --rotate to set a new password).`);
     return;
   }
@@ -31,8 +31,8 @@ async function main() {
   else await sql.query(`alter role ${ROLE} password '${password}'`);
   await sql.query(`create schema if not exists ${SCHEMA}`);
   await sql.query(`grant all on schema ${SCHEMA} to ${ROLE}`);
-  // (the migration tool runs "create schema if not exists", which asks for this right even when the schema is already there)
-  await sql.query(`do $$ begin execute format('grant create on database %I to ${ROLE}', current_database()); end $$`);
+  // The user may build things only inside its own schema, never create new schemas in the database (an older version of this script granted that).
+  await sql.query(`do $$ begin execute format('revoke create on database %I from ${ROLE}', current_database()); end $$`);
   await sql.query(`alter role ${ROLE} set search_path = ${SCHEMA}`);
   // the practice user must never reach the real tables, even by accident
   await sql.query(`revoke all on all tables in schema public from ${ROLE}`);

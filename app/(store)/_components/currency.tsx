@@ -56,6 +56,7 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
   const [currency, setCurrencyState] = useState<CurrencyCode>(BASE_CURRENCY);
   const [rates, setRates] = useState<RatesPerPkr | null>(null);
   const requested = useRef(false);
+  const [rateRetry, setRateRetry] = useState(0);
 
   useEffect(() => {
     const saved = readStored<string>(CURRENCY_KEY);
@@ -67,17 +68,25 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
   // First visit and no choice yet: start on the currency of the shopper's own country (once; their own choice always wins afterwards).
   useEffect(() => {
     if (readStored<string>(CURRENCY_KEY) || readStored<boolean>(AUTO_KEY)) return;
-    writeStored(AUTO_KEY, true);
+    let cancelled = false;
     fetch("/api/geo/country")
       .then((response) => (response.ok ? (response.json() as Promise<{ country: string | null }>) : null))
       .then((data) => {
-        if (!data?.country || readStored<string>(CURRENCY_KEY)) return;
+        if (cancelled || !data) return; // a failed lookup leaves the marker unset, so the next visit tries again
+        writeStored(AUTO_KEY, true); // an answer arrived (even "unknown"): never ask again
+        if (!data.country || readStored<string>(CURRENCY_KEY)) return;
         const guess = currencyForCountry(data.country);
-        if (guess !== BASE_CURRENCY) setCurrencyState(guess);
+        if (guess !== BASE_CURRENCY) {
+          setCurrencyState(guess);
+          writeStored(CURRENCY_KEY, guess); // remembered, so a reload keeps it; the shopper's own choice replaces it any time
+        }
       })
       .catch(() => {
-        // no country: stay on PKR
+        // no country: stay on PKR and try again on the next visit
       });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -93,8 +102,9 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
       .then((response) => (response.ok ? (response.json() as Promise<RatesPayload>) : null))
       .then((payload) => {
         if (!payload?.rates) {
-          // 503 / bad body: allow a later attempt (e.g. when the shopper re-opens the switcher).
+          // 503 / bad body: try again shortly (a few times), so the switcher does not say "Loading rates…" for the rest of the visit.
           requested.current = false;
+          if (rateRetry < 3) window.setTimeout(() => setRateRetry((count) => count + 1), 15_000);
           return;
         }
         setRates(payload.rates);
@@ -103,8 +113,9 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
       .catch(() => {
         // Prices simply stay in PKR if rates can't be loaded.
         requested.current = false;
+        if (rateRetry < 3) window.setTimeout(() => setRateRetry((count) => count + 1), 15_000);
       });
-  }, [currency]);
+  }, [currency, rateRetry]);
 
   const setCurrency = useCallback((code: CurrencyCode) => {
     setCurrencyState(code);

@@ -20,9 +20,9 @@
 <table>
 <tr><th>Rule</th><th>What it means</th><th>Where you see it</th></tr>
 <tr><td>One source of truth</td><td>Orders, stock and prices are saved in one database. Copies are derived from it, never the other way round.</td><td>Standard practice in online shops</td></tr>
-<tr><td>Write the database first, then refresh the copies</td><td>If you update the copy first and the database save then fails, the shop shows something that never happened (a price, a stock number, an order). Doing it in this order means the worst case is a copy that is briefly old, never one that is wrong.</td><td>Known as &ldquo;Cache-aside with invalidation&rdquo;; event-driven refreshldquo;cache-aside with invalidation&ldquo;Cache-aside with invalidation&rdquo;; event-driven refreshrdquo;</td></tr>
+<tr><td>Write the database first, then refresh the copies</td><td>If you update the copy first and the database save then fails, the shop shows something that never happened (a price, a stock number, an order). Doing it in this order means the worst case is a copy that is briefly old, never one that is wrong.</td><td>Known as &ldquo;cache-aside with invalidation&rdquo; (also called event-driven refresh)</td></tr>
 <tr><td>Browse from copies, buy from the truth</td><td>Product lists and pages may be a minute old. The cart, checkout and stock hold always check the real database.</td><td>Standard practice in large online shops (browsing is allowed to be slightly old; paying never is)</td></tr>
-<tr><td>Serve an old copy while making a new one (&ldquo;stale while revalidate&rdquo;)</td><td>The visitor never waits for the rebuild, and only one rebuild runs even if many people arrive at once.</td><td>Cloudflare, Fastly and other CDNs, Next.js</td></tr>
+<tr><td>Serve an old copy while making a new one (&ldquo;stale while revalidate&rdquo;)</td><td>The visitor never waits for the rebuild, and within one Worker instance only one rebuild per page runs even if many people arrive at once (separate instances may each rebuild once).</td><td>Cloudflare, Fastly and other CDNs, Next.js</td></tr>
 <tr><td>Version the copies</td><td>Each release has its own copies, so a new release can never be shown pages that point to the old release&rsquo;s files.</td><td>Standard practice for sites that release often</td></tr>
 <tr><td>Separate reading from writing (CQRS)</td><td>A fast read model for browsing, the careful database for changes.</td><td>Large catalogues, and a standard design pattern</td></tr>
 </table>
@@ -31,7 +31,7 @@
 <table>
 <tr><th>Layer</th><th>What it holds</th><th>Lifetime</th><th>Status</th></tr>
 <tr><td>0. Browser and Cloudflare static files</td><td>Scripts, styles, fonts, pictures (<code>/cdn</code>, one-year cache)</td><td>Months (file names change with each release)</td><td><span class="tag good">Done</span></td></tr>
-<tr><td>1. Page copy in Cloudflare&rsquo;s cache in the visitor&rsquo;s data centre</td><td>Finished HTML of public pages: home, shop, categories, products, FAQ, policies</td><td>Fresh 45 s, then served while rebuilding for up to 10 min; one set per release</td><td><span class="tag good">Built (live after merge)</span></td></tr>
+<tr><td>1. Page copy in Cloudflare&rsquo;s cache in the visitor&rsquo;s data centre</td><td>Finished HTML of public pages: home, shop, categories, products, FAQ, policies</td><td>Fresh 45 s (2 min for About, Contact, FAQ and policies), then an old copy may still be shown while a new one is built, for at most 3 min (15 min for those pages); one set per release</td><td><span class="tag good">Built (live after merge)</span></td></tr>
 <tr><td>2. Saved page renders in R2 (OpenNext cache)</td><td>The same pages, as the server last built them</td><td>24&ndash;60 s, purged by the admin when something changes</td><td><span class="tag good">Done</span></td></tr>
 <tr><td>3. Product snapshot (proposed)</td><td>The first pages of the catalogue as a ready-made file (for example &ldquo;newest first, page 1 and 2&rdquo;), rebuilt after each admin change and nightly</td><td>Until the next change</td><td><span class="tag warn">Proposed</span></td></tr>
 <tr><td>4. Paged product API at the edge (proposed)</td><td>Pages 3, 4, 5&hellip; loaded as the shopper scrolls, each answer cached for 60 s</td><td>60 s plus stale</td><td><span class="tag warn">Proposed</span></td></tr>
@@ -44,7 +44,7 @@
 <li><strong>A page can be up to about a minute old.</strong> Prices, &ldquo;in stock&rdquo; and flash-sale labels on pages come from the copy.</li>
 <li><strong>The server never trusts the page.</strong> When the shopper adds to the bag and again at checkout, the real database is asked, and the price is recalculated on the server.</li>
 <li><strong>Stock is protected in the database, not in the copy.</strong> An order holds stock with an atomic update; two people cannot buy the last item.</li>
-<li><strong>When the owner edits something,</strong> the admin tells the shop to throw away its saved pages (&ldquo;purge&rdquo;), so the change shows in seconds on the nearest copy and within about 45 seconds elsewhere.</li>
+<li><strong>When the owner edits something,</strong> the admin tells the shop to throw away its saved pages (&ldquo;purge&rdquo;), so the change shows on the very next visit in that data centre. Copies in other data centres cannot be reached from here: they are still served for a short while (45 seconds fresh, then at most 3 minutes, or 15 for About, Contact, FAQ and policies) before being rebuilt.</li>
 <li><strong>When someone buys,</strong> stock changes in the database first; the copies catch up within the same window. A sold-out item may show for up to a minute but cannot be ordered.</li>
 </ul>
 
@@ -62,7 +62,7 @@
 <table>
 <tr><th>Problem</th><th>What happens</th><th>Our protection</th></tr>
 <tr><td>A copy is older than it should be</td><td>Customer sees an old price for a minute</td><td>Short life; checkout re-prices on the server</td></tr>
-<tr><td>The purge after an admin edit fails</td><td>Old page stays until it expires</td><td>It expires in 45 s anyway</td></tr>
+<tr><td>The purge after an admin edit fails</td><td>An old page may stay until its time is up</td><td>An old copy is never served for more than 3 minutes (15 for About, Contact, FAQ and policies); then it is rebuilt</td></tr>
 <tr><td>The database is down</td><td>Pages that must be built fail</td><td>Copies up to 3 minutes old (15 for About, Contact, FAQ and policies) still serve while rebuilding</td></tr>
 <tr><td>The owner changes a price, banner or setting</td><td>The website shows it after a few minutes, not instantly</td><td>The admin says so after every save: &ldquo;about 3 minutes (around 3:45 pm)&rdquo;, or 5 for the settings, questions and Our story page. One watcher in the admin (<code>lib/storefront-delay.ts</code>) writes the promise, so no form can promise a wrong time</td></tr>
 <tr><td>A release changes the script files</td><td>Old copies would point to missing files</td><td>Every release has its own copies (build number in the key)</td></tr>

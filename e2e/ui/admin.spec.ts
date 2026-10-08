@@ -581,6 +581,7 @@ test.describe("admin (desktop Chromium)", () => {
 
       // wide view: the lesson list steps aside and the pretend screen gets bigger
       const stage = page.locator(".tour-stage");
+      await expect(stage).toBeVisible({ timeout: 30_000 }); // after the reload the page can still be showing "Loading"
       const small = (await stage.boundingBox())!.height; // (only used to prove the window never grows past its real size of 760 px)
       expect(small).toBeGreaterThan(300);
       await page.getByRole("button", { name: "Wide view" }).click();
@@ -592,10 +593,13 @@ test.describe("admin (desktop Chromium)", () => {
       await expect(page.locator(".tour-step")).toHaveText(/Step [2-9] of/, { timeout: 40_000 });
       await page.getByRole("button", { name: "❚❚ Pause" }).click();
 
-      // full screen (falls back to the wide view where a browser refuses)
+      // full screen (falls back to the wide view where a browser refuses). Leave the wide view first, so it is the Full screen click that changes the mode.
+      await page.getByRole("button", { name: "Show lesson list" }).click(); // (the wide-view button changes its name while wide view is on)
+      await expect(page.locator(".tour.is-wide")).toHaveCount(0);
       await page.getByRole("button", { name: "Full screen" }).click();
       await expect.poll(async () => page.evaluate(() => Boolean(document.fullscreenElement) || document.querySelector(".tour")?.classList.contains("is-wide") === true)).toBe(true);
       await page.evaluate(() => document.fullscreenElement && document.exitFullscreen());
+      if (await page.locator(".tour.is-wide").count()) await page.getByRole("button", { name: "Show lesson list" }).click(); // the browser refused full screen: leave the wide view it fell back to
 
       await page.getByRole("button", { name: "Show the menu" }).click();
       await expect.poll(async () => (await side.boundingBox())!.width).toBeGreaterThan(200);
@@ -624,7 +628,7 @@ test.describe("admin (desktop Chromium)", () => {
       expect(real?.width).toBeGreaterThan(200);
 
       // the written guide, same lessons, same number of steps
-      await page.getByRole("button", { name: "Parhein (text guide)" }).click();
+      await page.getByRole("tab", { name: "Parhein (text guide)" }).click();
       const guides = page.locator("section[id^='guide-']");
       expect(await guides.count()).toBeGreaterThanOrEqual(10);
       await expect(guides.first()).toContainText("Apna raasta jaanein");
@@ -641,14 +645,14 @@ test.describe("admin (desktop Chromium)", () => {
 
       // every lesson has exactly as many Roman Urdu lines as it has steps
       await page.getByRole("button", { name: "Roman Urdu" }).click();
-      await page.getByRole("button", { name: "Parhein (text guide)" }).click();
+      await page.getByRole("tab", { name: "Parhein (text guide)" }).click();
       const lessons = (await guides.count());
       for (let i = 0; i < lessons; i++) {
         const lines = await guides.nth(i).locator("ol li").count();
-        await page.getByRole("button", { name: "Dekhein (video jaisa)" }).click();
+        await page.getByRole("tab", { name: "Dekhein (video jaisa)" }).click();
         await page.locator("nav[aria-label='Lessons'] button").nth(i).click();
         await expect(page.locator(".tour-step")).toHaveText(new RegExp(`Qadam 1 / ${lines}$`));
-        await page.getByRole("button", { name: "Parhein (text guide)" }).click();
+        await page.getByRole("tab", { name: "Parhein (text guide)" }).click();
       }
     });
 

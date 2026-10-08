@@ -55,3 +55,19 @@ test.describe("Groq keys in turn", () => {
     expect(keyOrder(keys, 0)).toEqual([0, 1, 2]);
   });
 });
+
+import { isPlausibleEmail } from "../../lib/email-address";
+
+test.describe("plain-text copy and address checks (review fixes)", () => {
+  test("a style or script block is found by its whole tag name, and an unclosed one is cut off, not shown", () => {
+    expect(htmlToText("<scripting>keep me</scripting> and <script>hide()</script>after")).toContain("keep me");
+    expect(htmlToText("<scripting>keep me</scripting> and <script>hide()</script>after")).not.toContain("hide()");
+    expect(htmlToText("Before <script>alert(1) with no end")).toBe("Before");
+    expect(htmlToText('<styles>x</styles><style type="text/css">p{}</style>Hello')).toBe("xHello");
+  });
+
+  test("an address needs real characters on both sides of every dot before the @", () => {
+    for (const good of ["alice@example.com", "alice.smith@example.com", "a.b.c@mail.example.co.uk", "alice+tag@example.com"]) expect(isPlausibleEmail(good), good).toBe(true);
+    for (const bad of [".alice@example.com", "alice.@example.com", "alice..smith@example.com", "alice@example", "alice@.example.com", "a b@example.com", "@example.com", `${"a".repeat(250)}@x.com`]) expect(isPlausibleEmail(bad), bad).toBe(false);
+  });
+});

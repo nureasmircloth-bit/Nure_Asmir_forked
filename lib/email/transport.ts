@@ -34,7 +34,7 @@ export function htmlToText(html: string): string {
     } while (text !== previous);
     return text;
   };
-  const withoutCode = strip(html, /<(style|script)[\s\S]*?<\/\1>/gi);
+  const withoutCode = strip(strip(html, /<(style|script)\b[^>]*>[\s\S]*?<\/\1\s*>/gi), /<(style|script)\b[^>]*>[\s\S]*$/gi);
   const withLinks = withoutCode
     .replace(/<br\s*\/?>|<\/(p|div|tr|h[1-6]|li)>/gi, "\n")
     .replace(/<a [^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi, "$2 ($1)");

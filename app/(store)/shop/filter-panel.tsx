@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useModalFocus } from "@/lib/use-modal-focus";
+import { Price } from "../_components/currency";
 import { Portal } from "../_components/portal";
 import { countFilters, EMPTY_FILTERS, hasFilters, type CatalogFilters } from "@/lib/catalog-filters";
 
 export type Facets = { price: { min: number; max: number }; sizes: Array<{ value: string; count: number }>; colors: Array<{ value: string; count: number }> };
 
-const rupees = (n: number) => `Rs. ${n.toLocaleString("en-PK")}`;
 
 /** Best-effort swatch for a colour name (anything unknown gets a neutral dot, never a wrong one). */
 const SWATCHES: Record<string, string> = {
@@ -20,6 +21,31 @@ export const swatchFor = (name: string): string | null => {
   const word = Object.keys(SWATCHES).find((word) => key.split(/[\s/-]+/).includes(word));
   return word ? SWATCHES[word] : null;
 };
+
+/** A price box you can finish typing in: what you type is kept as you go and applied when you leave the box or press Enter (an empty box keeps the old price). */
+function PriceInput({ value, label, onCommit }: { value: number; label: string; onCommit: (next: number) => void }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const apply = () => {
+    const digits = (draft ?? "").replace(/\D/g, "");
+    if (digits) onCommit(Number(digits));
+    setDraft(null);
+  };
+  return (
+    <input
+      inputMode="numeric"
+      aria-label={label}
+      value={draft ?? String(value)}
+      onChange={(event) => setDraft(event.target.value.replace(/\D/g, ""))}
+      onBlur={apply}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          apply();
+        }
+      }}
+    />
+  );
+}
 
 /** Two sliders over one bar: the lower and upper price. Either end can also be typed. */
 function PriceRange({ bounds, min, max, onChange }: { bounds: { min: number; max: number }; min?: number; max?: number; onChange: (min?: number, max?: number) => void }) {
@@ -40,16 +66,16 @@ function PriceRange({ bounds, min, max, onChange }: { bounds: { min: number; max
       <div className="fp-fields">
         <label>
           <span>From</span>
-          <input inputMode="numeric" aria-label="Lowest price in rupees" value={low} onChange={(event) => commit(Math.min(Number(event.target.value.replace(/\D/g, "")) || bounds.min, high), high)} />
+          <PriceInput label="Lowest price in rupees" value={low} onCommit={(next) => commit(Math.min(next, high), high)} />
         </label>
         <b aria-hidden="true">–</b>
         <label>
           <span>To</span>
-          <input inputMode="numeric" aria-label="Highest price in rupees" value={high} onChange={(event) => commit(low, Math.max(Number(event.target.value.replace(/\D/g, "")) || bounds.max, low))} />
+          <PriceInput label="Highest price in rupees" value={high} onCommit={(next) => commit(low, Math.max(next, low))} />
         </label>
       </div>
       <p className="fp-caption">
-        {rupees(low)} – {rupees(high)}
+        <Price amount={low} /> – <Price amount={high} />
       </p>
     </div>
   );
@@ -80,18 +106,16 @@ export function FilterPanel({
 
   if (open && !wasOpen) setWasOpen(true); // remember it was opened, so the panel can slide closed instead of vanishing
 
+  useModalFocus(open, panel, onClose); // focus moves in, Tab stays in, Escape closes, focus returns to the Filters button
+
   useEffect(() => {
     if (!open) return;
-    const onKey = (event: KeyboardEvent) => event.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    panel.current?.focus();
     return () => {
-      window.removeEventListener("keydown", onKey);
       document.body.style.overflow = previous;
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open && !wasOpen) return null;
   const toggle = (key: "sizes" | "colors", value: string) => {
@@ -101,7 +125,7 @@ export function FilterPanel({
 
   return (
     <Portal>
-    <div className={`fp-scrim${open ? " is-open" : ""}`} onMouseDown={(event) => event.target === event.currentTarget && onClose()} aria-hidden={!open}>
+    <div className={`fp-scrim${open ? " is-open" : ""}`} onMouseDown={(event) => event.target === event.currentTarget && onClose()} aria-hidden={!open} inert={!open}>
       <div className="fp" role="dialog" aria-modal="true" aria-label="Filter products" tabIndex={-1} ref={panel}>
         <header>
           <h2>Filters{countFilters(filters) ? ` (${countFilters(filters)})` : ""}</h2>

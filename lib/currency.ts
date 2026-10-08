@@ -70,7 +70,7 @@ export function formatPrice(amountPkr: number, currency: CurrencyCode, rates: Ra
 
 /* ---- flags + "start on the shopper's own currency" ---- */
 
-const EUROZONE = new Set(["AT", "BE", "HR", "CY", "EE", "FI", "FR", "DE", "GR", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PT", "SK", "SI", "ES"]);
+const EUROZONE = new Set(["AT", "BE", "BG", "HR", "CY", "EE", "FI", "FR", "DE", "GR", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PT", "SK", "SI", "ES"]);
 
 /** The currency to start on for a visitor from `country` (ISO code). Pakistan → PKR; countries we have a currency for get theirs; anywhere else → USD. */
 export function currencyForCountry(country: string | null | undefined): CurrencyCode {

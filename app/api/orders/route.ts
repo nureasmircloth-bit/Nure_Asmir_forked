@@ -446,7 +446,7 @@ export async function POST(request: Request) {
 
   notifyAdmins({
     title: `New order ${orderNumber}`,
-    body: `${customerName} · Rs. ${total.toLocaleString("en-PK")} · ${paymentMethod === "bank_deposit" ? "Bank deposit" : "Cash on delivery"}`,
+    body: `${customerName.slice(0, 60)} · Rs. ${total.toLocaleString("en-PK")} · ${paymentMethod === "bank_deposit" ? "Bank deposit" : "Cash on delivery"}`,
     url: "/admin/orders",
   });
 

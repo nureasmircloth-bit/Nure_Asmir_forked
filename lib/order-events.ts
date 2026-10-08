@@ -44,6 +44,9 @@ async function deliver(orderId: string, event: OrderEventKind, actor: "admin" | 
     .where(eq(orders.id, orderId))
     .limit(1);
   if (!order) return;
+  // A "booked" announcement belongs to ONE tracking number. If the number was corrected again before this job ran, the newer number has its own
+  // announcement: this one stops, so nobody is told the same (newest) number twice.
+  if (event === "booked" && variant && order.trackingNumber !== variant) return;
 
   // Idempotency: only the first caller for this (order, event) proceeds.
   const claimed = await db.insert(orderEventsSent).values({ orderId, event: variant ? `${event}:${variant}` : event }).onConflictDoNothing().returning({ event: orderEventsSent.event });

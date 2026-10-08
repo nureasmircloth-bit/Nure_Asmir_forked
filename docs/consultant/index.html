@@ -130,7 +130,7 @@
 
   document.addEventListener("click", function (e) {
     var t = e.target.closest("[data-open], .node"); if (!t) return;
-    var id = t.getAttribute("data-open") || t.getAttribute("data-id"); if (id) { show(id); var el = document.getElementById("node-" + id); if (el && t.hasAttribute("data-open")) el.scrollIntoView({ block: "center", behavior: "smooth" }); }
+    var id = t.getAttribute("data-open") || t.getAttribute("data-id"); if (id) { show(id); var el = document.getElementById("node-" + id); if (el && t.hasAttribute("data-open") && !window.matchMedia("(max-width: 900px)").matches) el.scrollIntoView({ block: "center", behavior: "smooth" }); // on a phone the details panel stays in view }
   });
 
   // the story

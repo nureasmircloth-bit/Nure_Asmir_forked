@@ -72,20 +72,26 @@ const MEMO_MS = Number(process.env.SALES_MEMO_MS ?? 15_000);
 /** Active sales for page rendering — memoised per isolate for 15 s so a busy storefront doesn't hit
  * the database on every request. Order placement must call `loadFreshActiveSales` instead. */
 export async function getActiveSales(): Promise<ActiveSale[]> {
+  return (await getActiveSalesChecked()).sales;
+}
+
+/** The same as getActiveSales, and also says whether the list is real (`ok`) or the empty fallback after a failed load, so callers that
+ * remember a derived result do not keep a wrong "no sale" answer. */
+export async function getActiveSalesChecked(): Promise<{ sales: ActiveSale[]; ok: boolean }> {
   const now = Date.now();
   if (memo && now - memo.at < MEMO_MS) {
     // A memoised sale may have ended since it was loaded.
-    return memo.sales.filter((sale) => sale.endsAt.getTime() > now && sale.startsAt.getTime() <= now);
+    return { sales: memo.sales.filter((sale) => sale.endsAt.getTime() > now && sale.startsAt.getTime() <= now), ok: true };
   }
   try {
     const sales = await loadActiveSales(new Date(now));
     memo = { at: now, sales };
-    return sales;
+    return { sales, ok: true };
   } catch (error) {
     // Pricing falls back to list prices rather than taking every storefront page down (e.g. a
     // migration that has not been applied yet). Order placement uses loadFreshActiveSales and fails loudly.
     console.error("getActiveSales failed — showing list prices", error);
-    return [];
+    return { sales: [], ok: false };
   }
 }
 

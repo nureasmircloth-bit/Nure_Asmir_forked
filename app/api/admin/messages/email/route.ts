@@ -95,6 +95,7 @@ export async function POST(request: Request) {
     ),
   );
   const delivered = sent.filter(Boolean).length;
-  if (delivered) await db.update(adminMessages).set({ delivered: sql`${adminMessages.delivered} + ${delivered}` }).where(eq(adminMessages.id, messageId));
+  // The emails of this slice are already out: a failed record must not stop the answer, or the page would lose its place and send again.
+  if (delivered) await db.update(adminMessages).set({ delivered: sql`${adminMessages.delivered} + ${delivered}` }).where(eq(adminMessages.id, messageId)).catch((error) => console.error("could not record the delivery", error));
   return Response.json({ messageId, total, delivered, cursor: rows.length ? rows[rows.length - 1].email : input.cursor ?? "", done: rows.length < SLICE });
 }

@@ -41,9 +41,9 @@ window.NODES = {
   edge: {
     title: "Cloudflare edge: HTTPS, cache and shield", tier: "Cloudflare edge",
     what: "The front door in Lahore: secure connection, protection and a nearby cache.",
-    how: ["Forces HTTPS and sends security headers.", "Pictures are cached for a year.", "Public pages (home, shop, categories, products, FAQ, policies) are now also kept in this data centre: fresh for 45 seconds, then served while a new copy is made (up to 10 minutes). Carts, checkout, orders, search, the API and anyone signed in always go to the real server.", "Each release has its own copies. A kill switch (EDGE_PAGE_CACHE=0) turns it off without code changes."],
+    how: ["Forces HTTPS and sends security headers.", "Pictures are cached for a year.", "Public pages (home, shop, categories, products, FAQ, policies) are now also kept in this data centre: fresh for 45 seconds, then an old copy may still be shown while a new one is made (never more than 3 minutes; 15 for About, Contact, FAQ and policies). Carts, checkout, orders, search, the API and anyone signed in always go to the real server.", "Each release has its own copies. A kill switch (EDGE_PAGE_CACHE=0) turns it off without code changes."],
     links: ["Shop Worker", "Admin Worker"],
-    limits: ["Copies are per data centre, so a change shows within about 45 seconds, not instantly everywhere."],
+    limits: ["Copies are per data centre. A change clears the copies in one data centre at once; elsewhere an old copy can still be shown for up to 3 minutes (15 for the quiet pages). The admin tells the owner the time."],
     code: ["middleware.ts", "public/_headers"],
     doc: ["Caching and data design", "04-caching-design.html#layers"],
   },
@@ -229,6 +229,6 @@ window.STORY = [
   ["At checkout a bot check and an email code protect the order", ["turnstile", "mail"]],
   ["The server re-checks every price and delivery rule, then saves the order", ["rules", "api", "db"]],
   ["The owner gets an alert and opens the order in admin", ["firebase", "staff", "admin"]],
-  ["The parcel is booked with TCS and status is synced on a timer", ["tcs", "jobs"]],
+  ["Once the TCS account is connected, the parcel is booked with one click and its status is synced on a timer; until then the owner types the tracking number by hand", ["tcs", "jobs"]],
   ["If something breaks, the error is recorded", ["sentry"]],
 ];

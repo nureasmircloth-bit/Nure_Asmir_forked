@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, notInArray } from "drizzle-orm";
 import { db } from "@/db";
 import { flashSaleProducts, flashSales } from "@/db/schema";
 import { getAdminUser } from "@/lib/auth/admin-auth";
@@ -32,10 +32,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     .returning();
   if (!sale) return Response.json({ error: "Sale not found." }, { status: 404 });
 
-  await db.delete(flashSaleProducts).where(eq(flashSaleProducts.saleId, id));
-  if (!data.appliesToAll && data.productIds.length) {
-    await db.insert(flashSaleProducts).values(data.productIds.map((productId) => ({ saleId: id, productId })));
-  }
+  // The Neon HTTP driver has no transactions: add the new links first, then remove the ones no longer wanted, so a failure in between
+  // leaves a sale with too many products rather than a live sale with none.
+  const wanted = data.appliesToAll ? [] : data.productIds;
+  if (wanted.length) await db.insert(flashSaleProducts).values(wanted.map((productId) => ({ saleId: id, productId }))).onConflictDoNothing();
+  await db.delete(flashSaleProducts).where(wanted.length ? and(eq(flashSaleProducts.saleId, id), notInArray(flashSaleProducts.productId, wanted)) : eq(flashSaleProducts.saleId, id));
   await auditLogEntry({ actorEmail: admin.email, action: "flash-sale.update", entityType: "flash_sale", entityId: id, detail: { name: data.name } });
   return Response.json({ sale: { ...sale, productIds: data.appliesToAll ? [] : data.productIds } });
 }

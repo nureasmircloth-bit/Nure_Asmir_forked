@@ -4,18 +4,20 @@
 // The Sentry browser code is about 140 KB compressed – bigger than everything else the home page needs together – so it is NOT
 // part of the first load. Until it has loaded (a moment after the page is interactive) a tiny listener remembers any error, and
 // the errors are handed over as soon as Sentry is ready, so nothing is lost.
+import { holdUntilReady, sentryState } from "./lib/sentry-state";
+
 type SentryModule = typeof import("@sentry/nextjs");
 
 let sentry: SentryModule | null = null;
-const early: unknown[] = [];
-const remember = (event: ErrorEvent) => void (early.length < 20 && early.push(event.error ?? event.message));
-const rememberRejection = (event: PromiseRejectionEvent) => void (early.length < 20 && early.push(event.reason));
+// Errors wait in lib/sentry-state.ts (shared with the error screens, lib/sentry-lazy.ts) until Sentry has loaded.
+const remember = (event: ErrorEvent) => holdUntilReady(event.error ?? event.message);
+const rejectionHandler = (event: PromiseRejectionEvent) => holdUntilReady(event.reason);
 
 const active = process.env.NODE_ENV === "production" && !!process.env.NEXT_PUBLIC_SENTRY_DSN;
 
 if (active && typeof window !== "undefined") {
   window.addEventListener("error", remember);
-  window.addEventListener("unhandledrejection", rememberRejection);
+  window.addEventListener("unhandledrejection", rejectionHandler);
 
   const load = () => {
     void import("@sentry/nextjs").then((module) => {
@@ -51,8 +53,9 @@ if (active && typeof window !== "undefined") {
       });
       sentry = module;
       window.removeEventListener("error", remember);
-      window.removeEventListener("unhandledrejection", rememberRejection);
-      for (const error of early.splice(0)) module.captureException(error);
+      window.removeEventListener("unhandledrejection", rejectionHandler);
+      sentryState.ready = true;
+      for (const error of sentryState.early.splice(0)) module.captureException(error);
     });
   };
   const later = () => (typeof window.requestIdleCallback === "function" ? window.requestIdleCallback(load, { timeout: 6000 }) : window.setTimeout(load, 3000));

@@ -23,7 +23,7 @@ function readDone(): string[] {
  * It is not a recording – it is drawn live with the same colours and shapes as the real admin, so it always matches, loads
  * instantly and needs no video bandwidth. Everything can be paused, stepped and replayed; with "reduce motion" it never autoplays.
  */
-export function TrainingPlayer({ lessons, initialLesson, lang }: { lessons: Lesson[]; initialLesson?: string; lang: Lang }) {
+export function TrainingPlayer({ lessons, initialLesson, lang, onSelect }: { lessons: Lesson[]; initialLesson?: string; lang: Lang; onSelect?: (lessonId: string) => void }) {
   const L = UI[lang];
   const words = (item: Lesson) => (lang === "ur" && UR[item.id] ? { title: UR[item.id].title, blurb: UR[item.id].blurb } : { title: item.title, blurb: item.blurb });
   const startIndex = Math.max(0, lessons.findIndex((lesson) => lesson.id === initialLesson));
@@ -175,7 +175,7 @@ export function TrainingPlayer({ lessons, initialLesson, lang }: { lessons: Less
     const fit = () => {
       const width = wrap.current?.clientWidth ?? FRAME_WIDTH;
       const room = full ? window.innerHeight - 250 : wide ? Math.max(480, window.innerHeight - 120) : Infinity;
-      setScale(Math.max(0.3, Math.min(width / FRAME_WIDTH, room / FRAME_HEIGHT, 1.6)));
+      setScale(Math.max(0.1, Math.min(width / FRAME_WIDTH, room / FRAME_HEIGHT, 1.6))); // (a very narrow window gets a smaller screen, never one that spills over the edge)
     };
     fit();
     const observer = new ResizeObserver(fit);
@@ -203,11 +203,12 @@ export function TrainingPlayer({ lessons, initialLesson, lang }: { lessons: Less
       if (document.fullscreenElement) await document.exitFullscreen();
       else await root.current?.requestFullscreen();
     } catch {
-      setWide((value) => !value); // this browser refuses full screen: the wide view is the next best thing
+      setWide(true); // this browser refuses full screen: the wide view is the next best thing (and stays on if it already was)
     }
   }
 
   function choose(index: number) {
+    onSelect?.(lessons[index]?.id ?? "");
     setLessonIndex(index);
     setStepIndex(0);
     setFinished(false);
@@ -230,9 +231,12 @@ export function TrainingPlayer({ lessons, initialLesson, lang }: { lessons: Less
       if (target && (/^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) || target.isContentEditable)) return;
       if (event.key === " " && target?.tagName !== "BUTTON") {
         event.preventDefault();
-        setPlaying((value) => !value);
+        play(); // the same as the Play button, including starting again after the lesson has finished
       } else if (event.key === "ArrowRight") goNext();
-      else if (event.key === "ArrowLeft") setStepIndex((index) => Math.max(0, index - 1));
+      else if (event.key === "ArrowLeft") {
+        setStepIndex((index) => Math.max(0, index - 1));
+        setFinished(false); // the same as the Back button: the "finished" screen goes away
+      }
       else if (event.key.toLowerCase() === "f") void toggleFull();
     };
     window.addEventListener("keydown", onKey);
@@ -278,7 +282,7 @@ export function TrainingPlayer({ lessons, initialLesson, lang }: { lessons: Less
 
         <div className="tour-wrap" ref={wrap}>
         <div className="tour-stage" ref={stage} aria-live="off" data-missing={missing || undefined} data-playing={playing ? "1" : "0"} style={{ width: FRAME_WIDTH * scale, height: FRAME_HEIGHT * scale }}>
-          <div className="tour-frame" style={{ transform: `scale(${scale})` }}>{step.screen(state)}</div>
+          <div className="tour-frame" aria-hidden="true" style={{ transform: `scale(${scale})` }}>{step.screen(state)}</div>
           <svg className="tour-cursor" style={{ left: cursor.x, top: cursor.y, opacity: cursor.visible ? 1 : 0 }} width="22" height="26" viewBox="0 0 22 26" aria-hidden="true">
             <path d="M2 1v20l5.2-4.8 3.4 7.6 3.6-1.6-3.4-7.4H18z" fill="#fff" stroke="#111" strokeWidth="1.6" strokeLinejoin="round" />
           </svg>
