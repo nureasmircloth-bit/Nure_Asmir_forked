@@ -33,6 +33,7 @@ async function sidebarCounts() {
   }
 }
 
+/** Requires an admin session and renders navigation, saved display preferences and practice status around each page. */
 export default async function AdminProtectedLayout({ children }: { children: React.ReactNode }) {
   const user = await requireAdminUser("/admin");
   const jar = await cookies();

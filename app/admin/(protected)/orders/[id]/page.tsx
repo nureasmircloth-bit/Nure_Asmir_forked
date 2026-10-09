@@ -30,6 +30,7 @@ function stepIndex(status: string): number {
   return index === -1 ? (status === "returned" ? 3 : 0) : index;
 }
 
+/** Loads an order with its history, payment proofs, refund and product photos for the admin detail view. */
 export default async function OrderPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();

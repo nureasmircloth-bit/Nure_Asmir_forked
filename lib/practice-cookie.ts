@@ -8,6 +8,7 @@ export const PRACTICE_MINUTES = 120;
 
 const encoder = new TextEncoder();
 
+/** Signs the practice-prefixed payload with HMAC-SHA-256 and returns the first 40 hexadecimal characters. */
 async function sign(payload: string, secret: string): Promise<string> {
   const key = await crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   const bytes = new Uint8Array(await crypto.subtle.sign("HMAC", key, encoder.encode(`practice:${payload}`)));
@@ -23,6 +24,7 @@ export async function makePracticeCookie(secret: string, now = Date.now(), minut
   return { value: `${payload}.${await sign(payload, secret)}`, expires };
 }
 
+/** Checks the expiry and signature of a practice cookie, returning false for missing credentials or failed checks. */
 export async function verifyPracticeCookie(value: string | null | undefined, secret: string | null | undefined, now = Date.now()): Promise<boolean> {
   if (!value || !secret) return false;
   const [payload, signature] = value.split(".");
@@ -34,6 +36,7 @@ export async function verifyPracticeCookie(value: string | null | undefined, sec
   return diff === 0;
 }
 
+/** Returns the decoded value of the first matching cookie, or null if absent; malformed encoding can throw. */
 export function readCookie(header: string | null | undefined, name: string): string | null {
   if (!header) return null;
   for (const part of header.split(";")) {

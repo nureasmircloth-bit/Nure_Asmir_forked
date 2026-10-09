@@ -25,6 +25,7 @@ type Tracked = {
   refund: TrackRefund | null;
 };
 
+/** Looks up an order by number and phone, then offers order actions and notification registration. */
 function TrackOrderForm() {
   const params = useSearchParams();
   const [result, setResult] = useState<Tracked | null>(null);

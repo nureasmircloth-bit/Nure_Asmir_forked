@@ -15,6 +15,7 @@ export async function GET() {
   return Response.json({ locations: rows });
 }
 
+/** Creates a validated shop location within configured limits, making the first location the main shop. */
 export async function POST(request: Request) {
   const admin = await getAdminUser();
   if (!admin) return Response.json({ error: "Unauthorized" }, { status: 401 });

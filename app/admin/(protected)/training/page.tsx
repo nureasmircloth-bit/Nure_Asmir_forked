@@ -5,6 +5,7 @@ import { isSandbox, practiceAvailable } from "@/lib/sandbox";
 
 export const metadata = { title: "Training" };
 
+/** Renders training in the selected language and links to practice entry when practice is available but inactive. */
 export default async function TrainingPage({ searchParams }: { searchParams: Promise<{ lesson?: string }> }) {
   const { lesson } = await searchParams;
   const lang = (await cookies()).get("adm-lang")?.value === "en" ? "en" : "ur";

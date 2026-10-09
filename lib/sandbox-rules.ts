@@ -33,6 +33,7 @@ export const SANDBOX_THING_LABEL: Record<SandboxThing, string> = {
   locations: "shop locations",
 };
 
+/** Checks whether the supplied environment enables whole-server practice mode with SANDBOX=1. */
 export const isSandboxEnv = (env: Record<string, string | undefined> = process.env): boolean => env.SANDBOX === "1";
 
 /**
@@ -52,6 +53,7 @@ export function hitCountsAgainstLimit(pathname: string, method: string, headers:
 
 export type HitState = { used: number; left: number; limit: number; blocked: boolean };
 
+/** Returns daily usage and remaining hits, marking the request blocked only after usage exceeds the limit. */
 export function hitState(used: number, limit: number = dailyHitLimit()): HitState {
   return { used, limit, left: Math.max(0, limit - used), blocked: used > limit };
 }

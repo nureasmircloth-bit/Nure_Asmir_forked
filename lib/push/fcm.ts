@@ -13,6 +13,7 @@ type ServiceAccount = { project_id: string; client_email: string; private_key: s
 
 let cached: { token: string; expiresAt: number } | null = null;
 
+/** Parses the required Firebase service-account fields, returning null in practice mode or for missing or invalid configuration. */
 function loadServiceAccount(): ServiceAccount | null {
   if (isPracticeRequest()) return null; // the practice shop never sends a real notification
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
@@ -25,6 +26,7 @@ function loadServiceAccount(): ServiceAccount | null {
   }
 }
 
+/** Reports whether Firebase push credentials are available outside practice mode. */
 export function pushConfigured(): boolean {
   if (isPracticeRequest()) return false; // the practice shop never sends a real notification
   return loadServiceAccount() !== null;

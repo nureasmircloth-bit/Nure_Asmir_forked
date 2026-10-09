@@ -12,6 +12,7 @@ import { SizeGuideLink } from "./size-guide";
 
 type Added = { variantId: string; variantName: string; price: number; inBag: number };
 
+/** Renders variant selection controls, adds the selection to the cart and offers an undo action. */
 export function ProductPurchase({
   product,
   colors,

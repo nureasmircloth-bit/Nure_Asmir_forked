@@ -5,6 +5,7 @@ import { sendCheckoutOtpEmail } from "@/lib/email/resend";
 
 export const dynamic = "force-dynamic";
 
+/** Validates the checkout email and human-verification token before requesting an email verification code. */
 export async function POST(request: Request) {
   let body: Record<string, unknown>;
   try {

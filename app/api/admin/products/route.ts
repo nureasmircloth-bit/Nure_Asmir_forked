@@ -117,6 +117,7 @@ export async function GET(request: Request) {
   return Response.json({ products: products_ });
 }
 
+/** Creates a validated product within practice limits, using supplied SEO metadata or generating it when absent. */
 export async function POST(request: Request) {
   const admin = await getAdminUser();
   if (!admin) return Response.json({ error: "Unauthorized" }, { status: 401 });

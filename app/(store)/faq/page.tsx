@@ -15,6 +15,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/faq" },
 };
 
+/** Renders active questions and FAQ structured data with placeholders filled from current shop settings. */
 export default async function FaqPage() {
   const settings = await getPublicSettings();
   const nonce = getNonce();

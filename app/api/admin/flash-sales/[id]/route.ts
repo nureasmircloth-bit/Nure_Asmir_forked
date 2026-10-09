@@ -7,6 +7,7 @@ import { saleSchema } from "@/lib/flash-sale-schema";
 
 export const dynamic = "force-dynamic";
 
+/** Updates a flash sale and its product links for an authenticated admin using validated sale settings. */
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   const admin = await getAdminUser();
   if (!admin) return Response.json({ error: "Unauthorized" }, { status: 401 });

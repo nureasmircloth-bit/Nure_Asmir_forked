@@ -47,6 +47,7 @@ const DEV_NAV: NavGroup[] = [{ items: [{ href: "/admin/developer", label: "Devel
 
 export const ALL_PAGES = NAV.flatMap((group) => group.items);
 
+/** Renders role-specific admin navigation with active-page markers, pending counts and optional practice access. */
 export function NavLinks({ counts, role, practice }: { counts: Partial<Record<"orders" | "refunds" | "stock", number>>; role?: string; practice?: boolean }) {
   const pathname = usePathname() || "";
   return (

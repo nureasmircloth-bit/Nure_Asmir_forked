@@ -9,6 +9,8 @@ import { AsyncLocalStorage } from "node:async_hooks";
  */
 const store = new AsyncLocalStorage<{ practice: true }>();
 
+/** Runs work in practice context, which is inherited by asynchronous work started inside the callback. */
 export const runInPractice = <T>(work: () => T): T => store.run({ practice: true }, work);
 
+/** Reports whether this request has practice context or the whole server is configured as a sandbox. */
 export const isPracticeRequest = (): boolean => process.env.SANDBOX === "1" || store.getStore()?.practice === true;

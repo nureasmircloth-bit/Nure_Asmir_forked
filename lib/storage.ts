@@ -194,6 +194,7 @@ export async function getObjectBytes(
   }
 }
 
+/** Deletes an object from its storage backend, skipping deletion entirely for practice requests. */
 export async function deleteObject(key: string, visibility: Visibility = "public"): Promise<void> {
   // The practice shop shares the picture store with the real shop: practising must never delete a real picture.
   if (isPracticeRequest()) return;

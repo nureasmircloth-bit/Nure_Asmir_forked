@@ -451,6 +451,7 @@ export async function getCampaignSlides(includeInactive = false): Promise<Campai
   }));
 }
 
+/** Returns an active collection with its catalog products, or null when the slug has no active collection. */
 export async function getCollectionBySlug(
   slug: string,
 ): Promise<{ name: string; description: string; products: CatalogProduct[] } | null> {

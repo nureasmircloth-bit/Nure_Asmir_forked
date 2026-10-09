@@ -28,6 +28,7 @@ const schema = z.object({
 
 const cleanPath = (value: string | undefined): string => (value && /^\/(?!\/)[\w\-./?=&%]*$/.test(value) ? value : "/shop");
 
+/** Sends one cursor batch of an admin push message, updates delivery history and removes permanently invalid device tokens. */
 export async function POST(request: Request) {
   const admin = await getAdminUser();
   if (!admin) return Response.json({ error: "Unauthorized" }, { status: 401 });

@@ -16,6 +16,7 @@ const WARM_PATHS = ["/api/health", "/admin/login"];
 const worker = {
   // A browser that has started the practice shop carries a signed cookie. Its whole request (and every background job it starts) runs
   // "in practice", which makes the database point at the practice tables and blocks email, WhatsApp, TCS and notifications.
+  /** Dispatches to OpenNext, preserving practice context when the request has a valid practice cookie. */
   async fetch(request, env, ctx) {
     const practising = Boolean(env.PRACTICE_DATABASE_URL) && (await requestIsPractising(request, env.CRON_SECRET));
     return practising ? runInPractice(() => openNext.fetch(request, env, ctx)) : openNext.fetch(request, env, ctx);

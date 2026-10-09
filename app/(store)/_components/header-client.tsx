@@ -182,6 +182,7 @@ export function HeaderClient({
   );
 }
 
+/** Shows live product search results and refreshes their sale prices as the query changes. */
 function SearchOverlay({
   open,
   categories,

@@ -236,6 +236,7 @@ const ITEMS: Item[] = [
   },
 ];
 
+/** Seeds catalog products and repairs missing variants or images left by an interrupted earlier run. */
 async function seedProducts(categoryIds: Record<string, string>) {
   const seededAt = Date.now();
   for (const [position, item] of ITEMS.entries()) {

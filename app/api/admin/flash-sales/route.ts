@@ -29,6 +29,7 @@ export async function GET() {
   });
 }
 
+/** Creates a validated flash sale for an authenticated admin after checking practice capacity. */
 export async function POST(request: Request) {
   const admin = await getAdminUser();
   if (!admin) return Response.json({ error: "Unauthorized" }, { status: 401 });

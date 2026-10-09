@@ -10,7 +10,9 @@ type SentryModule = typeof import("@sentry/nextjs");
 
 let sentry: SentryModule | null = null;
 // Errors wait in lib/sentry-state.ts (shared with the error screens, lib/sentry-lazy.ts) until Sentry has loaded.
+/** Queues an uncaught browser error until Sentry is ready. */
 const remember = (event: ErrorEvent) => holdUntilReady(event.error ?? event.message);
+/** Queues an unhandled promise rejection until Sentry is ready. */
 const rejectionHandler = (event: PromiseRejectionEvent) => holdUntilReady(event.reason);
 
 const active = process.env.NODE_ENV === "production" && !!process.env.NEXT_PUBLIC_SENTRY_DSN;
@@ -19,6 +21,7 @@ if (active && typeof window !== "undefined") {
   window.addEventListener("error", remember);
   window.addEventListener("unhandledrejection", rejectionHandler);
 
+  /** Loads and initializes browser Sentry, then removes temporary listeners and drains the queued errors. */
   const load = () => {
     void import("@sentry/nextjs").then((module) => {
       module.init({

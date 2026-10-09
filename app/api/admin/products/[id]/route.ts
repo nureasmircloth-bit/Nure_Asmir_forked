@@ -76,6 +76,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   return Response.json({ product, variants, images });
 }
 
+/** Updates a validated product for an authenticated admin, refreshing generated SEO when its source fields change. */
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   const admin = await getAdminUser();
   if (!admin) return Response.json({ error: "Unauthorized" }, { status: 401 });

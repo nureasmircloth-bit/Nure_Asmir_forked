@@ -58,6 +58,7 @@ const PROVINCES = [
   "Azad Jammu and Kashmir",
 ];
 
+/** Manages cart checkout, delivery selection, email verification, payment details and the resulting order. */
 export default function CheckoutPage() {
   const [items, setItems] = useState<CartItem[]>([]);
   const [zones, setZones] = useState<Zone[]>([]);

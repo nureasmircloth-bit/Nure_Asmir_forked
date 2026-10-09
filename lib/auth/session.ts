@@ -7,6 +7,7 @@ import { adminSessions, adminOwners } from "@/db/schema";
 export const SESSION_COOKIE = "ms_admin_session";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
 
+/** Returns the SHA-256 hexadecimal digest used to store and look up a session token. */
 export function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }

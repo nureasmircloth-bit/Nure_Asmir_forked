@@ -51,11 +51,13 @@ const realSql = neon(requireDatabaseUrl());
 // search_path is "practice" and it has no rights on the real tables). `db` quietly points at them while the request being handled
 // is a practice request (lib/practice-context.ts), and at the real tables otherwise – so every screen of the admin works unchanged.
 let practiceSql: Sql | null = null;
+/** Lazily creates the practice SQL client, throwing when its connection URL is missing. */
 function practiceClient(): Sql {
   const url = process.env.PRACTICE_DATABASE_URL;
   if (!url) throw new Error("The practice shop is not set up (PRACTICE_DATABASE_URL is missing).");
   return (practiceSql ??= neon(url));
 }
+/** Selects the practice or live SQL client from the current request context. */
 const current = (): Sql => (isPracticeRequest() ? practiceClient() : realSql);
 const switching = ((...args: unknown[]) => (current() as unknown as (...a: unknown[]) => unknown)(...args)) as unknown as Sql;
 Object.assign(switching, {
