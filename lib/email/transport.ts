@@ -110,6 +110,7 @@ export async function emailAllowance(): Promise<{ limit: number; used: number; l
   return { limit, used: spent, left: Math.max(0, limit - spent), providers: ready.length };
 }
 
+/** Tries configured email providers with permitted failover; returns false in practice mode or when delivery fails. */
 export async function sendMail(mail: Mail): Promise<boolean> {
   if (isPracticeRequest()) return false; // the practice shop never sends a real email
   const ready = PROVIDERS.filter((provider) => provider.configured());

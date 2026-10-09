@@ -51,6 +51,7 @@ function writeStored(key: string, value: unknown) {
   }
 }
 
+/** Provides the saved or country-based currency choice and cached exchange rates, retrying failed rate requests. */
 export function CurrencyProvider({ children }: { children: React.ReactNode }) {
   // Always start on PKR so server and client markup match; the saved choice is applied after mount.
   const [currency, setCurrencyState] = useState<CurrencyCode>(BASE_CURRENCY);

@@ -17,6 +17,7 @@ export function tcsBaseUrl(): string {
   return process.env.TCS_ENV === "production" ? "https://ociconnect.tcscourier.com" : "https://devconnect.tcscourier.com";
 }
 
+/** Reports whether all required TCS credentials are set, always returning false for practice requests. */
 export function isTcsConfigured(): boolean {
   if (isPracticeRequest()) return false; // the practice shop never talks to TCS
   return Boolean(process.env.TCS_USERNAME && process.env.TCS_PASSWORD && process.env.TCS_ACCOUNT_NO && process.env.TCS_COST_CENTER_CODE);

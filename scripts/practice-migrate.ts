@@ -8,6 +8,7 @@ import { neon } from "@neondatabase/serverless";
 
 type Journal = { entries: Array<{ tag: string }> };
 
+/** Verifies the practice schema and applies journal migrations that are not yet recorded in its migration table. */
 async function main() {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL is not set (use the PRACTICE connection string).");

@@ -14,6 +14,7 @@ export async function GET() {
   return Response.json({ faqs: await db.select().from(faqs).orderBy(asc(faqs.sortOrder), asc(faqs.createdAt)) });
 }
 
+/** Appends a validated FAQ after the highest sort position, subject to admin authentication and question limits. */
 export async function POST(request: Request) {
   const admin = await getAdminUser();
   if (!admin) return Response.json({ error: "Unauthorized" }, { status: 401 });

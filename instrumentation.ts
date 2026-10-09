@@ -2,6 +2,7 @@ import { logError } from "@/lib/error-log";
 import { reportServerError } from "@/lib/sentry-server";
 
 // Called by Next.js for every error thrown while rendering or handling a request on the server.
+/** Logs and reports server request errors, excluding known stream closures during page rendering. */
 export function onRequestError(
   error: unknown,
   request: { path: string; method: string },

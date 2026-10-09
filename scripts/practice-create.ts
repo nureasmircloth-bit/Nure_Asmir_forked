@@ -14,6 +14,7 @@ import { neon } from "@neondatabase/serverless";
 const ROLE = "practice_user";
 const SCHEMA = "practice";
 
+/** Provisions or rotates the practice database role, restricts its schema access and writes its connection configuration. */
 async function main() {
   const url = process.env.DATABASE_URL;
   const out = process.argv.find((arg, index) => index > 1 && !arg.startsWith("--"));

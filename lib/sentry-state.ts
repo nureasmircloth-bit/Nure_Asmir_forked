@@ -7,6 +7,7 @@ export const sentryState: { ready: boolean; early: unknown[] } = { ready: false,
 
 const MAX_WAITING = 20;
 
+/** Buffers an error for deferred Sentry initialization, discarding new errors once the 20-entry buffer is full. */
 export function holdUntilReady(error: unknown): void {
   if (sentryState.early.length < MAX_WAITING) sentryState.early.push(error);
 }

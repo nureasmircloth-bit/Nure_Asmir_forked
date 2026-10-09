@@ -113,6 +113,7 @@ function orderSummary(
   };
 }
 
+/** Creates a checkout order after validation and stock reservation, reusing an existing order for the same idempotency key. */
 export async function POST(request: Request) {
   const idempotencyKey = request.headers.get("Idempotency-Key")?.trim();
   if (!idempotencyKey) {

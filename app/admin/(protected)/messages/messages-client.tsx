@@ -96,6 +96,7 @@ export function MessagesClient() {
 
 /* ------------------------------ notification ------------------------------ */
 
+/** Composes a push message for the selected audience and displays progress while sending it in cursor batches. */
 function PushForm({ overview, onSent }: { overview: Overview | null; onSent: () => void }) {
   const toast = useToast();
   const sending = useLockedAction();
@@ -245,6 +246,7 @@ function PushForm({ overview, onSent }: { overview: Overview | null; onSent: () 
 
 /* ---------------------------------- email ---------------------------------- */
 
+/** Composes email for one customer or the subscriber list and displays delivery progress across cursor batches. */
 function EmailForm({ overview, onSent }: { overview: Overview | null; onSent: () => void }) {
   const toast = useToast();
   const sending = useLockedAction();

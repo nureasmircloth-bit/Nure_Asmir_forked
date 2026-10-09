@@ -12,13 +12,16 @@ export const isSandbox = (): boolean => isPracticeRequest();
 /** Is the practice shop set up on this server at all? (It needs its own database user, PRACTICE_DATABASE_URL.) */
 export const practiceAvailable = (): boolean => Boolean(process.env.PRACTICE_DATABASE_URL);
 
+/** Returns the current calendar date in Pakistan time for daily practice usage counters. */
 const pakistanDay = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Karachi" });
 
 type Rows<T> = { rows: T[] };
 
 // Everything below that is about setting practice up, counting or resetting uses the practice tables directly, whatever the current request is.
+/** Returns a database handle that always targets the practice tables. */
 const practice = () => practiceDb();
 
+/** Reads today's practice usage, falling back to zero used hits when the query fails. */
 export async function sandboxHits(): Promise<HitState> {
   try {
     const result = (await practice().execute(sql`select hits from sandbox_usage where day = ${pakistanDay()}`)) as unknown as Rows<{ hits: number }>;
@@ -49,6 +52,7 @@ export async function practiceBytes(): Promise<number> {
 
 const START_KEY = "__start_bytes";
 
+/** Reads the saved starting size of the practice tables, defaulting to zero if no size was captured. */
 async function startBytes(): Promise<number> {
   const result = (await practice().execute(sql`select rows from sandbox_baseline where table_name = ${START_KEY}`)) as unknown as Rows<{ rows: number[] }>;
   return Number(result.rows[0]?.rows?.[0] ?? 0);
@@ -76,6 +80,7 @@ export async function sandboxRoomMessage(thing: SandboxThing): Promise<string | 
 // Tables that are never copied or wiped: who may sign in, the day counters, and the copy itself.
 const KEEP = new Set(["admin_owners", "admin_sessions", "admin_push_devices", "login_attempts", "sandbox_usage", "sandbox_baseline", "api_usage", "admin_audit_log", "error_log"]);
 
+/** Lists practice data tables eligible for baseline capture, excluding access, usage and internal tables. */
 async function dataTables(): Promise<string[]> {
   const result = (await practice().execute(sql`select table_name from information_schema.tables where table_schema = current_schema() and table_type = 'BASE TABLE' order by table_name`)) as unknown as Rows<{ table_name: string }>;
   return result.rows.map((row) => row.table_name).filter((name) => !KEEP.has(name) && !name.startsWith("__"));
@@ -121,6 +126,7 @@ export async function captureBaseline(): Promise<number> {
   return tables.length;
 }
 
+/** Reports whether any practice table baseline exists, returning false if the lookup fails. */
 export async function hasBaseline(): Promise<boolean> {
   try {
     const result = (await practice().execute(sql`select 1 as one from sandbox_baseline where table_name <> ${START_KEY} limit 1`)) as unknown as Rows<{ one: number }>;

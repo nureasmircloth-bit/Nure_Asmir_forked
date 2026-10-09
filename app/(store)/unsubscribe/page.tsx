@@ -6,6 +6,7 @@ import { UnsubscribeButton } from "./unsubscribe-button";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Unsubscribe", robots: { index: false, follow: false } };
 
+/** Validates a single email/token pair before showing the email-list unsubscribe confirmation. */
 export default async function UnsubscribePage({ searchParams }: { searchParams: Promise<{ e?: string | string[]; t?: string | string[] }> }) {
   const params = await searchParams;
   // A repeated parameter ("?e=a&e=b") arrives as a list: anything but one plain value is treated as an invalid link.

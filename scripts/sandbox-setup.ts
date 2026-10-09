@@ -14,6 +14,7 @@ import { captureBaseline, hasBaseline } from "../lib/sandbox";
 
 const FORCE = process.argv.includes("--force");
 
+/** Counts rows in a trusted setup table, returning zero when the query has no result. */
 async function count(table: string): Promise<number> {
   const result = (await db.execute(sql.raw(`select count(*)::int as n from "${table}"`))) as unknown as { rows: Array<{ n: number }> };
   return Number(result.rows[0]?.n ?? 0);
@@ -39,6 +40,7 @@ const PEOPLE = [
   ["Saad Mehmood", "03008889900", "Peshawar", "Khyber Pakhtunkhwa"],
 ] as const;
 
+/** Seeds sample orders across training stages from active variants, skipping existing orders unless forced. */
 async function addPretendOrders() {
   if ((await count("orders")) > 0 && !FORCE) return;
   const variants = (await db.execute(
@@ -75,6 +77,7 @@ async function addPretendOrders() {
   console.log(`Added ${n} pretend orders.`);
 }
 
+/** Verifies the practice schema, seeds sample data when needed and captures the baseline used by reset. */
 async function main() {
   const url = process.env.DATABASE_URL ?? "";
   if (!url) throw new Error("DATABASE_URL is not set (use the PRACTICE connection string).");

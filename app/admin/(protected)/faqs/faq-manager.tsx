@@ -10,6 +10,7 @@ import { Badge, EmptyState } from "../../_ui/ui";
 export type FaqRow = { id: string; question: string; answer: string; active: boolean };
 type Draft = { id?: string; question: string; answer: string };
 
+/** Provides controls to create, edit, reorder, hide and delete storefront questions. */
 export function FaqManager({ initial }: { initial: FaqRow[] }) {
   const router = useRouter();
   const toast = useToast();

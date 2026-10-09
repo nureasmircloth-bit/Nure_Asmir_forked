@@ -7,6 +7,7 @@ import { PracticeStart } from "./practice-start";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Practice shop" };
 
+/** Shows practice-shop availability and entry controls to signed-in admins, redirecting active practice sessions. */
 export default async function PracticePage() {
   const user = await requireAdminUser("/admin/practice");
   if (isSandbox()) redirect("/admin");

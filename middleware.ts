@@ -43,6 +43,7 @@ function buildCsp(nonce: string): string {
   ].join("; ");
 }
 
+/** Applies practice usage limits, canonical redirects, response security headers and admin indexing restrictions. */
 export async function middleware(request: NextRequest) {
   // A browser that is practising counts every admin request against a daily allowance first; the real shop is not touched by this.
   if (process.env.PRACTICE_DATABASE_URL) {

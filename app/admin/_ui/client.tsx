@@ -15,6 +15,7 @@ type ToastTone = "good" | "bad" | "info";
 type ToastItem = { id: number; text: string; tone: ToastTone };
 const ToastContext = createContext<(text: string, tone?: ToastTone) => void>(() => {});
 
+/** Provides timed admin notices and storefront-refresh feedback, clearing pending timers on unmount. */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ToastItem[]>([]);
   const [note, setNote] = useState<{ id: number; text: string } | null>(null);

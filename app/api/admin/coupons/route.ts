@@ -42,6 +42,7 @@ export async function GET() {
   return Response.json({ coupons: rows });
 }
 
+/** Creates a validated discount code for an authenticated admin, rejecting duplicate codes and full practice shops. */
 export async function POST(request: Request) {
   const admin = await getAdminUser();
   if (!admin) return Response.json({ error: "Unauthorized" }, { status: 401 });

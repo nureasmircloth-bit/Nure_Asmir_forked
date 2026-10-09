@@ -28,6 +28,7 @@ const schema = z.object({
   messageId: z.string().uuid().optional(),
 });
 
+/** Sends an admin email to one customer or one cursor batch of subscribers, recording history and returning delivery progress. */
 export async function POST(request: Request) {
   const admin = await getAdminUser();
   if (!admin) return Response.json({ error: "Unauthorized" }, { status: 401 });
