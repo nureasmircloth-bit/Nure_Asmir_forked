@@ -611,19 +611,6 @@
 
 /* Folded menu + the bigger lesson views */
 /* Folded menu: a slim rail of icons (hover a name to read it), not a vanished menu. */
-.adm-shell { transition: grid-template-columns .18s ease; }
-.adm-shell[data-side="collapsed"] { grid-template-columns: 72px minmax(0, 1fr); }
-.adm-shell[data-side="collapsed"] > .adm-side .adm-brand { flex-direction: column; justify-content: center; gap: 6px; height: 96px; padding: 10px 0; }
-.adm-shell[data-side="collapsed"] > .adm-side .adm-brand-text { display: none; }
-.adm-shell[data-side="collapsed"] > .adm-side .adm-fold { margin: 0; }
-.adm-shell[data-side="collapsed"] > .adm-side .adm-side-scroll { padding: 6px 10px 12px; }
-.adm-shell[data-side="collapsed"] > .adm-side .adm-nav a { justify-content: center; padding: 0; position: relative; }
-.adm-shell[data-side="collapsed"] > .adm-side .adm-nav-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-.adm-shell[data-side="collapsed"] > .adm-side .adm-nav .count { position: absolute; top: 3px; right: 4px; margin: 0; min-width: 16px; padding: 0 4px; font-size: 10px; line-height: 16px; }
-.adm-shell[data-side="collapsed"] > .adm-side .adm-nav-label { height: 1px; margin: 10px 8px; padding: 0; overflow: hidden; background: var(--line); color: transparent; font-size: 0; }
-.adm-shell[data-side="collapsed"] > .adm-side .adm-side-foot { padding: 10px 8px; justify-items: center; }
-.adm-shell[data-side="collapsed"] > .adm-side .adm-push, .adm-shell[data-side="collapsed"] > .adm-side .adm-user div, .adm-shell[data-side="collapsed"] > .adm-side .adm-side-foot .a-btn { display: none; }
-.adm-shell[data-side="collapsed"] > .adm-side .adm-user { padding: 4px; background: transparent; }
 .tour-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
 .tour.is-wide { grid-template-columns: minmax(0, 1fr); }
 .tour.is-wide .tour-list { display: none; }
@@ -683,3 +670,53 @@
 .a-delay-note svg { flex: none; margin-top: 2px; color: var(--primary); }
 .a-delay-note span { flex: 1; line-height: 1.45; }
 .a-delay-note button { border: 0; background: transparent; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; }
+
+
+/* Smooth fold: the menu keeps ONE layout and only its width, opacity and heights animate, so nothing jumps. The folded rail is 64 px wide;
+   the icons stay exactly where they are (12 px side padding + 10 px link padding + half an icon = the rail's centre). */
+.adm-shell { transition: grid-template-columns .3s cubic-bezier(.4, 0, .2, 1); }
+.adm-shell[data-side="collapsed"] { grid-template-columns: 64px minmax(0, 1fr); }
+.adm-side { min-width: 0; white-space: nowrap; }
+.adm-brand { position: relative; padding: 0 0 0 13px; transition: height .3s cubic-bezier(.4, 0, .2, 1); }
+.adm-brand-text { transition: opacity .18s ease; }
+.adm-fold { position: absolute; top: 12px; right: 12px; margin: 0; transition: top .3s cubic-bezier(.4, 0, .2, 1), background-color .12s, color .12s; }
+.adm-nav-text { transition: opacity .15s ease; }
+.adm-nav-label { box-sizing: border-box; height: 26px; margin: 12px 10px 2px; line-height: 26px; overflow: hidden; transition: height .3s ease, margin .3s ease, opacity .2s ease, background-color .3s ease; }
+.adm-push { max-height: 150px; overflow: hidden; transition: max-height .3s ease, opacity .15s ease; }
+.adm-side-foot .a-btn { overflow: hidden; transition: max-height .3s ease, opacity .15s ease, padding .3s ease; max-height: 48px; }
+.adm-user div { max-width: 170px; overflow: hidden; transition: max-width .3s ease, opacity .15s ease; }
+.adm-user { transition: background-color .3s ease, padding .3s ease; }
+
+.adm-shell[data-side="collapsed"] > .adm-side .adm-brand { height: 112px; }
+.adm-shell[data-side="collapsed"] > .adm-side .adm-brand-text { opacity: 0; pointer-events: none; }
+.adm-shell[data-side="collapsed"] > .adm-side .adm-fold { top: 62px; }
+.adm-shell[data-side="collapsed"] > .adm-side .adm-nav a { position: relative; }
+.adm-shell[data-side="collapsed"] > .adm-side .adm-nav-text { opacity: 0; }
+.adm-shell[data-side="collapsed"] > .adm-side .adm-nav-label { height: 1px; margin: 12px 10px; background: var(--line); color: transparent; opacity: .9; }
+.adm-shell[data-side="collapsed"] > .adm-side .adm-nav .count { position: absolute; top: 2px; right: 2px; margin: 0; min-width: 16px; padding: 0 4px; font-size: 10px; line-height: 16px; animation: rail-count .35s ease both; }
+.adm-shell[data-side="collapsed"] > .adm-side .adm-push { max-height: 0; opacity: 0; }
+.adm-shell[data-side="collapsed"] > .adm-side .adm-side-foot .a-btn { max-height: 0; opacity: 0; padding-top: 0; padding-bottom: 0; border-width: 0; }
+.adm-shell[data-side="collapsed"] > .adm-side .adm-user { padding: 4px; background: transparent; }
+.adm-shell[data-side="collapsed"] > .adm-side .adm-user div { max-width: 0; opacity: 0; }
+@keyframes rail-count { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) {
+  .adm-shell, .adm-brand, .adm-fold, .adm-nav-label, .adm-push, .adm-user, .adm-user div, .adm-side-foot .a-btn { transition: none; }
+  .adm-shell[data-side="collapsed"] > .adm-side .adm-nav .count { animation: none; }
+}
+
+/* the practice shop */
+.a-sandbar { position: sticky; top: 0; z-index: 90; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 18px; padding: 8px 16px; background: #f59e0b; color: #1c1300; font-size: 14px; }
+.a-sandbar strong { letter-spacing: .14em; }
+.a-sandbar-low { font-weight: 700; text-decoration: underline; }
+.a-sandbar-btn { min-height: 32px; padding: 0 14px; border: 1px solid #1c1300; border-radius: 8px; background: transparent; color: inherit; font-weight: 700; cursor: pointer; }
+.a-sandbar-btn:hover { background: rgba(0,0,0,.08); }
+.adm-nav a svg:last-child:not(:first-child) { margin-left: auto; opacity: .6; }
+.adm-shell[data-sandbox="1"] .adm-side { height: calc(100vh - 48px); top: 48px; }
+.adm-shell[data-sandbox="1"] .adm-top { top: 48px; }
+
+/* starting the practice shop */
+.a-progress { height: 10px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); overflow: hidden; }
+.a-progress span { display: block; height: 100%; background: var(--primary); transition: width .3s linear; }
+.a-practice-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+.a-practice-list li { display: flex; gap: 10px; align-items: flex-start; line-height: 1.5; }
+.a-practice-list svg { flex: none; margin-top: 3px; color: var(--primary); }

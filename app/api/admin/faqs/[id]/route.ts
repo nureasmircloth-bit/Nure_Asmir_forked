@@ -17,6 +17,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const parsed = faqSchema.partial().safeParse(await request.json().catch(() => ({})));
   if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message ?? "Invalid question." }, { status: 400 });
   const data = parsed.data;
+  // a request that changes nothing must not write an audit entry or refresh the website
+  if (data.question === undefined && data.answer === undefined && data.active === undefined) return Response.json({ error: "Nothing to change." }, { status: 400 });
   const [row] = await db
     .update(faqs)
     .set({ ...(data.question !== undefined ? { question: data.question } : {}), ...(data.answer !== undefined ? { answer: data.answer } : {}), ...(data.active !== undefined ? { active: data.active } : {}), updatedAt: new Date() })

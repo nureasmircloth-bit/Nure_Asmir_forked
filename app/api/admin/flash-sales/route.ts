@@ -1,4 +1,5 @@
 import { desc, inArray } from "drizzle-orm";
+import { sandboxRoomMessage } from "@/lib/sandbox";
 import { db } from "@/db";
 import { flashSaleProducts, flashSales } from "@/db/schema";
 import { getAdminUser } from "@/lib/auth/admin-auth";
@@ -31,6 +32,8 @@ export async function GET() {
 export async function POST(request: Request) {
   const admin = await getAdminUser();
   if (!admin) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  const full = await sandboxRoomMessage("flashSales"); // practice shop only: a small limit on how much can be created
+  if (full) return Response.json({ error: full }, { status: 400 });
 
   const parsed = saleSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message ?? "Invalid sale." }, { status: 400 });

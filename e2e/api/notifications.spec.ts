@@ -296,9 +296,12 @@ test.describe("flash sales & wishlist alerts", () => {
     const saved = fakeToken("wish");
     const optIn = fakeToken("optin");
     const bystander = fakeToken("none");
-    await request.post(`${BASE}/api/push/customer`, { data: { token: saved, wishlist: [variant.productId] } });
+    const orderOnly = fakeToken("orderonly");
+    await request.post(`${BASE}/api/push/customer`, { data: { token: saved, wishlist: [variant.productId], salesOptIn: true } });
     await request.post(`${BASE}/api/push/customer`, { data: { token: optIn, salesOptIn: true } });
     await request.post(`${BASE}/api/push/customer`, { data: { token: bystander } });
+    // has the product on a wishlist, but never asked for sale alerts (only for updates about an order): must not be told
+    await request.post(`${BASE}/api/push/customer`, { data: { token: orderOnly, wishlist: [variant.productId] } });
 
     await createSale({ name: "Weekend flash sale", value: 25, productIds: [variant.productId] });
     const run = async () => (await request.get(`${BASE}/api/cron/sales`, { headers: { Authorization: `Bearer ${CRON_SECRET}` } })).json();
@@ -310,6 +313,7 @@ test.describe("flash sales & wishlist alerts", () => {
     const optPush = await mockFcm.waitFor((m) => m.token === optIn);
     expect(optPush.data.title).toBe("Weekend flash sale");
     expect((await mockFcm.received()).filter((m) => m.token === bystander)).toHaveLength(0);
+    expect((await mockFcm.received()).filter((m) => m.token === orderOnly)).toHaveLength(0);
 
     await mockFcm.reset();
     expect((await run()).announced, "second run must not announce again").toBe(0);
@@ -321,11 +325,12 @@ test.describe("flash sales & wishlist alerts", () => {
     const variant = await setStock(SKU, 20);
     const [other] = (await sql`select id from products where id <> ${variant.productId} limit 1`) as Array<{ id: string }>;
     const token = fakeToken("wish");
-    await request.post(`${BASE}/api/push/customer`, { data: { token, wishlist: [other.id] } });
+    await request.post(`${BASE}/api/push/customer`, { data: { token, wishlist: [other.id], salesOptIn: true } });
     await createSale({ name: "Narrow", value: 10, productIds: [variant.productId] });
     await request.get(`${BASE}/api/cron/sales`, { headers: { Authorization: `Bearer ${CRON_SECRET}` } });
     await new Promise((r) => setTimeout(r, 800));
-    expect((await mockFcm.received()).filter((m) => m.token === token)).toHaveLength(0);
+    // the device did ask for sale alerts, so it hears about the sale itself, but never "your wishlist is on sale" (that item is not in it)
+    expect((await mockFcm.received()).filter((m) => m.token === token && m.data.title === "Your wishlist is on sale")).toHaveLength(0);
   });
 
   test("admin flash-sale API validates input", async ({ request }) => {

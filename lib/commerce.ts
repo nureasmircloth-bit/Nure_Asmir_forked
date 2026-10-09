@@ -4,7 +4,7 @@ import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { BRAND } from "@/lib/brand";
 import { mediaUrl } from "@/lib/media-url";
-import { applySales, getActiveSales } from "@/lib/sales";
+import { applySales, getActiveSales, getActiveSalesChecked } from "@/lib/sales";
 import { campaignSlides, categories, collections, productCollections, productImages, products, productVariants, siteSettings } from "@/db/schema";
 
 export type CatalogVariant = {
@@ -475,6 +475,7 @@ export async function getCollectionBySlug(
       sku: productVariants.sku,
       color: productVariants.color,
       price: productVariants.price,
+      compareAtPrice: productVariants.compareAtPrice,
       stock: productVariants.stockQuantity,
       reserved: productVariants.reservedQuantity,
       imageKey: productImages.r2Key,
@@ -490,6 +491,7 @@ export async function getCollectionBySlug(
     .orderBy(desc(products.publishedAt));
 
   const [extras, collectionSales] = await Promise.all([getListingExtras(rows.map((row) => row.id)), getActiveSales()]);
+  const sales = new Map(rows.map((row) => [row.id, applySales(row.price, row.id, collectionSales)]));
 
   return {
     name: collection.name,
@@ -501,9 +503,9 @@ export async function getCollectionBySlug(
       category: row.categorySlug,
       categoryId: row.categoryId,
       type: row.type,
-      price: collectionSales ? (applySales(row.price, row.id, collectionSales)?.price ?? row.price) : row.price,
-      compareAtPrice: collectionSales ? applySales(row.price, row.id, collectionSales)?.originalPrice : undefined,
-      saleEndsAt: collectionSales ? applySales(row.price, row.id, collectionSales)?.sale.endsAt.toISOString() : undefined,
+      price: sales.get(row.id)?.price ?? row.price,
+      compareAtPrice: sales.get(row.id)?.originalPrice ?? row.compareAtPrice ?? undefined,
+      saleEndsAt: sales.get(row.id)?.sale.endsAt.toISOString(),
       color: row.color,
       badge: row.badge ?? "",
       sku: row.sku,
@@ -542,23 +544,37 @@ export type CategoryWithImage = {
   heroBlurDataUrl?: string;
 };
 
+// Remembered for a few seconds across requests (like the list of active sales), so a busy shop does not read its products on every page view.
+let discountMemo: { at: number; value: Map<string, number> } | null = null;
+const DISCOUNT_MEMO_MS = Number(process.env.SALES_MEMO_MS ?? 15_000); // (the test suite sets 0 so a sale it just made shows at once)
+
 /** The biggest percentage off any product in each category right now (categoryId → whole percent), so category tiles can say
- * "Up to −30%". Empty when no sale is running, in which case no extra database work is done. */
+ * "Up to −30%". Empty when no sale is running, in which case no extra database work is done. A sale on chosen products only reads
+ * those products; only a sale on everything reads the whole catalogue. */
 export const getCategoryDiscounts = cache(async (): Promise<Map<string, number>> => {
+  if (discountMemo && Date.now() - discountMemo.at < DISCOUNT_MEMO_MS) return discountMemo.value;
   const result = new Map<string, number>();
-  const sales = await getActiveSales();
-  if (!sales.length) return result;
-  const rows = await db
-    .select({ id: products.id, categoryId: products.categoryId, price: productVariants.price })
-    .from(products)
-    .innerJoin(productVariants, and(eq(productVariants.productId, products.id), eq(productVariants.isDefault, true)))
-    .where(eq(products.status, "published"));
-  for (const row of rows) {
-    const sale = applySales(row.price, row.id, sales);
-    if (!sale) continue;
-    const percent = Math.round(((sale.originalPrice - sale.price) / sale.originalPrice) * 100);
-    if (percent > (result.get(row.categoryId) ?? 0)) result.set(row.categoryId, percent);
+  const { sales, ok } = await getActiveSalesChecked();
+  if (sales.length) {
+    const everything = sales.some((sale) => sale.appliesToAll);
+    const saleProductIds = [...new Set(sales.flatMap((sale) => [...sale.productIds]))];
+    if (everything || saleProductIds.length) {
+      const published = eq(products.status, "published");
+      const rows = await db
+        .select({ id: products.id, categoryId: products.categoryId, price: productVariants.price })
+        .from(products)
+        .innerJoin(productVariants, and(eq(productVariants.productId, products.id), eq(productVariants.isDefault, true)))
+        .where(everything ? published : and(published, inArray(products.id, saleProductIds)));
+      for (const row of rows) {
+        const sale = applySales(row.price, row.id, sales);
+        if (!sale) continue;
+        const percent = Math.round(((sale.originalPrice - sale.price) / sale.originalPrice) * 100);
+        if (percent > (result.get(row.categoryId) ?? 0)) result.set(row.categoryId, percent);
+      }
+    }
   }
+  // A failed sales load gave an empty list that is not the truth: it is shown this once, but not remembered.
+  if (ok) discountMemo = { at: Date.now(), value: result };
   return result;
 });
 

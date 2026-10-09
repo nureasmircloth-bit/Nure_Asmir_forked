@@ -1,4 +1,4 @@
-import { and, eq, gt, inArray, isNull, lte, or, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull, lte } from "drizzle-orm";
 import { db } from "@/db";
 import { customerPushDevices, flashSaleProducts, flashSales, products } from "@/db/schema";
 import { sendToCustomerTokens } from "@/lib/push/notify";
@@ -36,7 +36,7 @@ export async function announceStartedSales(): Promise<{ announced: number }> {
     const devices = await db
       .select({ token: customerPushDevices.token, wishlist: customerPushDevices.wishlist, salesOptIn: customerPushDevices.salesOptIn })
       .from(customerPushDevices)
-      .where(or(eq(customerPushDevices.salesOptIn, true), sql`jsonb_array_length(${customerPushDevices.wishlist}) > 0`));
+      .where(eq(customerPushDevices.salesOptIn, true)); // only people who asked for sale alerts (a token for order updates is not that yes)
     if (!devices.length) continue;
 
     const names = new Map<string, string>();

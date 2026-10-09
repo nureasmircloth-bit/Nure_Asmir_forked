@@ -22,7 +22,8 @@ export default async function FaqPage() {
   // The owner edits these under Admin → Questions & answers. {{codHours}} / {{freeAbove}} / {{refundDays}} come from the live settings.
   const [rows, refundDays] = await Promise.all([getActiveFaqs(), refundWindowDays()]);
   const values = { codHours: settings.codReservationHours, freeAbove: settings.freeDeliveryThreshold, refundDays };
-  const faqs: [string, string][] = rows.map((row) => [fillFaqTokens(row.question, values), fillFaqTokens(row.answer, values)]);
+  // each row keeps its own id for the list key: the admin may keep two questions with identical words
+  const faqs: [string, string, string][] = rows.map((row) => [fillFaqTokens(row.question, values), fillFaqTokens(row.answer, values), row.id]);
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -45,8 +46,8 @@ export default async function FaqPage() {
           <p>Straight answers on delivery, payment, exchanges and sizing.</p>
         </header>
         <div className="product-accordions faq-accordions">
-          {faqs.map(([question, answer]) => (
-            <details key={question}>
+          {faqs.map(([question, answer, id]) => (
+            <details key={id}>
               <summary>
                 {question} <span>+</span>
               </summary>

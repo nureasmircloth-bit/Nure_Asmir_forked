@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useState, type KeyboardEvent } from "react";
 import { ANSWERS, ROUTINE, UI, UR, type Lang } from "@/lib/training-ur";
 import { LESSONS } from "./lessons";
 import { TrainingPlayer } from "./player";
@@ -10,6 +11,7 @@ import { TrainingPlayer } from "./player";
  * because that is how the owner reads fastest; English is one button away, and the choice is remembered in a cookie.
  */
 export function TrainingView({ initialLesson, initialLang }: { initialLesson?: string; initialLang: Lang }) {
+  const router = useRouter();
   const [lang, setLang] = useState<Lang>(initialLang);
   const [tab, setTab] = useState<"watch" | "read">("watch");
   const [lesson, setLesson] = useState(initialLesson);
@@ -18,26 +20,37 @@ export function TrainingView({ initialLesson, initialLang }: { initialLesson?: s
   function choose(next: Lang) {
     setLang(next);
     document.cookie = `adm-lang=${next}; Path=/; Max-Age=31536000; SameSite=Lax`;
+    router.refresh(); // the page title and introduction are written on the server: ask for them again in the new language (this view keeps its place)
+  }
+
+  // Watch / Read are tabs: left and right arrows move between them, and only the chosen one is in the tab order.
+  function tabKeys(event: KeyboardEvent) {
+    if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+      event.preventDefault();
+      const next = tab === "watch" ? "read" : "watch";
+      setTab(next);
+      document.getElementById(`training-tab-${next}`)?.focus();
+    }
   }
 
   return (
     <>
       <div className="a-row" style={{ justifyContent: "space-between", marginBottom: 14 }}>
-        <div className="a-range" role="group" aria-label="Training view">
-          <button type="button" aria-pressed={tab === "watch"} aria-current={tab === "watch" ? "page" : undefined} onClick={() => setTab("watch")}>
+        <div className="a-range" role="tablist" aria-label="Training view" onKeyDown={tabKeys}>
+          <button type="button" role="tab" id="training-tab-watch" aria-selected={tab === "watch"} aria-controls="training-panel-watch" tabIndex={tab === "watch" ? 0 : -1} onClick={() => setTab("watch")}>
             {L.watch}
           </button>
-          <button type="button" aria-pressed={tab === "read"} aria-current={tab === "read" ? "page" : undefined} onClick={() => setTab("read")}>
+          <button type="button" role="tab" id="training-tab-read" aria-selected={tab === "read"} aria-controls="training-panel-read" tabIndex={tab === "read" ? 0 : -1} onClick={() => setTab("read")}>
             {L.read}
           </button>
         </div>
         <div className="a-row">
           <span className="a-muted">{L.language}</span>
           <div className="a-range" role="group" aria-label="Language">
-            <button type="button" aria-pressed={lang === "ur"} aria-current={lang === "ur" ? "page" : undefined} onClick={() => choose("ur")}>
+            <button type="button" aria-pressed={lang === "ur"} onClick={() => choose("ur")}>
               Roman Urdu
             </button>
-            <button type="button" aria-pressed={lang === "en"} aria-current={lang === "en" ? "page" : undefined} onClick={() => choose("en")}>
+            <button type="button" aria-pressed={lang === "en"} onClick={() => choose("en")}>
               English
             </button>
           </div>
@@ -45,9 +58,12 @@ export function TrainingView({ initialLesson, initialLang }: { initialLesson?: s
       </div>
 
       {tab === "watch" ? (
-        <TrainingPlayer key={lesson ?? "start"} lessons={LESSONS} initialLesson={lesson} lang={lang} />
+        <div id="training-panel-watch" role="tabpanel" aria-labelledby="training-tab-watch">
+          {/* the player reports the lesson being watched, so coming back from "Read" returns to it (it is not remounted on every click) */}
+          <TrainingPlayer lessons={LESSONS} initialLesson={lesson} lang={lang} onSelect={setLesson} />
+        </div>
       ) : (
-        <div className="a-stack" aria-label={L.read}>
+        <div className="a-stack" id="training-panel-read" role="tabpanel" aria-labelledby="training-tab-read">
           <p className="a-muted" style={{ maxWidth: 820 }}>{L.guideIntro}</p>
           {LESSONS.map((item) => {
             const text = lang === "ur" && UR[item.id] ? UR[item.id] : { title: item.title, blurb: item.blurb, steps: item.steps.map((step) => step.say) };

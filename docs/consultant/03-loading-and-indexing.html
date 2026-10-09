@@ -21,7 +21,7 @@
 <table>
 <tr><th>Action</th><th>Status</th></tr>
 <tr><td>Delete the old catch-all record <code>*.nureasmir.com → 74.119.239.234</code> (it answered for any unknown name and pointed at an old host)</td><td><span class="tag good">Done by the owner</span></td></tr>
-<tr><td>Redirect <code>www</code> to the bare address so there is only one site address</td><td><span class="tag warn">Coded, live after the next deploy</span></td></tr>
+<tr><td>Redirect <code>www</code> to the bare address so there is only one site address</td><td><span class="tag good">Live</span> (checked on 8 October 2026: <code>www</code> and <code>http</code> both answer 308 to the bare address)</td></tr>
 <tr><td>DNS watch: every 15 minutes, ask five public DNS services for the IPv4 and IPv6 answer of all three names; email the owners if any fails (<code>.github/workflows/dns-watch.yml</code>)</td><td><span class="tag warn">Live after the next deploy</span></td></tr>
 <tr><td>Read-only Cloudflare token so we can inspect records and DNS settings</td><td><span class="tag good">Done</span></td></tr>
 <tr><td>Shorten the &ldquo;remember a missing answer&rdquo; time (SOA minimum 1800 seconds)</td><td><span class="tag bad">Not possible on Free; unknown which plan allows it</span></td></tr>
@@ -85,7 +85,7 @@
 <div class="note bad"><strong>Not yet. We are technically ready, but two things must happen first.</strong></div>
 <table>
 <tr><th>Check</th><th>Result</th><th>Note</th></tr>
-<tr><td>Site opens reliably on HTTPS, correct redirects</td><td><span class="tag good">Yes</span></td><td>www redirect goes live on next deploy.</td></tr>
+<tr><td>Site opens reliably on HTTPS, correct redirects</td><td><span class="tag good">Yes</span></td><td>The www redirect is live (checked on 8 October 2026).</td></tr>
 <tr><td>robots.txt, sitemap, canonical addresses, structured data</td><td><span class="tag good">Yes</span></td><td>SEO score 100 in Lighthouse.</td></tr>
 <tr><td>Fast enough</td><td><span class="tag good">Good enough</span></td><td>Performance 88; improve with fixes above.</td></tr>
 <tr><td>Admin hidden from Google</td><td><span class="tag good">Yes</span></td><td></td></tr>

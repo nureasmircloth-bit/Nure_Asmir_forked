@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { orderItems, orderStatusHistory, orders, paymentProofs, refundRequests } from "@/db/schema";
+import { orderItems, orderStatusHistory, orders, paymentProofs, productImages, refundRequests } from "@/db/schema";
+import { mediaUrl } from "@/lib/media-url";
 import { cancelBlockReason, cancelReasonLabel, customerFacingCourierStatus, STATUS_INFO } from "@/lib/order-rules";
 import { codAmountFor, defaultWeightKg } from "@/lib/courier";
 import { isTcsConfigured } from "@/lib/tcs";
@@ -41,6 +42,16 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
     db.select().from(paymentProofs).where(eq(paymentProofs.orderId, id)),
     db.select().from(refundRequests).where(eq(refundRequests.orderId, id)).limit(1),
   ]);
+
+  // Orders do not store a picture of their own, so show each product's main photo (the order lines only remember the product).
+  const productIds = [...new Set(items.map((item) => item.productId).filter((value): value is string => !!value))];
+  const photos = productIds.length
+    ? await db
+        .select({ productId: productImages.productId, key: productImages.r2Key, widths: productImages.variantWidths })
+        .from(productImages)
+        .where(and(inArray(productImages.productId, productIds), eq(productImages.isPrimary, true), eq(productImages.status, "active")))
+    : [];
+  const photoOf = new Map(photos.map((photo) => [photo.productId, mediaUrl(photo.key, photo.widths)]));
 
   const info = STATUS_INFO[order.orderStatus];
   const tracking = order.courierTrackingNumber && order.courierTrackingNumber !== "PENDING" ? order.courierTrackingNumber : null;
@@ -170,7 +181,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
                     <tr key={item.id}>
                       <td>
                         <div className="a-prodcell">
-                          <Thumb src={item.imageUrl} />
+                          <Thumb src={item.imageUrl ?? (item.productId ? photoOf.get(item.productId) : null)} />
                           <span>
                             {item.productId ? (
                               <Link href={`/admin/products/${item.productId}`} className="a-strong">

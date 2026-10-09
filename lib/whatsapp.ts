@@ -1,3 +1,4 @@
+import { isPracticeRequest } from "@/lib/practice-context";
 import { trackedFetch } from "@/lib/usage";
 const GRAPH_VERSION = "v21.0";
 
@@ -31,7 +32,7 @@ export async function sendOrderConfirmationWhatsApp(params: {
   orderNumber: string;
   total: number;
 }): Promise<string | null> {
-  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+  const accessToken = isPracticeRequest() ? undefined : process.env.WHATSAPP_ACCESS_TOKEN; // (never in the practice shop)
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   const templateName = process.env.WHATSAPP_TEMPLATE_NAME || "order_confirmation";
   if (!accessToken || !phoneNumberId) return null;
@@ -82,7 +83,7 @@ export async function sendOrderConfirmationWhatsApp(params: {
  * service session, and free-form text is allowed within that window.
  */
 export async function sendWhatsAppText(toPhone: string, text: string): Promise<{ ok: boolean; error?: string }> {
-  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+  const accessToken = isPracticeRequest() ? undefined : process.env.WHATSAPP_ACCESS_TOKEN;
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   if (!accessToken || !phoneNumberId) return { ok: false, error: "WHATSAPP_ACCESS_TOKEN or WHATSAPP_PHONE_NUMBER_ID not set" };
 

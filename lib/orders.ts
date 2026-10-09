@@ -241,12 +241,15 @@ export async function reconcileReservedStock(): Promise<{ repaired: number }> {
     UPDATE product_variants v
     SET reserved_quantity = x.expected, updated_at = now()
     FROM (
-      SELECT pv.id,
-             coalesce(sum(oi.quantity) FILTER (WHERE o.order_status IN ('pending_confirmation','confirmed','processing','packed','shipped')), 0)::int AS expected
+      SELECT pv.id, coalesce(held.quantity, 0)::int AS expected
       FROM product_variants pv
-      LEFT JOIN order_items oi ON oi.variant_id = pv.id
-      LEFT JOIN orders o ON o.id = oi.order_id
-      GROUP BY pv.id
+      LEFT JOIN (
+        SELECT oi.variant_id, sum(oi.quantity) AS quantity
+        FROM order_items oi
+        JOIN orders o ON o.id = oi.order_id
+        WHERE o.order_status IN ('pending_confirmation','confirmed','processing','packed','shipped')
+        GROUP BY oi.variant_id
+      ) held ON held.variant_id = pv.id
     ) x
     WHERE v.id = x.id AND v.reserved_quantity <> x.expected AND v.updated_at < ${idleBefore}
     RETURNING v.id

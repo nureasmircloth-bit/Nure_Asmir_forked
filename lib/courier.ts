@@ -134,6 +134,9 @@ export async function bookOrderWithTcs(orderId: string, actorEmail: string, over
     .update(orders)
     .set({ courierName: "TCS", courierTrackingNumber: trackingNumber, courierBookedAt: new Date(), courierStatus: "Booked", courierSyncedAt: new Date(), courierAutoError: null })
     .where(eq(orders.id, orderId));
+  // The parcel is booked the moment the tracking number is saved: tell the customer and the owner right away, so a later failure while
+  // writing the history can not leave an already-booked order unannounced.
+  announceOrderEvent(orderId, "booked", "admin", trackingNumber);
   await db.insert(orderStatusHistory).values({
     orderId,
     fromStatus: order.orderStatus,
@@ -142,7 +145,6 @@ export async function bookOrderWithTcs(orderId: string, actorEmail: string, over
     actorEmail,
   });
   await auditLogEntry({ actorEmail, action: "order.tcs_book", entityType: "order", entityId: orderId, detail: { trackingNumber, cityName, codAmount } });
-  announceOrderEvent(orderId, "booked", "admin");
   return { ok: true, trackingNumber };
 }
 
@@ -159,9 +161,9 @@ export async function saveManualTracking(orderId: string, trackingNumber: string
     .where(and(eq(orders.id, orderId), inArray(orders.orderStatus, BOOKABLE_STATUSES), or(isNull(orders.courierTrackingNumber), ne(orders.courierTrackingNumber, PENDING))))
     .returning({ id: orders.id });
   if (!saved) return fail("conflict", "This order changed just now – refresh and try again.");
+  announceOrderEvent(orderId, "booked", "admin", cn); // right after the number is saved (see above); a corrected number is announced again
   await db.insert(orderStatusHistory).values({ orderId, fromStatus: order.orderStatus, toStatus: order.orderStatus, note: `TCS tracking number added by hand: ${cn}`, actorEmail });
   await auditLogEntry({ actorEmail, action: "order.tcs_manual", entityType: "order", entityId: orderId, detail: { trackingNumber: cn } });
-  announceOrderEvent(orderId, "booked", "admin");
   return { ok: true, trackingNumber: cn };
 }
 

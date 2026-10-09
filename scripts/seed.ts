@@ -247,18 +247,20 @@ async function seedProducts(categoryIds: Record<string, string>) {
     let productId = existing?.id;
     let needsVariants = !existing;
     let needsImages = !existing;
+    let have = new Set<number>();
     if (existing) {
       const [variantRow] = await db.select({ id: productVariants.id }).from(productVariants).where(eq(productVariants.productId, existing.id)).limit(1);
-      const [imageRow] = await db.select({ id: productImages.id }).from(productImages).where(eq(productImages.productId, existing.id)).limit(1);
+      const haveImages = await db.select({ sortOrder: productImages.sortOrder }).from(productImages).where(eq(productImages.productId, existing.id));
+      have = new Set(haveImages.map((row) => row.sortOrder));
       needsVariants = !variantRow;
-      needsImages = !imageRow;
+      needsImages = have.size < item.images.length; // a product with only some of its pictures gets the missing ones
       if (!needsVariants && !needsImages) continue;
       console.log(`Repairing partially seeded product: ${item.name}`);
     }
 
     // Upload photos first so a failed upload never leaves a published product behind.
     const stored = needsImages
-      ? await Promise.all(item.images.map((image, index) => uploadImage(image.file, `products/seed-${slug}-${index + 1}.jpg`)))
+      ? await Promise.all(item.images.map((image, index) => (have.has(index) ? Promise.resolve(null) : uploadImage(image.file, `products/seed-${slug}-${index + 1}.jpg`))))
       : [];
 
     if (!productId) {

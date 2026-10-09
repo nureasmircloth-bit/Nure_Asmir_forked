@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Price } from "../_components/currency";
 import { ProductCard } from "../_components/store-components";
 import { ThemedSelect } from "../_components/themed-select";
 import { countFilters, EMPTY_FILTERS, filtersToParams, hasFilters, parseFilters, type CatalogFilters } from "@/lib/catalog-filters";
@@ -15,7 +16,6 @@ const SORTS: Array<{ value: Sort; label: string }> = [
   { value: "low", label: "Price, low to high" },
   { value: "high", label: "Price, high to low" },
 ];
-const rupees = (n: number) => `Rs. ${n.toLocaleString("en-PK")}`;
 
 /**
  * `products` is the first page, rendered on the server (so the page is instant and cacheable).
@@ -165,6 +165,7 @@ export function ShopGrid({
       return;
     }
     let live = true;
+    setFacets(null); // never show the previous category's choices while this one loads (or if it fails)
     setFacetsLoading(true);
     fetch(`/api/catalog/facets?cat=${encodeURIComponent(scope)}`)
       .then((response) => (response.ok ? (response.json() as Promise<Facets>) : null))
@@ -230,7 +231,20 @@ export function ShopGrid({
         <div className="active-filters" aria-label="Active filters">
           {(filters.min != null || filters.max != null) && (
             <button type="button" onClick={() => removeChip({ ...filters, min: undefined, max: undefined })}>
-              {filters.min != null && filters.max != null ? `${rupees(filters.min)} – ${rupees(filters.max)}` : filters.min != null ? `From ${rupees(filters.min)}` : `Up to ${rupees(filters.max as number)}`} ✕
+              {filters.min != null && filters.max != null ? (
+                <>
+                  <Price amount={filters.min} /> – <Price amount={filters.max} />
+                </>
+              ) : filters.min != null ? (
+                <>
+                  From <Price amount={filters.min} />
+                </>
+              ) : (
+                <>
+                  Up to <Price amount={filters.max as number} />
+                </>
+              )}{" "}
+              ✕
             </button>
           )}
           {filters.sizes.map((size) => (

@@ -85,9 +85,11 @@ test.describe("edge page cache", () => {
     const cache = fakeCache();
     let built = 0;
     const handler = withEdgePageCache({ fetch: async () => (built++, page(`<html>build ${built}</html>`)) }, () => cache);
-    const first = await handler.fetch(get("/shop"), { BUILD_ID: "r1" }, ctx());
+    const firstContext = ctx();
+    const first = await handler.fetch(get("/shop"), { BUILD_ID: "r1" }, firstContext);
     expect(first.headers.get(CACHE_HEADER)).toBe("MISS");
     expect(await first.text()).toContain("build 1");
+    await firstContext.settle(); // the copy is saved after the visitor has been answered
     const second = await handler.fetch(get("/shop?utm_source=x"), { BUILD_ID: "r1" }, ctx());
     expect(second.headers.get(CACHE_HEADER)).toBe("HIT");
     expect(await second.text()).toContain("build 1");
@@ -99,7 +101,9 @@ test.describe("edge page cache", () => {
     const cache = fakeCache();
     let built = 0;
     const handler = withEdgePageCache({ fetch: async () => (built++, page(`<html>build ${built}</html>`)) }, () => cache);
-    await handler.fetch(get("/shop"), { BUILD_ID: "r1" }, ctx());
+    const seed = ctx();
+    await handler.fetch(get("/shop"), { BUILD_ID: "r1" }, seed);
+    await seed.settle();
     const key = cacheKeyFor(get("/shop"), "r1").url;
     cache.store.get(key)!.headers.set("x-edge-saved-at", String(Date.now() - (FRESH_SECONDS + 5) * 1000));
     const c = ctx();
@@ -152,5 +156,37 @@ test.describe("edge page cache", () => {
     const answer = await handler.fetch(get("/shop"), {}, ctx());
     expect(answer.status).toBe(200);
     expect(await answer.text()).toContain("ok");
+  });
+  test("a burst of visitors on a stale page starts one rebuild, not one each", async () => {
+    const cache = fakeCache();
+    let built = 0;
+    const handler = withEdgePageCache({ fetch: async () => (built++, await new Promise((resolve) => setTimeout(resolve, 20)), page(`<html>build ${built}</html>`)) }, () => cache);
+    const seed = ctx();
+    await handler.fetch(get("/shop"), { BUILD_ID: "r1" }, seed);
+    await seed.settle();
+    const key = cacheKeyFor(get("/shop"), "r1").url;
+    cache.store.get(key)!.headers.set("x-edge-saved-at", String(Date.now() - (FRESH_SECONDS + 5) * 1000));
+    const contexts = Array.from({ length: 6 }, () => ctx());
+    const answers = await Promise.all(contexts.map((c) => handler.fetch(get("/shop"), { BUILD_ID: "r1" }, c)));
+    await Promise.all(contexts.map((c) => c.settle()));
+    expect(answers.every((answer) => answer.headers.get(CACHE_HEADER) === "STALE")).toBe(true);
+    expect(built, "one first build plus ONE rebuild").toBe(2);
+  });
+
+  test("a slow cache save never delays the visitor's first answer", async () => {
+    const slow = fakeCache();
+    const put = slow.put.bind(slow);
+    slow.put = async (request, response) => {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      await put(request, response);
+    };
+    const handler = withEdgePageCache({ fetch: async () => page("<html>hi</html>") }, () => slow);
+    const c = ctx();
+    const started = Date.now();
+    const answer = await handler.fetch(get("/shop"), { BUILD_ID: "r1" }, c);
+    expect(Date.now() - started, "answered before the slow save finished").toBeLessThan(300);
+    expect(answer.headers.get(CACHE_HEADER)).toBe("MISS");
+    await c.settle();
+    expect(slow.store.size).toBe(1); // ... and the copy was still saved afterwards
   });
 });

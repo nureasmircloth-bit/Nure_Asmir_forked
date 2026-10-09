@@ -129,6 +129,42 @@ export const UR: Record<string, LessonText> = {
       "Phir sabar aur istiqamat: nayi cheezein baar baar daalein, tafseel imandari se likhein, aur website tez rakhein. Domain ki umr ki ahmiyat hai – sukoon se chalne wali dukaan shor machane wali se behtar hai.",
     ],
   },
+  messages: {
+    title: "12. Customers ko message likhein",
+    blurb: "Phone par notification (muft), kisi ek customer ko email, ya apni poori list ko email.",
+    steps: [
+      "Messages kholein (Grow ke neeche). Notification wala tab un logon ke phone par chota message bhejta hai jinhon ne notifications allow ki hain. Ye muft hai aur is ki koi hadd nahi.",
+      "Chota sa title aur message likhein. Daayein taraf wala dabba bilkul wesa dikhata hai jaisa phone par nazar aayega. Ek hi baat likhein: “Eid sale aaj raat se”.",
+      "Chunein ke kis ko jaye. Pehle hamesha “My own devices” par test bhejein – aap apne phone par dekh lein. Phir un logon ko bhejein jinhon ne sale alerts maange thay.",
+      "“Send now” dabayein aur confirm karein. Notification wapas nahi li ja sakti, isliye page ek baar poochta hai. “Sent recently” mein nazar aata hai ke kitne phones tak pahunchi.",
+      "Email wala tab kisi ek customer ko likhta hai – order number likhein, Find dabayein, aur tayyar jawab se shuru karein (shukriya, confirm karein, size madad, deri, stock khatam). Email nahi hai? WhatsApp par jawab ek button se de dein.",
+      "Poori list ko likhna ho to “Everyone on my email list” chunein. Har email mein unsubscribe link hota hai, aur page bhejne se pehle batata hai ke aaj kitni muft emails baqi hain.",
+      "Aap ko bhi alerts milte hain: naya order, payment receipt, refund, kam stock, aur ab “TCS booked” tracking number ke saath. Har computer par jahan kaam karte hain order alerts on karein.",
+    ],
+  },
+  words: {
+    title: "13. Website ke alfaz aur top bar",
+    blurb: "Our story page badlein, top bar ko scroll karwayein, aur jaanein tabdeeli kitni der mein nazar aati hai.",
+    steps: [
+      "Our story page (Your website): bara heading aur text badlein. Paragraphs ke darmiyan khali line chorein. Kisi line ke shuru mein > lagayein to wo bara quote ban jati hai.",
+      "Save dabayein. “Go back to the original wording” kabhi bhi aap ki tabdeeliyan wapas kar deta hai. Saath wali tasveer Website pictures mein badli jati hai.",
+      "Settings → Top bar: chunein ke lines kaise chalein – ek ek line, ya left ya right taraf scroll hoti hui news ticker ki tarah. Chhoone se scrolling ruk jati hai.",
+      "Preview asli top bar ko chalte hue dikhata hai, phone ke frame mein aur computer ke frame mein. Pasand aaye to band karein aur “Save settings” dabayein.",
+      "Jo kuch customers dekhte hain us ko save karne ke baad ek note aata hai: “Your website will show this in about 3 minutes”. Website apne pages ki saved copies customers ke qareeb rakhti hai taake tez khule, aur wo har chand minute mein naye ho jate hain.",
+      "Zyada jagah chahiye? Logo ke saath wala chota panel button menu ko choti icons ki patti bana deta hai – icon par mouse le jayein to naam dikhta hai. Dobara dabayein to menu wapas. Aap ki pasand yaad rakhta hai.",
+    ],
+  },
+  practice: {
+    title: "14. Practice shop",
+    blurb: "Wohi admin, nakli data ke saath – bina kisi khatre ke har cheez par click karein. Kar ke seekhein.",
+    steps: [
+      "Menu ke bilkul neeche, “Learn” ke tahat, “Practice shop” hai. “Start practice” dabayein aur taqreeban 10 second intezar karein jab tak tayyar ho. Dobara sign in nahi karna parta: aap sign in hi rehte hain.",
+      "Upar narangi patti likhi hoti hai PRACTICE SHOP, taake aap kabhi asli dukaan se na milayein. Wahan se kuch customer tak nahi pahunchta: na email, na WhatsApp, na TCS, na notification.",
+      "Roz ke liye clicks ki ek tay tadad milti hai, aur patti unhein ginti rehti hai. Products ya orders kitne daal sakte hain aur storage (1 MB) ki bhi choti hadd hai taake sab saaf rahe. Agle din nayi shuru hoti hai.",
+      "Gadbad ho gayi? Narangi patti mein “Start again” dabayein. Har product, order aur setting wapas shuru wali halat mein aa jati hai. Kaam khatam ho to “Leave practice” dabayein aur asli dukaan mein wapas aa jayein.",
+      "Ye is tarteeb se kar ke dekhein: sizes ke saath product daalein; order confirm karein aur tracking number daalein; ek order cancel karein; flash sale banayein; notification likhein; Our story page badlein. Jab tak aasaan na lage dohrayein.",
+    ],
+  },
 };
 
 export type Lang = "ur" | "en";

@@ -269,6 +269,230 @@ const LESSON_DEFS: Array<Omit<Lesson, "minutes">> = [
       { say: "Then be patient and steady: add new products often, keep descriptions honest, and keep the website fast. Domain age counts – a calm, regular shop beats a flashy one.", screen: () => <Slide title="Every week" points={[["Add or refresh 3–5 products", "Fresh pages give Google reasons to come back."], ["Answer messages quickly", "Fast replies turn browsers into buyers."], ["Check Search Console monthly", "See which phrases bring people, and write more about those."], ["Post your best photo", "Instagram and TikTok bring the first visitors."]]} />, actions: [{ t: "wait", ms: 300 }] },
     ],
   },
+  {
+    id: "messages",
+    title: "12. Write to your shoppers",
+    blurb: "A notification on their phone (free), an email to one customer, or one to your whole list.",
+    steps: [
+      {
+        say: "Open Messages (under Grow). The Notification tab sends a short message to the phones of shoppers who allowed notifications. It is free and has no limit.",
+        screen: (s) => (
+          <Shell nav="Messages" title="Messages" intro="Write to your shoppers: a notification on their phone, or an email.">
+            <div style={{ display: "flex", gap: 8 }}>
+              <Chip id="tab-push" s={s} on>Notification</Chip>
+              <Chip id="tab-mail" s={s}>Email</Chip>
+            </div>
+          </Shell>
+        ),
+        actions: [{ t: "move", to: "tab-push" }],
+      },
+      {
+        say: "Write a short title and a message. The grey box on the right shows exactly how it will look on a phone. Keep it to one idea: “Eid sale starts tonight”.",
+        screen: (s) => (
+          <Shell nav="Messages" title="Notification to shoppers">
+            <Grid cols={2}>
+              <Card>
+                <Field id="n-title" s={s} k="ntitle" label="Title" placeholder="Eid sale starts tonight" wide />
+                <Field id="n-body" s={s} k="nbody" label="Message" placeholder="Up to 30% off on kameez shalwar until Sunday." wide />
+              </Card>
+              <Card title="How it looks on a phone">
+                <div className="a-card" style={{ padding: 10 }}>
+                  <strong>{s.ntitle || "Your title"}</strong>
+                  <div className="a-muted">{s.nbody || "Your message appears here."}</div>
+                </div>
+              </Card>
+            </Grid>
+          </Shell>
+        ),
+        actions: [{ t: "type", into: "n-title", key: "ntitle", text: "Eid sale starts tonight" }, { t: "type", into: "n-body", key: "nbody", text: "Up to 30% off on kameez shalwar until Sunday." }],
+      },
+      {
+        say: "Choose who gets it. Always send to “My own devices” first as a test – you see it arrive on your own phone. Then send to the people who asked for sale alerts.",
+        screen: (s) => (
+          <Shell nav="Messages" title="Who gets it">
+            <Card>
+              <T id="aud-sales" s={s} as="div">◉ People who asked for sale alerts · 120 phones</T>
+              <T id="aud-all" s={s} as="div">○ Everyone with notifications on · 188 phones (use sparingly)</T>
+              <T id="aud-test" s={s} as="div">○ Only my own devices (a test)</T>
+              <Btn id="b-test" s={s}>Send a test</Btn>
+            </Card>
+          </Shell>
+        ),
+        actions: [{ t: "click", on: "aud-test" }, { t: "click", on: "b-test", set: { tested: "1" } }],
+      },
+      {
+        say: "Press “Send now” and confirm. A notification cannot be taken back, so the page asks once. You can see what was sent, and how many phones it reached, in “Sent recently”.",
+        screen: (s) => (
+          <Shell nav="Messages" title="Sent recently">
+            <Card>
+              <Btn id="b-send" s={s} primary>Send now</Btn>
+              <Table head={["When", "Kind", "Message", "Reached"]} rows={[["Just now", "Notification", "Eid sale starts tonight", s.sent ? "118 of 120" : "—"]]} />
+            </Card>
+          </Shell>
+        ),
+        actions: [{ t: "click", on: "b-send", set: { sent: "1" } }],
+      },
+      {
+        say: "The Email tab writes to one customer – type their order number, press Find, and start from a ready-made reply (thanks, please confirm, size help, delay, out of stock). No email address? Reply on WhatsApp instead with one button.",
+        screen: (s) => (
+          <Shell nav="Messages" title="Email">
+            <Card>
+              <Field id="m-order" s={s} k="order" label="Order number" placeholder="NA-10234" w={260} />
+              <Btn id="m-find" s={s}>Find</Btn>
+              {s.found && <span className="a-muted">Ahmed Raza · 0301 1234567 · no email</span>}
+              <Btn id="m-wa" s={s}>Reply on WhatsApp instead</Btn>
+            </Card>
+          </Shell>
+        ),
+        actions: [{ t: "type", into: "m-order", key: "order", text: "NA-10234" }, { t: "click", on: "m-find", set: { found: "1" } }, { t: "move", to: "m-wa" }],
+      },
+      {
+        say: "To write to your whole email list, choose “Everyone on my email list”. Every email carries an unsubscribe link, and the page tells you how many free emails are left today before it lets you send.",
+        screen: (s) => (
+          <Shell nav="Messages" title="Email to everyone">
+            <Card>
+              <T id="list-all" s={s} as="div">◉ Everyone on my email list · 64 people</T>
+              <Badge tone="done">About 236 free emails left today</Badge>
+              <Tip>Notifications and email on this page are for YOUR messages. Orders still send their own emails and alerts by themselves.</Tip>
+            </Card>
+          </Shell>
+        ),
+        actions: [{ t: "click", on: "list-all" }],
+      },
+      {
+        say: "You also get alerts: a new order, a payment receipt, a refund, low stock, and now “TCS booked” with the tracking number. Turn on order alerts on every computer you use.",
+        screen: () => <Slide title="What pings you" points={[["New order", "Name, amount and payment method."], ["TCS booked", "Which order and its tracking number – even when a helper booked it."], ["Delivered or returned", "When TCS tells us."], ["Receipts, refunds, low stock", "So nothing waits."]]} />,
+        actions: [{ t: "wait", ms: 300 }],
+      },
+    ],
+  },
+  {
+    id: "words",
+    title: "13. Your website’s words and top bar",
+    blurb: "Edit the Our story page, make the top bar scroll, and know how long a change takes to show.",
+    steps: [
+      {
+        say: "Our story page (Your website): change the big heading and the text. Leave an empty line between paragraphs. Start a line with > to make it the large quote.",
+        screen: (s) => (
+          <Shell nav="Our story page" title="Our story page">
+            <Grid cols={2}>
+              <Card>
+                <Field id="s-head" s={s} k="shead" label="Big heading" placeholder="Tradition in a modern form." wide />
+                <Field id="s-text" s={s} k="stext" label="Text" placeholder="Nure Asmir is a men’s wear label from Pakistan…" wide />
+              </Card>
+              <Card title="How it will look">
+                <h3 style={{ margin: 0 }}>{s.shead || "Tradition in a modern form."}</h3>
+                <div className="a-muted">{s.stext || "Nure Asmir is a men’s wear label from Pakistan…"}</div>
+              </Card>
+            </Grid>
+          </Shell>
+        ),
+        actions: [{ t: "type", into: "s-head", key: "shead", text: "Made in Pakistan, made to last." }, { t: "type", into: "s-text", key: "stext", text: "We started with one shirt and one idea." }],
+      },
+      {
+        say: "Press Save. “Go back to the original wording” undoes your changes any time. The picture next to the words is changed in Website pictures.",
+        screen: (s) => (
+          <Shell nav="Our story page" title="Our story page">
+            <Card>
+              <Btn id="s-save" s={s} primary>Save</Btn>
+              <Btn id="s-reset" s={s} quiet>Go back to the original wording</Btn>
+            </Card>
+          </Shell>
+        ),
+        actions: [{ t: "click", on: "s-save" }, { t: "move", to: "s-reset" }],
+      },
+      {
+        say: "Settings → Top bar: choose how the lines move – one line at a time, or scrolling to the left or to the right like a news ticker. Touching a scrolling bar pauses it.",
+        screen: (s) => (
+          <Shell nav="Settings" title="Top bar of your website">
+            <Card>
+              <T id="mv-one" s={s} as="div">○ One line at a time</T>
+              <T id="mv-left" s={s} as="div">○ Scrolling, towards the left</T>
+              <T id="mv-right" s={s} as="div">○ Scrolling, towards the right</T>
+              <Btn id="mv-prev" s={s}>Preview on phone and computer</Btn>
+            </Card>
+          </Shell>
+        ),
+        actions: [{ t: "click", on: "mv-left" }, { t: "click", on: "mv-prev", set: { prev: "1" } }],
+      },
+      {
+        say: "The preview shows the real top bar moving, in a phone frame and a computer frame. Happy? Close it and press “Save settings”.",
+        screen: (s) => (
+          <Shell nav="Settings" title="Top bar preview">
+            <Grid cols={2}>
+              <Card title="On a phone"><span className="tf-chip on">CASH ON DELIVERY ALL OVER PAKISTAN •</span></Card>
+              <Card title="On a computer"><span className="tf-chip on">CASH ON DELIVERY ALL OVER PAKISTAN • FREE DELIVERY ABOVE RS. 10,000 •</span></Card>
+            </Grid>
+            <Btn id="mv-save" s={s} primary>Save settings</Btn>
+          </Shell>
+        ),
+        actions: [{ t: "click", on: "mv-save" }],
+      },
+      {
+        say: "After you save anything that shoppers see, a note appears: “Your website will show this in about 3 minutes (around 3:45 pm)”. The website keeps saved copies of its pages near your customers so it opens fast, and they are renewed every few minutes.",
+        screen: () => (
+          <Shell nav="Settings" title="Saved">
+            <Tip><strong>Your website will show this in about 5 minutes (around 3:48 pm).</strong> Shoppers who already have the page open need to refresh it.</Tip>
+            <Slide title="How long does a change take?" points={[["Prices, pictures, banners, delivery", "About 3 minutes."], ["Settings, questions, Our story", "About 5 minutes."], ["Check it", "Open your website in a private window after that time."]]} />
+          </Shell>
+        ),
+        actions: [{ t: "wait", ms: 300 }],
+      },
+      {
+        say: "Need more room? The little panel button next to the logo folds the menu into a slim row of icons – hover an icon to read its name. Press it again to bring the menu back. It remembers your choice.",
+        screen: (s) => (
+          <Shell nav="Home" title="Fold the menu">
+            <Card><T id="fold-btn" s={s} className="a-btn">▯ Fold the menu</T><span className="a-muted">Icons stay in the same place; only the words fade away.</span></Card>
+          </Shell>
+        ),
+        actions: [{ t: "click", on: "fold-btn" }],
+      },
+    ],
+  },
+  {
+    id: "practice",
+    title: "14. The practice shop",
+    blurb: "The same admin with pretend data – click anything without any risk. Learn by doing.",
+    steps: [
+      {
+        say: "At the bottom of the menu, under “Learn”, is “Practice shop”. Press “Start practice” and wait about 10 seconds while it gets ready. You do not sign in again: you stay signed in.",
+        screen: (s) => (
+          <Shell nav="Home" title="Practice shop">
+            <Card><T id="practice-link" s={s} className="a-btn a-btn-primary">✦ Start practice</T><span className="a-muted">Getting your practice shop ready… 10 seconds</span></Card>
+          </Shell>
+        ),
+        actions: [{ t: "click", on: "practice-link" }],
+      },
+      {
+        say: "An orange strip across the top says PRACTICE SHOP, so you can never mix it up with the real one. Nothing there reaches a customer: no emails, no WhatsApp, no TCS, no notifications.",
+        screen: () => (
+          <Shell nav="Home" title="Good morning, Owner">
+            <div style={{ background: "#f59e0b", color: "#1c1300", padding: "8px 14px", borderRadius: 8, fontWeight: 700 }}>PRACTICE SHOP — nothing here is real · 1,438 of 1,500 clicks left today</div>
+          </Shell>
+        ),
+        actions: [{ t: "wait", ms: 300 }],
+      },
+      {
+        say: "You get a fixed number of clicks each day, and the strip counts them down. There are also small limits on how many products or orders you can add, and on storage (1 MB), so it stays tidy. It starts fresh the next day.",
+        screen: () => <Slide title="What is limited" points={[["Clicks per day", "1,500 page views and button presses. Pictures and signing in are free."], ["Products", "Up to 25 at the same time."], ["Orders", "Up to 60 at the same time."], ["Other things", "A few discount codes, flash sales, questions and shops."]]} foot="If you reach a limit the page tells you in plain words. Nothing breaks." />,
+        actions: [{ t: "wait", ms: 300 }],
+      },
+      {
+        say: "Made a mess? Press “Start again” in the orange strip. Every product, order and setting goes back to how it was at the beginning. When you are done, press “Leave practice” to go back to your real shop.",
+        screen: (s) => (
+          <Shell nav="Home" title="Start again">
+            <Card><T id="sa-btn" s={s} className="a-btn">Start again</T>{s.sa && <Badge tone="done">Back to the starting practice data ✓</Badge>}</Card>
+          </Shell>
+        ),
+        actions: [{ t: "click", on: "sa-btn", set: { sa: "1" } }],
+      },
+      {
+        say: "Try these, in order: add a product with sizes; confirm an order and add a tracking number; cancel one; make a flash sale; write a notification; edit the Our story page. Repeat until it feels easy.",
+        screen: () => <Slide title="Your practice list" points={[["Add a product", "Name, sizes, price, stock – then Preview."], ["Process an order", "Confirm → pack → add the tracking number."], ["Cancel and refund", "See what happens to stock."], ["Run a flash sale", "Set the dates and watch the prices."], ["Write a message", "Preview first, then send the test."]]} />,
+        actions: [{ t: "wait", ms: 300 }],
+      },
+    ],
+  },
 ];
 
 export const LESSONS: Lesson[] = LESSON_DEFS.map((lesson) => ({ ...lesson, minutes: Math.max(1, Math.round(estimateSeconds(lesson.steps as Step[]) / 60)) }));

@@ -4,6 +4,7 @@ name: Deploy to Cloudflare Workers
 #   nure-asmir        – the customer storefront (no admin code in the bundle)
 #   nure-asmir-admin  – the owner's admin panel
 # Database migrations run first so a deploy never ships code that needs a column that is not there.
+# (The practice shop is not a third Worker: it runs inside the admin Worker, on its own tables – see lib/practice-context.ts.)
 on:
   push:
     branches: [main]
@@ -51,6 +52,25 @@ jobs:
 
       - name: Apply database migrations
         run: npx drizzle-kit migrate
+
+      # The PRACTICE tables (a separate schema in the same database, with a database user that can only see it): kept up to date with the
+      # same migrations, and filled with pretend data the first time. Only runs once the PRACTICE_DATABASE_URL secret exists
+      # (made by scripts/practice-create.ts). The owner opens it from the admin menu: it runs inside the admin Worker, nothing extra is deployed.
+      - name: Practice tables (only when PRACTICE_DATABASE_URL is set)
+        env:
+          PRACTICE_DATABASE_URL: ${{ secrets.PRACTICE_DATABASE_URL }}
+          AWS_ENDPOINT_URL_S3: ${{ secrets.AWS_ENDPOINT_URL_S3 }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PRACTICE_DATABASE_URL:-}" ]; then
+            echo "No PRACTICE_DATABASE_URL secret – skipping the practice tables."
+            exit 0
+          fi
+          DATABASE_URL="$PRACTICE_DATABASE_URL" npx tsx scripts/practice-migrate.ts
+          DATABASE_URL="$PRACTICE_DATABASE_URL" ADMIN_EMAIL=practice@nureasmir.com ADMIN_INITIAL_PASSWORD="$(openssl rand -hex 16)" npx tsx scripts/sandbox-setup.ts
 
       # The ISR page cache needs Cloudflare R2. R2 must be switched on once in the Cloudflare dashboard (R2 →
       # Enable); until then the site is deployed without it (pages render fresh instead of from the cache).
@@ -118,6 +138,7 @@ jobs:
       - name: Sync Worker secrets
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PRACTICE_DATABASE_URL: ${{ secrets.PRACTICE_DATABASE_URL }}
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
           ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
           ADMIN_INITIAL_PASSWORD: ${{ secrets.ADMIN_INITIAL_PASSWORD }}
@@ -157,7 +178,7 @@ jobs:
           set -euo pipefail
           # Runs after the deploys: on a brand-new account the Workers only exist once they have been deployed.
           for config in wrangler.jsonc wrangler.admin.jsonc; do
-            for name in DATABASE_URL SESSION_SECRET ADMIN_EMAIL ADMIN_INITIAL_PASSWORD AWS_ENDPOINT_URL_S3 AWS_ACCESS_KEY_ID \
+            for name in DATABASE_URL PRACTICE_DATABASE_URL SESSION_SECRET ADMIN_EMAIL ADMIN_INITIAL_PASSWORD AWS_ENDPOINT_URL_S3 AWS_ACCESS_KEY_ID \
               AWS_SECRET_ACCESS_KEY AWS_REGION ALGOLIA_APP_ID ALGOLIA_ADMIN_KEY FIREBASE_SERVICE_ACCOUNT RESEND_API_KEY \
               RESEND_FROM_EMAIL RESEND_FROM_NAME WHATSAPP_DEFAULT_NUMBER CRON_SECRET GROQ_API_KEY GROQ_API_KEY_2 GROQ_API_KEY_3 RESEND_API_KEY_2 BREVO_API_KEY EMAIL_REPLY_TO GEOAPIFY_API_KEY TURNSTILE_SECRET_KEY \
               CSP_NONCE WHATSAPP_ACCESS_TOKEN WHATSAPP_PHONE_NUMBER_ID WHATSAPP_APP_SECRET WHATSAPP_TEMPLATE_NAME \

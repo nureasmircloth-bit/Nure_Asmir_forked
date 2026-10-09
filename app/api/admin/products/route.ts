@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { sandboxRoomMessage } from "@/lib/sandbox";
 import { runInBackground } from "@/lib/background";
 import { syncProductSearch } from "@/lib/search/algolia";
 import { and, desc, eq, ilike, or } from "drizzle-orm";
@@ -119,6 +120,8 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const admin = await getAdminUser();
   if (!admin) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  const full = await sandboxRoomMessage("products"); // practice shop only: a small limit on how much can be created
+  if (full) return Response.json({ error: full }, { status: 400 });
 
   const parsed = createSchema.safeParse(await request.json().catch(() => ({})));
   if (!parsed.success) return Response.json({ error: "Invalid product payload." }, { status: 400 });
@@ -143,6 +146,7 @@ export async function POST(request: Request) {
           material: data.material,
           shortDescription: data.shortDescription,
           description: data.description,
+          keywords: data.seoKeywords,
         });
 
   let row;

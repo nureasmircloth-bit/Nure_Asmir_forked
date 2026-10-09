@@ -1,4 +1,5 @@
 import { runInBackground } from "@/lib/background";
+import { isPracticeRequest } from "@/lib/practice-context";
 import { siteOrigin } from "@/lib/brand";
 
 let lastAt = 0;
@@ -8,6 +9,7 @@ let lastAt = 0;
  * Best-effort and rate-limited: a bulk upload that saves 50 products asks once, not 50 times.
  */
 export function refreshStorefront(force = false): void {
+  if (isPracticeRequest()) return; // practice changes never reach the real website
   const secret = process.env.CRON_SECRET;
   if (!secret || (!force && Date.now() - lastAt < 4000)) return;
   lastAt = Date.now();

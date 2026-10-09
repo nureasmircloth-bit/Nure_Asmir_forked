@@ -1,3 +1,4 @@
+import { isPracticeRequest } from "@/lib/practice-context";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { SERVICES } from "@/lib/dev-limits";
@@ -33,7 +34,7 @@ export function htmlToText(html: string): string {
     } while (text !== previous);
     return text;
   };
-  const withoutCode = strip(html, /<(style|script)[\s\S]*?<\/\1>/gi);
+  const withoutCode = strip(strip(html, /<(style|script)\b[^>]*>[\s\S]*?<\/\1\s*>/gi), /<(style|script)\b[^>]*>[\s\S]*$/gi);
   const withLinks = withoutCode
     .replace(/<br\s*\/?>|<\/(p|div|tr|h[1-6]|li)>/gi, "\n")
     .replace(/<a [^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi, "$2 ($1)");
@@ -110,6 +111,7 @@ export async function emailAllowance(): Promise<{ limit: number; used: number; l
 }
 
 export async function sendMail(mail: Mail): Promise<boolean> {
+  if (isPracticeRequest()) return false; // the practice shop never sends a real email
   const ready = PROVIDERS.filter((provider) => provider.configured());
   if (!ready.length) return false;
   const replyTo = process.env.EMAIL_REPLY_TO || process.env.RESEND_FROM_EMAIL || undefined;

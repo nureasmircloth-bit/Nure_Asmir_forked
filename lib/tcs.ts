@@ -1,3 +1,4 @@
+import { isPracticeRequest } from "@/lib/practice-context";
 import { trackedFetch } from "@/lib/usage";
 // TCS (Pakistani courier) E-COM API client — see "TCS API User Guide v1.0" (envio.tcscourier.com).
 //
@@ -17,6 +18,7 @@ export function tcsBaseUrl(): string {
 }
 
 export function isTcsConfigured(): boolean {
+  if (isPracticeRequest()) return false; // the practice shop never talks to TCS
   return Boolean(process.env.TCS_USERNAME && process.env.TCS_PASSWORD && process.env.TCS_ACCOUNT_NO && process.env.TCS_COST_CENTER_CODE);
 }
 

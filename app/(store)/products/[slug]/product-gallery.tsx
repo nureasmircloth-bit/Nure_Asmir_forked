@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useModalFocus } from "@/lib/use-modal-focus";
 import type { CatalogImage } from "@/lib/commerce";
 import { Portal } from "../../_components/portal";
 import { cdnSrcForWidth, isCdnUrl } from "@/lib/media-url";
@@ -31,13 +32,15 @@ export function ProductGallery({ name, images, fallback }: { name: string; image
     setLens({ x: Math.min(100, Math.max(0, ((event.clientX - rect.left) / rect.width) * 100)), y: Math.min(100, Math.max(0, ((event.clientY - rect.top) / rect.height) * 100)) });
   }
 
+  const lightbox = useRef<HTMLDivElement>(null);
+  useModalFocus(box, lightbox, () => setBox(false)); // focus moves into the viewer, stays there, and returns to the photo that opened it
+
   useEffect(() => {
     if (!box) return;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setBox(false);
-      else if (event.key === "ArrowRight") step(1);
+      if (event.key === "ArrowRight") step(1);
       else if (event.key === "ArrowLeft") step(-1);
     };
     window.addEventListener("keydown", onKey);
@@ -81,7 +84,7 @@ export function ProductGallery({ name, images, fallback }: { name: string; image
 
       {box && (
         <Portal>
-        <div className="lightbox" role="dialog" aria-modal="true" aria-label={`${name} – photo ${index + 1} of ${gallery.length}`} onClick={() => setBox(false)}>
+        <div className="lightbox" ref={lightbox} tabIndex={-1} role="dialog" aria-modal="true" aria-label={`${name} – photo ${index + 1} of ${gallery.length}`} onClick={() => setBox(false)}>
           <button type="button" className="lightbox-close" aria-label="Close" onClick={() => setBox(false)}>✕</button>
           {gallery.length > 1 && (
             <button type="button" className="lightbox-nav prev" aria-label="Previous photo" onClick={(event) => { event.stopPropagation(); step(-1); }}>‹</button>

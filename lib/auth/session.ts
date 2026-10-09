@@ -4,10 +4,10 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { adminSessions, adminOwners } from "@/db/schema";
 
-const SESSION_COOKIE = "ms_admin_session";
+export const SESSION_COOKIE = "ms_admin_session";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
 
-function hashToken(token: string): string {
+export function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 

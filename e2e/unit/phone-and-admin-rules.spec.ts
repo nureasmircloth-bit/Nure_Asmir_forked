@@ -12,6 +12,7 @@ test.describe("how long until a change shows on the website", () => {
     expect(storefrontDelayMinutes("/api/admin/campaign", "POST")).toBe(FAST_MINUTES);
     expect(storefrontDelayMinutes("/api/admin/settings", "PATCH")).toBe(SLOW_MINUTES);
     expect(storefrontDelayMinutes("/api/admin/faqs/9", "DELETE")).toBe(SLOW_MINUTES);
+    expect(storefrontDelayMinutes("/api/admin/story", "PATCH")).toBe(SLOW_MINUTES);
     expect(storefrontDelayMinutes("/api/admin/products", "GET")).toBeNull();
     expect(storefrontDelayMinutes("/api/admin/orders/5", "PATCH")).toBeNull();
     expect(storefrontDelayMinutes("/api/admin/push", "POST")).toBeNull();

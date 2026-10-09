@@ -448,7 +448,7 @@ export const siteSettings = pgTable("site_settings", {
   // "custom" shows only the owner's own lines; "off" hides it. The owner's extra lines (one per line) are added in "auto" mode.
   announcementMode: text("announcement_mode").notNull().default("auto"),
   announcementLines: text("announcement_lines").notNull().default(""),
-  // How the lines move: "rotate" (one line slides in after another) or "scroll" (all lines glide from left to right in one loop).
+  // How the lines move: "rotate" (one line slides in after another), "scroll-left" or "scroll-right" (all lines glide in one endless loop, towards that side).
   announcementStyle: text("announcement_style").notNull().default("rotate"),
   // The "Our story" page text, editable in the admin. Empty = the built-in wording. Paragraphs are separated by a blank line;
   // a paragraph starting with "> " is shown as the large quote.
@@ -619,4 +619,17 @@ export const adminMessages = pgTable("admin_messages", {
   delivered: integer("delivered").notNull().default(0),
   createdBy: text("created_by").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Practice shop only (see lib/sandbox.ts): how many requests the practice admin has used today. Tiny and empty everywhere else. */
+export const sandboxUsage = pgTable("sandbox_usage", {
+  day: text("day").primaryKey(),
+  hits: integer("hits").notNull().default(0),
+});
+
+/** Practice shop only: a copy of every table as it was when the practice data was set up, so "Start again" can put it all back. */
+export const sandboxBaseline = pgTable("sandbox_baseline", {
+  tableName: text("table_name").primaryKey(),
+  rows: jsonb("rows").$type<unknown[]>().notNull(),
+  capturedAt: timestamp("captured_at", { withTimezone: true }).notNull().defaultNow(),
 });

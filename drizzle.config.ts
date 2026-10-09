@@ -9,4 +9,6 @@ export default defineConfig({
   out: "./drizzle",
   dialect: "postgresql",
   dbCredentials: { url: process.env.DATABASE_URL },
+  // The practice tables keep their own list of applied migrations inside their own schema (see scripts/practice-create.ts).
+  ...(process.env.DRIZZLE_MIGRATIONS_SCHEMA ? { migrations: { schema: process.env.DRIZZLE_MIGRATIONS_SCHEMA, table: "__drizzle_migrations" } } : {}),
 });

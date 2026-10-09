@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { sandboxRoomMessage } from "@/lib/sandbox";
 import { asc } from "drizzle-orm";
 import { db } from "@/db";
 import { categories } from "@/db/schema";
@@ -37,6 +38,8 @@ export async function GET() {
 export async function POST(request: Request) {
   const admin = await getAdminUser();
   if (!admin) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  const full = await sandboxRoomMessage("categories"); // practice shop only: a small limit on how much can be created
+  if (full) return Response.json({ error: full }, { status: 400 });
 
   const parsed = createSchema.safeParse(await request.json().catch(() => ({})));
   if (!parsed.success) return Response.json({ error: "Invalid category payload." }, { status: 400 });

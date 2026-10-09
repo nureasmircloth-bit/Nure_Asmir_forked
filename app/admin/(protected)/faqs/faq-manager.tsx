@@ -112,7 +112,7 @@ export function FaqManager({ initial }: { initial: FaqRow[] }) {
             <div className="a-field">
               <label htmlFor="faq-a">Answer</label>
               <textarea id="faq-a" rows={6} value={editing.answer} onChange={(event) => setEditing({ ...editing, answer: event.target.value })} maxLength={2000} />
-              <span className="a-help">Tip: type {"{{freeAbove}}"} to show your free-delivery amount, {"{{codHours}}"} for the cash-on-delivery hold time.</span>
+              <span className="a-help">Tip: type {"{{freeAbove}}"} to show your free-delivery amount, {"{{codHours}}"} for the cash-on-delivery hold time and {"{{refundDays}}"} for the number of days a customer may ask for a refund.</span>
             </div>
             {error && <p className="a-error" role="alert">{error}</p>}
             <div className="a-dialog-actions">

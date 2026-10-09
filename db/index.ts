@@ -1,5 +1,8 @@
-import { neon, neonConfig } from "@neondatabase/serverless";
+import { neon, neonConfig, type NeonQueryFunction } from "@neondatabase/serverless";
+
+type Sql = NeonQueryFunction<false, false>;
 import { drizzle } from "drizzle-orm/neon-http";
+import { isPracticeRequest } from "../lib/practice-context";
 import * as schema from "./schema";
 
 function requireDatabaseUrl(): string {
@@ -42,7 +45,25 @@ neonConfig.fetchFunction = async (input: RequestInfo | URL, init?: RequestInit) 
   }
 };
 
-const sql = neon(requireDatabaseUrl());
+const realSql = neon(requireDatabaseUrl());
 
-export const db = drizzle(sql, { schema });
+// The PRACTICE tables: the same tables again, in a schema called "practice" that only the practice database user can see (its
+// search_path is "practice" and it has no rights on the real tables). `db` quietly points at them while the request being handled
+// is a practice request (lib/practice-context.ts), and at the real tables otherwise – so every screen of the admin works unchanged.
+let practiceSql: Sql | null = null;
+function practiceClient(): Sql {
+  const url = process.env.PRACTICE_DATABASE_URL;
+  if (!url) throw new Error("The practice shop is not set up (PRACTICE_DATABASE_URL is missing).");
+  return (practiceSql ??= neon(url));
+}
+const current = (): Sql => (isPracticeRequest() ? practiceClient() : realSql);
+const switching = ((...args: unknown[]) => (current() as unknown as (...a: unknown[]) => unknown)(...args)) as unknown as Sql;
+Object.assign(switching, {
+  query: (...args: unknown[]) => (current().query as unknown as (...a: unknown[]) => unknown)(...args),
+  transaction: (...args: unknown[]) => (current().transaction as unknown as (...a: unknown[]) => unknown)(...args),
+});
+
+export const db = drizzle(switching, { schema });
+/** Always the practice tables, whatever the current request is (used to set practice up, reset it and count its clicks). */
+export const practiceDb = () => drizzle(practiceClient(), { schema });
 export { schema };

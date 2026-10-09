@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useId, useRef, useState } from "react";
+import { useModalFocus } from "@/lib/use-modal-focus";
 import type { CatalogProduct } from "@/lib/commerce";
 import { Portal } from "../../_components/portal";
 
@@ -36,24 +37,20 @@ const isPants = (product: Pick<CatalogProduct, "type" | "category" | "name">) =>
 export function SizeGuideLink({ product }: { product: Pick<CatalogProduct, "type" | "category" | "name"> }) {
   const [open, setOpen] = useState(false);
   const titleId = useId();
+  const dialog = useRef<HTMLDivElement>(null);
   const guide = isPants(product) ? PANTS : TOPS;
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (event: KeyboardEvent) => event.key === "Escape" && setOpen(false);
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
+  useModalFocus(open, dialog, () => setOpen(false)); // focus moves in, stays in, and returns to the link
 
   return (
     <>
-      <button type="button" className="size-guide-link" onClick={() => setOpen(true)}>
+      <button type="button" className="size-guide-link" onClick={() => setOpen(true)} aria-haspopup="dialog">
         Size guide
       </button>
       {open && (
         <Portal>
           <div className="size-guide-scrim" onClick={() => setOpen(false)}>
-            <div className="size-guide" role="dialog" aria-modal="true" aria-labelledby={titleId} onClick={(event) => event.stopPropagation()}>
+            <div ref={dialog} className="size-guide" role="dialog" aria-modal="true" aria-labelledby={titleId} onClick={(event) => event.stopPropagation()}>
               <button type="button" className="size-guide-close" aria-label="Close size guide" onClick={() => setOpen(false)}>
                 ×
               </button>

@@ -37,6 +37,7 @@ export function ThemedSelect({
   const list = useRef<HTMLUListElement>(null);
   const typed = useRef({ text: "", at: 0 });
   const id = useId();
+  const [invalid, setInvalid] = useState(false);
   const selected = options.find((option) => option.value === value);
   const enabled = useMemo(() => options.map((option, index) => (option.disabled ? -1 : index)).filter((index) => index >= 0), [options]);
 
@@ -66,6 +67,7 @@ export function ThemedSelect({
     const option = options[index];
     if (!option || option.disabled) return;
     onChange(option.value);
+    setInvalid(false);
     setOpen(false);
     root.current?.querySelector<HTMLButtonElement>("button.ts-trigger")?.focus();
   }
@@ -80,6 +82,8 @@ export function ThemedSelect({
   function onKeyDown(event: React.KeyboardEvent) {
     const now = event.timeStamp;
     if (event.key === "Tab") {
+      // leaving the list with the keyboard keeps the option that was highlighted (as a real select does)
+      if (open && active >= 0 && !options[active]?.disabled && options[active].value !== value) onChange(options[active].value);
       setOpen(false);
       return;
     }
@@ -117,15 +121,39 @@ export function ThemedSelect({
 
   return (
     <div className={`ts${open ? " is-open" : ""}${className ? ` ${className}` : ""}`} ref={root} onKeyDown={onKeyDown}>
-      <button type="button" className="ts-trigger" role="combobox" aria-haspopup="listbox" aria-expanded={open} aria-controls={`${id}-list`} aria-label={label} onClick={() => (open ? setOpen(false) : show())}>
+      <button type="button" className="ts-trigger" role="combobox" aria-haspopup="listbox" aria-expanded={open} aria-controls={`${id}-list`} aria-label={label} aria-required={required || undefined} aria-invalid={invalid || undefined} aria-activedescendant={open && active >= 0 ? `${id}-option-${active}` : undefined} onClick={() => (open ? setOpen(false) : show())}>
         <span className={selected ? "" : "ts-placeholder"}>{selected ? selected.label : placeholder}</span>
         <svg width="12" height="8" viewBox="0 0 12 8" aria-hidden="true"><path d="M1 1l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="1.4" /></svg>
       </button>
-      {name && <input className="ts-native" name={name} value={value} required={required} onChange={() => undefined} tabIndex={-1} aria-hidden="true" autoComplete="off" />}
+      {/* The hidden field carries the value into the form. If the form is sent while it is empty, focus goes to the visible dropdown, which says so. */}
+      {name && (
+        <input
+          className="ts-native"
+          name={name}
+          value={value}
+          required={required}
+          onChange={() => {
+            setInvalid(false);
+          }}
+          onInvalid={(event) => {
+            event.preventDefault();
+            setInvalid(true);
+            root.current?.querySelector<HTMLButtonElement>("button.ts-trigger")?.focus();
+          }}
+          tabIndex={-1}
+          aria-hidden="true"
+          autoComplete="off"
+        />
+      )}
+      {invalid && !value && (
+        <p className="ts-error" role="alert">
+          Please choose an option.
+        </p>
+      )}
       {open && (
         <ul id={`${id}-list`} className={`ts-list${align === "right" ? " ts-right" : ""}`} role="listbox" aria-label={label} ref={list}>
           {options.map((option, index) => (
-            <li key={option.value} role="option" aria-selected={option.value === value} aria-disabled={option.disabled || undefined} className={`${index === active ? "is-active" : ""}${option.value === value ? " is-selected" : ""}${option.disabled ? " is-disabled" : ""}`} onMouseMove={() => !option.disabled && index !== active && setActive(index)} onMouseDown={(event) => event.preventDefault()} onClick={(event) => { event.preventDefault(); choose(index); }}>
+            <li key={option.value} id={`${id}-option-${index}`} role="option" aria-selected={option.value === value} aria-disabled={option.disabled || undefined} className={`${index === active ? "is-active" : ""}${option.value === value ? " is-selected" : ""}${option.disabled ? " is-disabled" : ""}`} onMouseMove={() => !option.disabled && index !== active && setActive(index)} onMouseDown={(event) => event.preventDefault()} onClick={(event) => { event.preventDefault(); choose(index); }}>
               <span>{option.label}</span>
               {option.hint && <small>{option.hint}</small>}
               {option.value === value && <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 7.5l3 3 7-7" fill="none" stroke="currentColor" strokeWidth="1.6" /></svg>}

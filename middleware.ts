@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getNonce } from "@/lib/nonce";
+import { sandboxGate } from "@/lib/sandbox-gate";
 
 const isDev = process.env.NODE_ENV !== "production";
 // Lets a production build be served over plain http on localhost (e2e / `next start` smoke tests).
@@ -42,7 +43,13 @@ function buildCsp(nonce: string): string {
   ].join("; ");
 }
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
+  // A browser that is practising counts every admin request against a daily allowance first; the real shop is not touched by this.
+  if (process.env.PRACTICE_DATABASE_URL) {
+    const blocked = await sandboxGate(request);
+    if (blocked) return blocked;
+  }
+
   // Redirects plain HTTP to HTTPS and adds a Strict-Transport-Security header — max-age is a
   // conservative 2 years without includeSubDomains or preload: those are much harder to walk back
   // once a browser has cached the policy (up to the full max-age, even after the header is

@@ -1,4 +1,5 @@
 import { getAdminUser } from "@/lib/auth/admin-auth";
+import { sandboxRoomMessage } from "@/lib/sandbox";
 import { placeAdminOrder } from "@/lib/admin-order-placement";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +10,8 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request) {
   const admin = await getAdminUser();
   if (!admin) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  const full = await sandboxRoomMessage("orders"); // practice shop only: a small limit on how much can be created
+  if (full) return Response.json({ error: full }, { status: 400 });
 
   const body = (await request.json().catch(() => null)) as { order?: unknown; idempotencyKey?: unknown } | null;
   if (!body || typeof body.order !== "object" || body.order === null) {

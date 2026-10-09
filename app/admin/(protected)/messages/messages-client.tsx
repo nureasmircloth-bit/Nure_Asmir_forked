@@ -16,7 +16,7 @@ type Overview = {
   allowance: { limit: number; used: number; left: number; providers: number };
   history: Array<{ id: string; kind: string; audience: string; title: string; recipients: number; delivered: number; createdAt: string }>;
 };
-type SendStep = { messageId: string; total: number; delivered: number; next: number; done: boolean };
+type SendStep = { messageId: string; total: number; delivered: number; cursor: string; done: boolean };
 type Lookup = { orderNumber: string; name: string; email: string | null; phone: string };
 
 const PAGES: Array<[string, string]> = [
@@ -111,11 +111,11 @@ function PushForm({ overview, onSent }: { overview: Overview | null; onSent: () 
   async function send() {
     setConfirming(false);
     await sending.run(async () => {
-      let offset = 0;
+      let cursor = "";
       let messageId: string | undefined;
       let delivered = 0;
       for (let guard = 0; guard < 500; guard++) {
-        const result = await callApi<SendStep>("/api/admin/messages/push", "POST", { title, body, url: page, audience, offset, messageId });
+        const result = await callApi<SendStep>("/api/admin/messages/push", "POST", { title, body, url: page, audience, cursor, messageId });
         if (!result.ok) {
           toast(result.error, "bad");
           setProgress("");
@@ -124,7 +124,7 @@ function PushForm({ overview, onSent }: { overview: Overview | null; onSent: () 
         }
         messageId = result.data.messageId;
         delivered += result.data.delivered;
-        offset = result.data.next;
+        cursor = result.data.cursor;
         setProgress(result.data.total ? `Sent to ${delivered} of ${result.data.total}…` : "");
         if (result.data.done) break;
       }
@@ -285,11 +285,11 @@ function EmailForm({ overview, onSent }: { overview: Overview | null; onSent: ()
   async function send() {
     setConfirming(false);
     await sending.run(async () => {
-      let offset = 0;
+      let cursor = "";
       let messageId: string | undefined;
       let delivered = 0;
       for (let guard = 0; guard < 500; guard++) {
-        const result = await callApi<SendStep>("/api/admin/messages/email", "POST", { mode, to: mode === "one" ? to : undefined, subject, body, buttonLabel: buttonLabel || undefined, buttonUrl: buttonUrl || undefined, offset, messageId });
+        const result = await callApi<SendStep>("/api/admin/messages/email", "POST", { mode, to: mode === "one" ? to : undefined, subject, body, buttonLabel: buttonLabel || undefined, buttonUrl: buttonUrl || undefined, cursor, messageId });
         if (!result.ok) {
           toast(result.error, "bad");
           setProgress("");
@@ -298,7 +298,7 @@ function EmailForm({ overview, onSent }: { overview: Overview | null; onSent: ()
         }
         messageId = result.data.messageId;
         delivered += result.data.delivered;
-        offset = result.data.next;
+        cursor = result.data.cursor;
         setProgress(`Sent ${delivered} of ${result.data.total}…`);
         if (result.data.done) break;
       }

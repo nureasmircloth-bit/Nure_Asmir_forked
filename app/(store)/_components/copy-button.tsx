@@ -17,9 +17,15 @@ export function CopyButton({ value, label = "Copy", doneMessage = "Copied" }: { 
       field.style.position = "fixed";
       field.style.opacity = "0";
       document.body.appendChild(field);
-      field.select();
-      const ok = document.execCommand("copy");
-      field.remove();
+      let ok = false;
+      try {
+        field.select();
+        ok = document.execCommand("copy");
+      } catch {
+        ok = false; // some browsers throw instead of answering false: same message either way
+      } finally {
+        field.remove();
+      }
       if (!ok) {
         showToast("Could not copy — please select and copy it by hand.", "bad");
         return;

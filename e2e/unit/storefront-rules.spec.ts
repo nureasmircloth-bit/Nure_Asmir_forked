@@ -156,6 +156,7 @@ test.describe("currency", () => {
     expect(currencyForCountry("CA")).toBe("CAD");
     expect(currencyForCountry("AU")).toBe("AUD");
     expect(currencyForCountry("DE")).toBe("EUR");
+    expect(currencyForCountry("BG")).toBe("EUR"); // Bulgaria joined the euro on 1 January 2026
     expect(currencyForCountry("FR")).toBe("EUR");
     expect(currencyForCountry("IN")).toBe("USD");
     for (const junk of [null, undefined, "", "X", "XXX", "12"]) expect(currencyForCountry(junk), String(junk)).toBe("PKR");

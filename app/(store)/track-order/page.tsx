@@ -2,7 +2,7 @@
 
 import { FormEvent, Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { hasCustomerPushToken, pushSupport, registerCustomerPush } from "@/lib/customer-push";
+import { pushSupport, registerCustomerPush } from "@/lib/customer-push";
 import { useLockedAction } from "@/lib/use-locked-action";
 import { OrderHelp, type TrackActions, type TrackRefund } from "./order-help";
 
@@ -59,7 +59,7 @@ function TrackOrderForm() {
         if (response.ok) {
           setResult(data as Tracked);
           setPhone(body.phone ?? "");
-          setPushOn(hasCustomerPushToken());
+          setPushOn(false); // a push token from elsewhere (the wishlist, another order) does not link THIS order: ask again for it
         } else {
           setResult(null);
           setError(data.error ?? "No matching order was found.");

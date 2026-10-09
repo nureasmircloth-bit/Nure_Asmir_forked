@@ -13,6 +13,8 @@ import { SideToggle } from "../_ui/side-toggle";
 import { ThemeMenu } from "../_ui/theme-menu";
 import { LogoutButton } from "./logout-button";
 import { PushToggle } from "./push-toggle";
+import { SandboxBar } from "./sandbox-bar";
+import { isSandbox, practiceAvailable, sandboxHits } from "@/lib/sandbox";
 
 async function sidebarCounts() {
   try {
@@ -40,10 +42,15 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
   const text = jar.get("adm-text")?.value === "large" ? "large" : "normal";
   const side = jar.get("adm-side")?.value === "collapsed" ? "collapsed" : "open";
   const storeUrl = process.env.NEXT_PUBLIC_STORE_URL || "/";
+  // The practice shop: show how much practice is left today. The real admin offers a way in once the practice tables exist.
+  const practice = isSandbox();
+  const hits = practice ? await sandboxHits() : null;
+  const offerPractice = !practice && practiceAvailable() && user.role === "owner";
 
   return (
     <ToastProvider>
-      <div className="adm-shell" data-side={side}>
+      {hits && <SandboxBar left={hits.left} limit={hits.limit} />}
+      <div className="adm-shell" data-side={side} data-sandbox={practice ? "1" : undefined}>
         <aside className="adm-side">
           <div className="adm-brand">
             <Image src="/logo-icon.png" alt="" width={38} height={38} priority />
@@ -54,7 +61,7 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
             <SideToggle initialCollapsed={side === "collapsed"} />
           </div>
           <div className="adm-side-scroll">
-            <NavLinks counts={counts} role={user.role} />
+            <NavLinks counts={counts} role={user.role} practice={offerPractice} />
           </div>
           <div className="adm-side-foot">
             <div className="adm-push">

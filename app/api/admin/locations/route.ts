@@ -1,4 +1,5 @@
 import { asc, count, ne } from "drizzle-orm";
+import { sandboxRoomMessage } from "@/lib/sandbox";
 import { db } from "@/db";
 import { storeLocations } from "@/db/schema";
 import { getAdminUser } from "@/lib/auth/admin-auth";
@@ -17,6 +18,8 @@ export async function GET() {
 export async function POST(request: Request) {
   const admin = await getAdminUser();
   if (!admin) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  const full = await sandboxRoomMessage("locations"); // practice shop only: a small limit on how much can be created
+  if (full) return Response.json({ error: full }, { status: 400 });
 
   const parsed = locationSchema.safeParse(await request.json().catch(() => ({})));
   if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message ?? "Invalid shop details." }, { status: 400 });

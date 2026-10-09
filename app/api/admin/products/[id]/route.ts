@@ -103,7 +103,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     data.description,
   ].some((value) => value !== undefined);
   let seo: { seoTitle: string; seoDescription: string } | null = null;
-  if (seoRelevantFieldsChanged && !existing.seoLocked && data.seoLocked !== true && data.seoTitle === undefined && data.seoDescription === undefined) {
+  // "Let the helper handle it again": the owner unlocks hand-written text and clears it, which means "write me a fresh one now".
+  const emptied = (value: string | null | undefined) => value === null || value === ""; // leaving a field out is NOT the same as clearing it
+  const handingBack = existing.seoLocked && data.seoLocked === false && emptied(data.seoTitle) && emptied(data.seoDescription);
+  if (handingBack || (seoRelevantFieldsChanged && !existing.seoLocked && data.seoLocked !== true && data.seoTitle === undefined && data.seoDescription === undefined)) {
     const categoryId = data.categoryId ?? existing.categoryId;
     const [category] = categoryId ? await db.select({ name: categories.name }).from(categories).where(eq(categories.id, categoryId)).limit(1) : [];
     seo = await generateSeoFields({
@@ -114,6 +117,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       material: data.material ?? existing.material ?? undefined,
       shortDescription: data.shortDescription ?? existing.shortDescription ?? undefined,
       description: data.description ?? existing.description ?? undefined,
+      keywords: (data.seoKeywords !== undefined ? data.seoKeywords : existing.seoKeywords) ?? undefined,
     });
   }
 
