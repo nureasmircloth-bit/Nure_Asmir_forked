@@ -14,12 +14,14 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), selec
  */
 export function useModalFocus(open: boolean, container: RefObject<HTMLElement | null>, onClose: () => void): void {
   const close = useRef(onClose);
+  const restore = useRef(0);
   useEffect(() => {
     close.current = onClose;
   });
 
   useEffect(() => {
     if (!open) return;
+    window.cancelAnimationFrame(restore.current); // a pending "give focus back" from an earlier close must not fire into this new opening
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const box = container.current;
     const first = box?.querySelector<HTMLElement>(FOCUSABLE);
@@ -50,7 +52,8 @@ export function useModalFocus(open: boolean, container: RefObject<HTMLElement | 
     window.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("keydown", onKey);
-      opener?.focus();
+      // After the dialog's elements are gone (focusing during the same update can be undone when they are removed).
+      restore.current = window.requestAnimationFrame(() => opener?.focus());
     };
   }, [open, container]);
 }

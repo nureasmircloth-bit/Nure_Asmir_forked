@@ -57,6 +57,7 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
   const [rates, setRates] = useState<RatesPerPkr | null>(null);
   const requested = useRef(false);
   const [rateRetry, setRateRetry] = useState(0);
+  const retryTimer = useRef(0);
 
   useEffect(() => {
     const saved = readStored<string>(CURRENCY_KEY);
@@ -104,7 +105,7 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
         if (!payload?.rates) {
           // 503 / bad body: try again shortly (a few times), so the switcher does not say "Loading rates…" for the rest of the visit.
           requested.current = false;
-          if (rateRetry < 3) window.setTimeout(() => setRateRetry((count) => count + 1), 15_000);
+          if (rateRetry < 3) retryTimer.current = window.setTimeout(() => setRateRetry((count) => count + 1), 15_000);
           return;
         }
         setRates(payload.rates);
@@ -113,8 +114,10 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
       .catch(() => {
         // Prices simply stay in PKR if rates can't be loaded.
         requested.current = false;
-        if (rateRetry < 3) window.setTimeout(() => setRateRetry((count) => count + 1), 15_000);
+        if (rateRetry < 3) retryTimer.current = window.setTimeout(() => setRateRetry((count) => count + 1), 15_000);
       });
+    // a pending retry is cancelled when the shopper changes currency or the page goes away (no second request, no update after unmount)
+    return () => window.clearTimeout(retryTimer.current);
   }, [currency, rateRetry]);
 
   const setCurrency = useCallback((code: CurrencyCode) => {

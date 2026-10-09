@@ -27,8 +27,9 @@ export function TrainingView({ initialLesson, initialLang }: { initialLesson?: s
   function tabKeys(event: KeyboardEvent) {
     if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
       event.preventDefault();
-      setTab((current) => (current === "watch" ? "read" : "watch"));
-      document.getElementById(tab === "watch" ? "training-tab-read" : "training-tab-watch")?.focus();
+      const next = tab === "watch" ? "read" : "watch";
+      setTab(next);
+      document.getElementById(`training-tab-${next}`)?.focus();
     }
   }
 

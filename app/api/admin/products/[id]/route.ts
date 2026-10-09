@@ -104,7 +104,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   ].some((value) => value !== undefined);
   let seo: { seoTitle: string; seoDescription: string } | null = null;
   // "Let the helper handle it again": the owner unlocks hand-written text and clears it, which means "write me a fresh one now".
-  const handingBack = existing.seoLocked && data.seoLocked === false && !data.seoTitle && !data.seoDescription;
+  const emptied = (value: string | null | undefined) => value === null || value === ""; // leaving a field out is NOT the same as clearing it
+  const handingBack = existing.seoLocked && data.seoLocked === false && emptied(data.seoTitle) && emptied(data.seoDescription);
   if (handingBack || (seoRelevantFieldsChanged && !existing.seoLocked && data.seoLocked !== true && data.seoTitle === undefined && data.seoDescription === undefined)) {
     const categoryId = data.categoryId ?? existing.categoryId;
     const [category] = categoryId ? await db.select({ name: categories.name }).from(categories).where(eq(categories.id, categoryId)).limit(1) : [];
