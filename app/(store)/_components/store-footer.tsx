@@ -3,7 +3,6 @@ import Link from "next/link";
 import { getActiveCategories, getPublicSettings } from "@/lib/commerce";
 import { BRAND } from "@/lib/brand";
 import { getStoreLocations } from "@/lib/locations";
-import { ShowWidgetsLink } from "./floating-widgets";
 import { NewsletterForm } from "./store-components";
 import { FacebookIcon, InstagramIcon, TikTokIcon, WhatsAppIcon } from "./icons";
 
@@ -89,7 +88,6 @@ export async function StoreFooter() {
             © {new Date().getFullYear()} {BRAND.name}. All rights reserved.
           </span>
           <span>Prices in PKR · Cash on delivery nationwide</span>
-          <ShowWidgetsLink />
           {/* The admin panel is a separate deployment – nothing of it loads until this link is opened. */}
           <a href={process.env.NEXT_PUBLIC_ADMIN_URL || "/admin"} rel="nofollow">
             Admin

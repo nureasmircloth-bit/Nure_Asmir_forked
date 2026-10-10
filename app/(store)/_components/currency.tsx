@@ -1,6 +1,6 @@
 "use client";
 
-import { HIDE_KEYS, hideFor, useWidgetHidden } from "./floating-widgets";
+import { EdgeWidget, TUCK_KEYS } from "./floating-widgets";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -147,7 +147,6 @@ export function CurrencySwitcher() {
   const { currency, setCurrency, rates } = useCurrency();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const [hidden] = useWidgetHidden(HIDE_KEYS.currency);
 
   useEffect(() => {
     if (!open) return;
@@ -166,17 +165,14 @@ export function CurrencySwitcher() {
     };
   }, [open]);
 
-  if (hidden) return null;
   return (
-    <div className="currency-switcher" ref={ref}>
+    <EdgeWidget storageKey={TUCK_KEYS.currency} side="right" name="currency selector" className="currency-switcher" onTuck={() => setOpen(false)}>
+      <div ref={ref}>
       <div className="currency-bar">
         <button type="button" className="currency-main" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={flagSrc(currency)} width={20} height={15} alt="" />
           {currency} <span aria-hidden="true">▾</span>
-        </button>
-        <button type="button" className="currency-close" aria-label="Hide the currency selector" title="Hide" onClick={() => { setOpen(false); hideFor(HIDE_KEYS.currency); }}>
-          ✕
         </button>
       </div>
       {open && (
@@ -206,6 +202,7 @@ export function CurrencySwitcher() {
           )}
         </ul>
       )}
-    </div>
+      </div>
+    </EdgeWidget>
   );
 }

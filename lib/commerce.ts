@@ -29,7 +29,7 @@ export type CatalogVariant = {
  * variants and gallery images stay on the server. */
 export type CardProduct = Pick<
   CatalogProduct,
-  "id" | "slug" | "name" | "price" | "compareAtPrice" | "imageUrl" | "altImageUrl" | "blurDataUrl" | "badge" | "stock" | "saleEndsAt" | "category"
+  "id" | "slug" | "name" | "price" | "compareAtPrice" | "imageUrl" | "altImageUrl" | "moreImageUrls" | "blurDataUrl" | "badge" | "stock" | "saleEndsAt" | "category"
 >;
 
 export function toCard(product: CatalogProduct): CardProduct {
@@ -41,6 +41,7 @@ export function toCard(product: CatalogProduct): CardProduct {
     compareAtPrice: product.compareAtPrice ?? undefined,
     imageUrl: product.imageUrl,
     altImageUrl: product.altImageUrl,
+    moreImageUrls: product.moreImageUrls,
     blurDataUrl: product.blurDataUrl,
     badge: product.badge,
     stock: product.stock,
@@ -90,6 +91,8 @@ export type CatalogProduct = {
   images: CatalogImage[];
   /** Second photo, shown on hover in product cards. */
   altImageUrl?: string;
+  /** Up to four more photos after the main one (same colour first), so a product card can be swiped through without opening the product. */
+  moreImageUrls?: string[];
   /** ISO time the current flash sale on this product ends (undefined = not on sale). */
   saleEndsAt?: string;
   saleName?: string;
@@ -99,7 +102,10 @@ function imageUrlFor(key: string, variantWidths?: number[] | null) {
   return mediaUrl(key, variantWidths);
 }
 
-type ListingExtras = { available: number; altImageUrl?: string };
+type ListingExtras = { available: number; altImageUrl?: string; moreImageUrls?: string[] };
+
+/** How many photos after the main one a product card can show. */
+const CARD_EXTRA_PHOTOS = 4;
 
 /** Per-product data a listing card needs beyond the default-variant join: stock summed across every
  * size (so a product isn't "sold out" just because its default size is), and the second photo for
@@ -137,10 +143,12 @@ async function getListingExtras(productIds: string[]): Promise<Map<string, Listi
   for (const row of imageRows) rowsByProduct.set(row.productId, [...(rowsByProduct.get(row.productId) ?? []), row]);
   for (const [productId, list] of rowsByProduct) {
     const [first, ...rest] = list;
-    const alt = rest.find((row) => row.variantId === first.variantId) ?? rest[0];
-    if (!alt) continue;
+    if (!rest.length) continue;
+    // Same colour as the main photo first, then the others, so swiping a card does not jump between colours before it has to.
+    const ordered = [...rest.filter((row) => row.variantId === first.variantId), ...rest.filter((row) => row.variantId !== first.variantId)].slice(0, CARD_EXTRA_PHOTOS);
     const entry = extras.get(productId) ?? { available: 0 };
-    entry.altImageUrl = imageUrlFor(alt.key, alt.widths);
+    entry.moreImageUrls = ordered.map((row) => imageUrlFor(row.key, row.widths));
+    entry.altImageUrl = entry.moreImageUrls[0];
     extras.set(productId, entry);
   }
   return extras;
@@ -273,6 +281,7 @@ export async function getCatalogProducts(query: CatalogQuery = {}): Promise<Cata
     variants: [],
     images: [],
     altImageUrl: extras.get(row.id)?.altImageUrl,
+      moreImageUrls: extras.get(row.id)?.moreImageUrls,
     };
   });
 }
@@ -517,6 +526,7 @@ export async function getCollectionBySlug(
       variants: [],
       images: [],
       altImageUrl: extras.get(row.id)?.altImageUrl,
+      moreImageUrls: extras.get(row.id)?.moreImageUrls,
     })),
   };
 }

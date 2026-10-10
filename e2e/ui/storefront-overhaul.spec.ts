@@ -319,6 +319,75 @@ test.describe("storefront overhaul", () => {
     });
   });
 
+  test.describe("photos you can slide", () => {
+    /** A finger drag on `locator`: start, a few moves, end – the way a phone sends them. */
+    async function swipe(locator: import("@playwright/test").Locator, fromX: number, toX: number) {
+      await locator.evaluate(async (el, [a, b]) => {
+        const fire = (type: string, x: number) => {
+          const touch = new Touch({ identifier: 1, target: el, clientX: x, clientY: 200 });
+          el.dispatchEvent(new TouchEvent(type, { bubbles: true, cancelable: true, touches: type === "touchend" ? [] : [touch], changedTouches: [touch] }));
+        };
+        fire("touchstart", a);
+        for (const step of [0.25, 0.6, 1]) fire("touchmove", a + (b - a) * step);
+        fire("touchend", b);
+      }, [fromX, toX]);
+    }
+    const position = (locator: import("@playwright/test").Locator) => locator.locator(".slide-track").evaluate((el) => Number(getComputedStyle(el).getPropertyValue("--i")));
+
+    test("a product card changes its photo with the arrows and with a swipe, without opening the product; the lift of a swipe is not a tap", async ({ page }) => {
+      await page.setViewportSize({ width: 375, height: 760 });
+      await page.goto("/shop");
+      const media = page.locator(".pcard-media.can-swipe").first();
+      test.skip((await media.count()) === 0, "no product with several photos in this database");
+      await media.scrollIntoViewIfNeeded();
+      const url = page.url();
+      await page.mouse.move(0, 0); // no hover preview yet
+      expect(await position(media)).toBe(0);
+      await expect(media.getByRole("button", { name: /^Previous photo/ })).toBeDisabled(); // nothing before the first photo
+      await media.getByRole("button", { name: /^Next photo/ }).click();
+      const before = await position(media); // a mouse resting on the card previews photo 2, so the click may land one further on
+      expect(before).toBeGreaterThanOrEqual(1);
+      expect(page.url()).toBe(url);
+
+      await swipe(media, 300, 60); // finger moves left = next photo (if there is one)
+      await expect.poll(() => position(media)).toBeGreaterThanOrEqual(1);
+      await swipe(media, 60, 300); // finger moves right = back
+      await expect.poll(() => position(media)).toBeLessThanOrEqual(1);
+      expect(page.url()).toBe(url); // swiping never opened the product
+
+      const dots = await media.locator(".slide-dots i").count();
+      expect(dots).toBeGreaterThan(1);
+      expect(dots).toBeLessThanOrEqual(5);
+    });
+
+    test("the product page photo slides with a swipe and the arrows, and a swipe does not open the full-size viewer", async ({ page }) => {
+      await page.setViewportSize({ width: 375, height: 760 });
+      await page.goto("/products/olive-cargo-pants");
+      const stage = page.locator(".product-stage");
+      const photos = await page.locator(".product-thumbnails button").count();
+      test.skip(photos < 2, "this product has one photo");
+      expect(await position(stage)).toBe(0);
+      await swipe(stage, 300, 60);
+      await expect.poll(() => position(stage)).toBe(1);
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      await stage.getByRole("button", { name: "Previous photo" }).click();
+      await expect.poll(() => position(stage)).toBe(0);
+      await stage.getByRole("button", { name: "Next photo" }).click();
+      await expect.poll(() => position(stage)).toBe(1);
+    });
+
+    test("the New arrivals row keeps its own swipe: no photo swiping on its cards, but the arrows work", async ({ page }) => {
+      await page.setViewportSize({ width: 375, height: 760 });
+      await page.goto("/");
+      const media = page.locator(".rail .pcard-media.has-many").first();
+      test.skip((await media.count()) === 0, "no multi-photo product in the row");
+      await expect(media).not.toHaveClass(/can-swipe/);
+      await media.scrollIntoViewIfNeeded();
+      await media.getByRole("button", { name: /^Next photo/ }).click();
+      await expect.poll(() => position(media)).toBeGreaterThanOrEqual(1); // (a resting mouse already previews photo 2)
+    });
+  });
+
   test.describe("product photo zoom", () => {
     test("resting the mouse on the photo magnifies it; tapping opens it full size; arrows and Esc work; the magnifier button works from the keyboard", async ({ page }) => {
       await page.goto("/products/olive-cargo-pants");
@@ -394,45 +463,51 @@ test.describe("storefront overhaul", () => {
       expect(errors.filter((e) => !/geo\/country|ERR_FAILED|Failed to fetch/.test(e))).toEqual([]);
     });
 
-    test("the ✕ hides the currency selector and the WhatsApp button, they stay hidden after a reload, and the footer link brings them back", async ({ page }) => {
+    test("the tab tucks the currency selector and the WhatsApp button against the screen edge, they stay tucked after a reload, and a tap brings them back", async ({ page }) => {
       await page.goto("/");
-      await expect(page.locator(".currency-switcher")).toBeVisible();
-      await expect(page.locator(".float-whatsapp")).toBeVisible();
-      await page.getByRole("button", { name: "Hide the currency selector" }).click();
-      await expect(page.locator(".currency-switcher")).toHaveCount(0);
-      await page.getByRole("button", { name: "Hide the WhatsApp button" }).click();
-      await expect(page.locator(".float-whatsapp")).toHaveCount(0);
+      const currency = page.locator(".currency-switcher");
+      const chat = page.locator(".float-whatsapp-wrap");
+      await expect(currency).toBeVisible();
+      await expect(chat).toBeVisible();
+      await expect(currency).not.toHaveClass(/is-tucked/);
+      const before = (await chat.boundingBox())!;
+
+      await page.getByRole("button", { name: "Tuck the currency selector to the edge of the screen" }).click();
+      await page.getByRole("button", { name: "Tuck the WhatsApp button to the edge of the screen" }).click();
+      await expect(currency).toHaveClass(/is-tucked/);
+      await expect(chat).toHaveClass(/is-tucked/);
+      // the button slid out of sight except for a sliver at the edge, and its content can no longer be reached by keyboard
+      await expect.poll(async () => (await chat.boundingBox())!.x + (await chat.boundingBox())!.width).toBeLessThan(before.x + before.width - 20);
+      await expect(page.locator(".float-whatsapp")).not.toBeFocused();
+      expect(await page.locator(".float-whatsapp-wrap .edge-body").evaluate((el) => el.hasAttribute("inert"))).toBe(true);
 
       await page.reload();
-      await expect(page.locator(".currency-switcher")).toHaveCount(0);
-      await expect(page.locator(".float-whatsapp")).toHaveCount(0);
+      await expect(currency).toHaveClass(/is-tucked/); // on other pages too
       await page.goto("/shop");
-      await expect(page.locator(".float-whatsapp")).toHaveCount(0); // on other pages too
+      await expect(chat).toHaveClass(/is-tucked/);
 
-      const restore = page.getByRole("button", { name: "Show the chat and currency buttons" });
-      await restore.scrollIntoViewIfNeeded();
-      await restore.click();
-      await expect(page.locator(".currency-switcher")).toBeVisible();
+      await page.getByRole("button", { name: "Bring back the WhatsApp button" }).click();
+      await page.getByRole("button", { name: "Bring back the currency selector" }).click();
+      await expect(chat).not.toHaveClass(/is-tucked/);
+      await expect(currency).not.toHaveClass(/is-tucked/);
       await expect(page.locator(".float-whatsapp")).toBeVisible();
-      await expect(restore).toHaveCount(0);
     });
 
-    test("a hidden button comes back by itself after a week", async ({ page }) => {
+    test("a button hidden with the old ✕ before this update shows up tucked at the edge, not lost", async ({ page }) => {
+      await page.addInitScript(() => window.localStorage.setItem("na-hide-whatsapp", String(Date.now() + 100000)));
       await page.goto("/");
-      await page.getByRole("button", { name: "Hide the WhatsApp button" }).click();
-      await page.evaluate(() => window.localStorage.setItem("na-hide-whatsapp", String(Date.now() - 1000)));
-      await page.reload();
-      await expect(page.locator(".float-whatsapp")).toBeVisible();
+      await expect(page.locator(".float-whatsapp-wrap")).toHaveClass(/is-tucked/);
+      await expect(page.getByRole("button", { name: "Bring back the WhatsApp button" })).toBeVisible();
     });
 
-    test("with storage blocked, the buttons simply stay visible and nothing crashes", async ({ page }) => {
+    test("with storage blocked, the buttons simply stay out and nothing crashes", async ({ page }) => {
       const errors = watchErrors(page);
       await page.addInitScript(() => {
         Object.defineProperty(window, "localStorage", { get() { throw new Error("blocked"); } });
       });
       await page.goto("/");
       await expect(page.locator(".float-whatsapp")).toBeVisible();
-      await page.getByRole("button", { name: "Hide the WhatsApp button" }).click();
+      await page.getByRole("button", { name: "Tuck the WhatsApp button to the edge of the screen" }).click();
       expect(errors.filter((e) => /blocked/.test(e))).toEqual([]);
     });
 
