@@ -1,5 +1,7 @@
 # CodeRabbit configuration — https://docs.coderabbit.ai/guides/configure-coderabbit
 language: en-US
+# Shapes every review: slow and strict, with a concrete failing scenario for each finding.
+tone_instructions: "Be thorough and strict. Read each changed file in full and trace failures, retries, concurrency and bad input. Prioritise security, data loss and correctness; give the concrete failing scenario."
 reviews:
   profile: assertive
   request_changes_workflow: false
@@ -35,5 +37,32 @@ reviews:
       instructions: >
         Any schema change needs a generated drizzle migration; the neon-http driver has no
         transactions, so multi-step writes need guarded sequential statements.
+    - path: "app/api/**"
+      instructions: >
+        Public (non-admin) routes: validate and bound every input, rate-limit anything that costs money or sends
+        a message, never trust client-sent prices or stock, and make retries idempotent.
+    - path: "{middleware.ts,admin-entry.ts,worker-entry.ts,wrangler*.jsonc}"
+      instructions: >
+        Cloudflare Worker entry and routing. Three Workers come from this repo (storefront, admin, training lab):
+        check headers/CSP, the www redirect, cron handlers, and that the training Worker can never be given the real
+        database or any real service key.
+    - path: "{app/api/admin/sandbox/**,lib/sandbox*.ts,lib/lab*.ts,lib/labs.ts,lib/practice-context.ts,lib/training-host.ts,app/admin/training-*/**}"
+      instructions: >
+        The training lab (SANDBOX=1) must only ever touch the practice schema. Check the entrance (shared password,
+        rate limit, constant-time compare), that nothing in it can send email/WhatsApp/TCS/push or delete real
+        pictures, that lab checks are read-only SQL, and that the click limit cannot be bypassed.
+    - path: ".github/workflows/**"
+      instructions: >
+        Secrets must reach commands only through env and be piped with printf, never interpolated into script text.
+        Check permissions, ordering (migrations before deploy) and that a missing secret degrades safely.
+    - path: "e2e/**"
+      instructions: >
+        Tests must be independent of order and of leftover data, restore what they change, avoid fixed sleeps, and
+        never run against the production database.
+    - path: "lib/**/*.ts"
+      instructions: >
+        Shared server logic. Look for race conditions between read and write (the neon-http driver has no
+        transactions), swallowed errors, unbounded loops or queries, and time-zone mistakes (the shop works in
+        Pakistan time).
 chat:
   auto_reply: true

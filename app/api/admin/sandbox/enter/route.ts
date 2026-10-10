@@ -1,4 +1,5 @@
-import { createHash, timingSafeEqual } from "node:crypto";
+import { scrypt, timingSafeEqual } from "node:crypto";
+import { promisify } from "node:util";
 import { eq, like, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { adminOwners } from "@/db/schema";
@@ -12,7 +13,14 @@ export const dynamic = "force-dynamic";
 const MAX_TRAINEES = 40;
 const SHARED_TRAINEE = "trainee@training.local";
 
-const sameText = (a: string, b: string) => timingSafeEqual(createHash("sha256").update(a).digest(), createHash("sha256").update(b).digest());
+const scryptAsync = promisify(scrypt);
+const COMPARE_SALT = "nure-asmir-training-lab";
+
+/** Compares two secrets without leaking where they differ: both are stretched with scrypt (slow on purpose) and the results compared in constant time. */
+async function samePassword(given: string, expected: string): Promise<boolean> {
+  const [a, b] = (await Promise.all([scryptAsync(given, COMPARE_SALT, 32), scryptAsync(expected, COMPARE_SALT, 32)])) as [Buffer, Buffer];
+  return timingSafeEqual(a, b);
+}
 
 /** The e-mail style name that stands for one trainee inside the lab (it never leaves the practice tables). */
 function traineeEmail(name: string): string {
@@ -43,7 +51,7 @@ export async function POST(request: Request) {
   const forwarded = request.headers.get("x-forwarded-for");
   const ip = forwarded?.split(",")[0]?.trim() || request.headers.get("cf-connecting-ip") || "unknown";
   if (await isLoginRateLimited("training-lab", ip)) return Response.json({ error: "Too many tries. Please wait a few minutes and try again." }, { status: 429 });
-  const ok = sameText(password, training);
+  const ok = await samePassword(password, training);
   await recordLoginAttempt("training-lab", ip, ok);
   if (!ok) return Response.json({ error: "That training password is not right. Please check it and try again." }, { status: 401 });
 
