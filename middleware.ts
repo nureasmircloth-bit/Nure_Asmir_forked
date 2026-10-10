@@ -45,11 +45,14 @@ function buildCsp(nonce: string): string {
 
 /** Applies practice usage limits, canonical redirects, response security headers and admin indexing restrictions. */
 export async function middleware(request: NextRequest) {
-  // A browser that is practising counts every admin request against a daily allowance first; the real shop is not touched by this.
-  if (process.env.PRACTICE_DATABASE_URL) {
+  // The training lab counts every admin request against a daily allowance first; the real shop and the real admin are not touched by this.
+  if (process.env.SANDBOX === "1" && process.env.PRACTICE_DATABASE_URL) {
     const blocked = await sandboxGate(request);
     if (blocked) return blocked;
   }
+
+  // The training lab has its own entrance; the real sign-in page does not exist there.
+  if (process.env.SANDBOX === "1" && request.nextUrl.pathname === "/admin/login") return NextResponse.redirect(new URL("/admin/training-login", request.url));
 
   // Redirects plain HTTP to HTTPS and adds a Strict-Transport-Security header — max-age is a
   // conservative 2 years without includeSubDomains or preload: those are much harder to walk back
@@ -64,7 +67,7 @@ export async function middleware(request: NextRequest) {
 
   // One address for the shop: "www.nureasmir.com/…" goes to "nureasmir.com/…" (a permanent redirect, so search engines keep a single copy of every page).
   const host = (request.headers.get("host") ?? "").toLowerCase();
-  if (!allowInsecure && process.env.APP_TARGET !== "admin" && host.startsWith("www.")) {
+  if (!allowInsecure && process.env.APP_TARGET !== "admin" && process.env.APP_TARGET !== "training" && host.startsWith("www.")) {
     const bare = new URL(request.url);
     bare.host = host.slice(4);
     bare.protocol = "https:";
@@ -73,8 +76,8 @@ export async function middleware(request: NextRequest) {
 
   const response = NextResponse.next();
   response.headers.set("Content-Security-Policy", buildCsp(getNonce()));
-  // The admin Worker (APP_TARGET=admin) must never be indexed.
-  if (process.env.APP_TARGET === "admin") response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+  // The admin and training Workers must never be indexed.
+  if (process.env.APP_TARGET === "admin" || process.env.APP_TARGET === "training") response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
   // Never in dev: browsers cache HSTS per host for the full max-age, which would pin localhost to https.
   if (!allowInsecure) response.headers.set("Strict-Transport-Security", "max-age=63072000");
   return response;

@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { redirect } from "next/navigation";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { productVariants, refundRequests } from "@/db/schema";
@@ -14,7 +15,9 @@ import { ThemeMenu } from "../_ui/theme-menu";
 import { LogoutButton } from "./logout-button";
 import { PushToggle } from "./push-toggle";
 import { SandboxBar } from "./sandbox-bar";
-import { isSandbox, practiceAvailable, sandboxHits } from "@/lib/sandbox";
+import { LabGuide } from "./lab-guide";
+import { isSandbox, sandboxHits } from "@/lib/sandbox";
+import { LAB_COOKIE, TRAINING_URL } from "@/lib/training-host";
 
 async function sidebarCounts() {
   try {
@@ -33,7 +36,7 @@ async function sidebarCounts() {
   }
 }
 
-/** Requires an admin session and renders navigation, saved display preferences and practice status around each page. */
+/** Requires an admin session and renders navigation, saved display preferences and (on the training site) the lab bar and guide around each page. */
 export default async function AdminProtectedLayout({ children }: { children: React.ReactNode }) {
   const user = await requireAdminUser("/admin");
   const jar = await cookies();
@@ -43,31 +46,35 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
   const text = jar.get("adm-text")?.value === "large" ? "large" : "normal";
   const side = jar.get("adm-side")?.value === "collapsed" ? "collapsed" : "open";
   const storeUrl = process.env.NEXT_PUBLIC_STORE_URL || "/";
-  // The practice shop: show how much practice is left today. The real admin offers a way in once the practice tables exist.
-  const practice = isSandbox();
-  const hits = practice ? await sandboxHits() : null;
-  const offerPractice = !practice && practiceAvailable() && user.role === "owner";
+  // The training lab (its own Worker, SANDBOX=1): nothing opens until the trainee has pressed "Start my lab"; the bar shows what is left of today's clicks.
+  const lab = isSandbox();
+  if (lab && !jar.get(LAB_COOKIE)?.value) redirect("/admin/training-start");
+  const hits = lab ? await sandboxHits() : null;
+  const lang = jar.get("adm-lang")?.value === "en" ? "en" : "ur";
+  const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL || "https://admin.nureasmir.com";
 
   return (
     <ToastProvider>
-      {hits && <SandboxBar left={hits.left} limit={hits.limit} />}
-      <div className="adm-shell" data-side={side} data-sandbox={practice ? "1" : undefined}>
+      {hits && <SandboxBar left={hits.left} limit={hits.limit} adminUrl={adminUrl} />}
+      <div className="adm-shell" data-side={side} data-sandbox={lab ? "1" : undefined}>
         <aside className="adm-side">
           <div className="adm-brand">
             <Image src="/logo-icon.png" alt="" width={38} height={38} priority />
             <div className="adm-brand-text">
               <strong>Nure Asmir</strong>
-              <span>Shop manager</span>
+              <span>{lab ? "Training lab" : "Shop manager"}</span>
             </div>
             <SideToggle initialCollapsed={side === "collapsed"} />
           </div>
           <div className="adm-side-scroll">
-            <NavLinks counts={counts} role={user.role} practice={offerPractice} />
+            <NavLinks counts={counts} role={user.role} lab={lab} trainingUrl={!lab && user.role === "owner" ? TRAINING_URL : undefined} />
           </div>
           <div className="adm-side-foot">
-            <div className="adm-push">
-              <PushToggle />
-            </div>
+            {!lab && (
+              <div className="adm-push">
+                <PushToggle />
+              </div>
+            )}
             <div className="adm-user">
               <span>{(user.displayName ?? user.email).slice(0, 1).toUpperCase()}</span>
               <div>
@@ -75,20 +82,23 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
                 <small>{user.role === "owner" ? "Owner" : user.role === "developer" ? "Developer" : user.role}</small>
               </div>
             </div>
-            <LogoutButton />
+            <LogoutButton to={lab ? "/admin/training-login" : "/admin/login"} />
           </div>
         </aside>
         <div className="adm-main">
           <div className="adm-top">
             <SearchPalette />
             <div className="adm-top-right">
-              <a className="a-btn a-btn-sm" href={storeUrl} target="_blank" rel="noopener noreferrer" title="Open your shop the way customers see it">
-                <Icon name="external" size={16} /> View shop
-              </a>
+              {!lab && (
+                <a className="a-btn a-btn-sm" href={storeUrl} target="_blank" rel="noopener noreferrer" title="Open your shop the way customers see it">
+                  <Icon name="external" size={16} /> View shop
+                </a>
+              )}
               <ThemeMenu initialTheme={theme} initialText={text} />
             </div>
           </div>
           <main className="adm-page">{children}</main>
+          {lab && <LabGuide lang={lang} />}
         </div>
       </div>
     </ToastProvider>

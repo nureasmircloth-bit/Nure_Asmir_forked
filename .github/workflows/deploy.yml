@@ -1,10 +1,10 @@
 name: Deploy to Cloudflare Workers
 
-# Two Workers come out of this repo (see scripts/build-target.mjs):
-#   nure-asmir        – the customer storefront (no admin code in the bundle)
-#   nure-asmir-admin  – the owner's admin panel
+# Three Workers come out of this repo (see scripts/build-target.mjs):
+#   nure-asmir           – the customer storefront (no admin code in the bundle)
+#   nure-asmir-admin     – the owner's admin panel
+#   nure-asmir-training  – the training lab (training.nureasmir.com): the admin build again, in practice mode, on the practice tables only
 # Database migrations run first so a deploy never ships code that needs a column that is not there.
-# (The practice shop is not a third Worker: it runs inside the admin Worker, on its own tables – see lib/practice-context.ts.)
 on:
   push:
     branches: [main]
@@ -55,7 +55,7 @@ jobs:
 
       # The PRACTICE tables (a separate schema in the same database, with a database user that can only see it): kept up to date with the
       # same migrations, and filled with pretend data the first time. Only runs once the PRACTICE_DATABASE_URL secret exists
-      # (made by scripts/practice-create.ts). The owner opens it from the admin menu: it runs inside the admin Worker, nothing extra is deployed.
+      # (made by scripts/practice-create.ts). It is served by the training Worker, which is the only place that is given the practice connection.
       - name: Practice tables (only when PRACTICE_DATABASE_URL is set)
         env:
           PRACTICE_DATABASE_URL: ${{ secrets.PRACTICE_DATABASE_URL }}
@@ -88,18 +88,21 @@ jobs:
           if { npx wrangler r2 bucket info nure-asmir-cache >/dev/null 2>&1 || npx wrangler r2 bucket create nure-asmir-cache; } && { npx wrangler r2 bucket info nure-asmir-media-r2 >/dev/null 2>&1 || npx wrangler r2 bucket create nure-asmir-media-r2; }; then
             echo "STORE_CONFIG=wrangler.jsonc" >> "$GITHUB_ENV"
             echo "ADMIN_CONFIG=wrangler.admin.jsonc" >> "$GITHUB_ENV"
+            echo "TRAINING_CONFIG=wrangler.training.jsonc" >> "$GITHUB_ENV"
           else
             echo "::warning::R2 is not enabled on this Cloudflare account – deploying without the page cache. Enable R2 in the Cloudflare dashboard and re-run this workflow."
             node scripts/without-r2.mjs wrangler.jsonc wrangler.deploy.jsonc
             node scripts/without-r2.mjs wrangler.admin.jsonc wrangler.admin.deploy.jsonc
+            node scripts/without-r2.mjs wrangler.training.jsonc wrangler.training.deploy.jsonc
             echo "STORE_CONFIG=wrangler.deploy.jsonc" >> "$GITHUB_ENV"
             echo "ADMIN_CONFIG=wrangler.admin.deploy.jsonc" >> "$GITHUB_ENV"
+            echo "TRAINING_CONFIG=wrangler.training.deploy.jsonc" >> "$GITHUB_ENV"
           fi
 
       # Old address records on these names make Cloudflare refuse the custom domains (error 523 for visitors). Remove just those.
       - name: Free the website's domain names
         continue-on-error: true
-        run: node scripts/free-domains.mjs nureasmir.com www.nureasmir.com
+        run: node scripts/free-domains.mjs nureasmir.com www.nureasmir.com training.nureasmir.com
 
       - name: Build storefront
         run: npm run cf:build:store
@@ -132,13 +135,17 @@ jobs:
       - name: Deploy admin
         run: npx wrangler deploy -c "$ADMIN_CONFIG"
 
+      # The training lab is the admin build just made, deployed a second time under its own name, address and settings
+      # (wrangler.training.jsonc). Its secrets are set separately below: it never receives the real database or any service key.
+      - name: Deploy training lab
+        run: npx wrangler deploy -c "$TRAINING_CONFIG"
+
       # Runtime secrets the Workers read via process.env. Each value arrives through `env:` and is piped
       # with printf '%s' — never interpolated into the script text — so a secret containing shell syntax
       # cannot alter the command. Pushed on every deploy so a rotated GitHub secret stays in sync.
       - name: Sync Worker secrets
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          PRACTICE_DATABASE_URL: ${{ secrets.PRACTICE_DATABASE_URL }}
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
           ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
           ADMIN_INITIAL_PASSWORD: ${{ secrets.ADMIN_INITIAL_PASSWORD }}
@@ -178,7 +185,7 @@ jobs:
           set -euo pipefail
           # Runs after the deploys: on a brand-new account the Workers only exist once they have been deployed.
           for config in wrangler.jsonc wrangler.admin.jsonc; do
-            for name in DATABASE_URL PRACTICE_DATABASE_URL SESSION_SECRET ADMIN_EMAIL ADMIN_INITIAL_PASSWORD AWS_ENDPOINT_URL_S3 AWS_ACCESS_KEY_ID \
+            for name in DATABASE_URL SESSION_SECRET ADMIN_EMAIL ADMIN_INITIAL_PASSWORD AWS_ENDPOINT_URL_S3 AWS_ACCESS_KEY_ID \
               AWS_SECRET_ACCESS_KEY AWS_REGION ALGOLIA_APP_ID ALGOLIA_ADMIN_KEY FIREBASE_SERVICE_ACCOUNT RESEND_API_KEY \
               RESEND_FROM_EMAIL RESEND_FROM_NAME WHATSAPP_DEFAULT_NUMBER CRON_SECRET GROQ_API_KEY GROQ_API_KEY_2 GROQ_API_KEY_3 RESEND_API_KEY_2 BREVO_API_KEY EMAIL_REPLY_TO GEOAPIFY_API_KEY TURNSTILE_SECRET_KEY \
               CSP_NONCE WHATSAPP_ACCESS_TOKEN WHATSAPP_PHONE_NUMBER_ID WHATSAPP_APP_SECRET WHATSAPP_TEMPLATE_NAME \
@@ -188,4 +195,30 @@ jobs:
                 printf '%s' "$value" | npx wrangler secret put "$name" -c "$config" || echo "::warning::could not set $name on $config"
               fi
             done
+          done
+
+      # The training lab gets only what it needs: the PRACTICE connection (as DATABASE_URL too, so no code path can reach the real
+      # database), the picture-store keys (to show the shop's pictures), the page-security nonce and the shared training password.
+      # No email, WhatsApp, TCS, push, search or AI keys: those features simply switch themselves off there.
+      - name: Sync training lab secrets
+        env:
+          PRACTICE_DATABASE_URL: ${{ secrets.PRACTICE_DATABASE_URL }}
+          TRAINING_PASSWORD: ${{ secrets.TRAINING_PASSWORD }}
+          AWS_ENDPOINT_URL_S3: ${{ secrets.AWS_ENDPOINT_URL_S3 }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          CSP_NONCE: ${{ secrets.CSP_NONCE }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PRACTICE_DATABASE_URL:-}" ]; then
+            echo "::warning::No PRACTICE_DATABASE_URL secret – the training lab has no practice tables to run on."
+            exit 0
+          fi
+          printf '%s' "$PRACTICE_DATABASE_URL" | npx wrangler secret put DATABASE_URL -c wrangler.training.jsonc
+          for name in PRACTICE_DATABASE_URL TRAINING_PASSWORD AWS_ENDPOINT_URL_S3 AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_REGION CSP_NONCE; do
+            value="${!name:-}"
+            if [ -n "$value" ]; then
+              printf '%s' "$value" | npx wrangler secret put "$name" -c wrangler.training.jsonc || echo "::warning::could not set $name on the training lab"
+            fi
           done

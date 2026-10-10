@@ -1,6 +1,6 @@
 /**
  * The practice shop ("sandbox"): the very same admin screens, running on their own small database full of pretend data, so the owner
- * can learn by doing without any risk. The practice copy is a separate Worker (wrangler.sandbox.jsonc) that sets SANDBOX=1; everything
+ * can learn by doing without any risk. The training lab is a separate Worker (wrangler.training.jsonc) that sets SANDBOX=1; everything
  * here is pure so the limits can be tested without a database.
  */
 
@@ -44,7 +44,7 @@ export function hitCountsAgainstLimit(pathname: string, method: string, headers:
   const isPage = pathname === "/admin" || pathname.startsWith("/admin/");
   const isApi = pathname.startsWith("/api/admin/");
   if (!isPage && !isApi) return false;
-  if (pathname === "/admin/login" || pathname.startsWith("/api/admin/login") || pathname.startsWith("/api/admin/logout")) return false;
+  if (pathname === "/admin/login" || pathname === "/admin/training-login" || pathname === "/admin/training-start" || pathname.startsWith("/api/admin/login") || pathname.startsWith("/api/admin/logout")) return false;
   if (pathname.startsWith("/api/admin/sandbox/")) return false;
   if (headers.get("next-router-prefetch") || headers.get("purpose") === "prefetch") return false;
   if (isApi) return true;

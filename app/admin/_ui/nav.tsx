@@ -47,12 +47,24 @@ const DEV_NAV: NavGroup[] = [{ items: [{ href: "/admin/developer", label: "Devel
 
 export const ALL_PAGES = NAV.flatMap((group) => group.items);
 
-/** Renders role-specific admin navigation with active-page markers, pending counts and optional practice access. */
-export function NavLinks({ counts, role, practice }: { counts: Partial<Record<"orders" | "refunds" | "stock", number>>; role?: string; practice?: boolean }) {
+/** The training lab's own menu group (shown only on the training site). */
+const LAB_GROUP: NavGroup = {
+  label: "Training lab",
+  items: [
+    { href: "/admin/training", label: "Lessons", icon: "info", exact: true },
+    { href: "/admin/training/labs", label: "Guided labs", icon: "sparkle" },
+  ],
+};
+
+/** The real admin does not host the lessons or the practice any more: they live on the training site, reached by one link. */
+const NAV_WITHOUT_TRAINING: NavGroup[] = NAV.map((group) => ({ ...group, items: group.items.filter((item) => item.href !== "/admin/training") }));
+
+/** Renders role-specific admin navigation with active-page markers and pending counts; on the training site it adds the lessons and labs, in the real admin a link to the training site. */
+export function NavLinks({ counts, role, lab, trainingUrl }: { counts: Partial<Record<"orders" | "refunds" | "stock", number>>; role?: string; lab?: boolean; trainingUrl?: string }) {
   const pathname = usePathname() || "";
   return (
     <nav className="adm-nav" aria-label="Main">
-      {(role === "developer" ? DEV_NAV : NAV).map((group, index) => (
+      {(role === "developer" ? DEV_NAV : lab ? [NAV_WITHOUT_TRAINING[0], LAB_GROUP, ...NAV_WITHOUT_TRAINING.slice(1)] : NAV_WITHOUT_TRAINING).map((group, index) => (
         <div key={group.label ?? index} style={{ display: "grid", gap: 2 }}>
           {group.label && <p className="adm-nav-label">{group.label}</p>}
           {group.items.map((item) => {
@@ -68,13 +80,14 @@ export function NavLinks({ counts, role, practice }: { counts: Partial<Record<"o
           })}
         </div>
       ))}
-      {practice && role !== "developer" && (
+      {trainingUrl && !lab && role !== "developer" && (
         <div style={{ display: "grid", gap: 2 }}>
           <p className="adm-nav-label">Learn</p>
-          <Link href="/admin/practice" prefetch={false} title="Practice shop" aria-current={pathname.startsWith("/admin/practice") ? "page" : undefined}>
+          <a href={trainingUrl} target="_blank" rel="noopener noreferrer" title="Training lab: lessons, guided labs and a practice copy of this admin">
             <Icon name="sparkle" />
-            <span className="adm-nav-text">Practice shop</span>
-          </Link>
+            <span className="adm-nav-text">Training lab</span>
+            <Icon name="external" size={14} />
+          </a>
         </div>
       )}
     </nav>

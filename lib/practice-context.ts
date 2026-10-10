@@ -1,16 +1,7 @@
-import { AsyncLocalStorage } from "node:async_hooks";
-
 /**
- * "Is the request being handled right now a practice request?" – answered anywhere in the code, without passing anything around.
- * The Worker entry (admin-entry.ts) wraps a practising browser's whole request in runInPractice(), so every database query, email,
- * picture delete and background job started by that request knows it is practice. (Background work started by the request keeps the
- * answer, which is what stops a practice order from sending a real email a moment after the page has answered.)
- * SANDBOX=1 makes a whole server practise (used by the automated tests).
+ * "Is this the training lab?" – answered anywhere in the code. The training site (training.nureasmir.com) is its own Worker that is
+ * deployed with SANDBOX=1 and with a database connection to the practice tables only, so the answer is the same for every request it
+ * serves, and the real admin and the real shop (which never set SANDBOX) can never be in practice mode.
  */
-const store = new AsyncLocalStorage<{ practice: true }>();
-
-/** Runs work in practice context, which is inherited by asynchronous work started inside the callback. */
-export const runInPractice = <T>(work: () => T): T => store.run({ practice: true }, work);
-
-/** Reports whether this request has practice context or the whole server is configured as a sandbox. */
-export const isPracticeRequest = (): boolean => process.env.SANDBOX === "1" || store.getStore()?.practice === true;
+/** True on the training Worker (SANDBOX=1) and on the test server that imitates it. */
+export const isPracticeRequest = (): boolean => process.env.SANDBOX === "1";

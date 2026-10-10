@@ -451,34 +451,34 @@ const LESSON_DEFS: Array<Omit<Lesson, "minutes">> = [
   },
   {
     id: "practice",
-    title: "14. The practice shop",
-    blurb: "The same admin with pretend data – click anything without any risk. Learn by doing.",
+    title: "14. The training lab",
+    blurb: "A separate training website with lessons, guided labs and pretend data – click anything without any risk.",
     steps: [
       {
-        say: "At the bottom of the menu, under “Learn”, is “Practice shop”. Press “Start practice” and wait about 10 seconds while it gets ready. You do not sign in again: you stay signed in.",
+        say: "At the bottom of the menu is the “Training lab” link: it opens a separate website, training.nureasmir.com. Type your name and the training password the owner gives you, then press “Start my lab” and wait about 10 seconds while it gets ready.",
         screen: (s) => (
-          <Shell nav="Home" title="Practice shop">
-            <Card><T id="practice-link" s={s} className="a-btn a-btn-primary">✦ Start practice</T><span className="a-muted">Getting your practice shop ready… 10 seconds</span></Card>
+          <Shell nav="Home" title="Training lab">
+            <Card><T id="practice-link" s={s} className="a-btn a-btn-primary">✦ Start my lab</T><span className="a-muted">Starting your lab… about 10 seconds</span></Card>
           </Shell>
         ),
         actions: [{ t: "click", on: "practice-link" }],
       },
       {
-        say: "An orange strip across the top says PRACTICE SHOP, so you can never mix it up with the real one. Nothing there reaches a customer: no emails, no WhatsApp, no TCS, no notifications.",
+        say: "A blue strip across the top says TRAINING LAB, and the whole site has its own colours, so you can never mix it up with your real admin. Nothing there reaches a customer: no emails, no WhatsApp, no TCS, no notifications.",
         screen: () => (
           <Shell nav="Home" title="Good morning, Owner">
-            <div style={{ background: "#f59e0b", color: "#1c1300", padding: "8px 14px", borderRadius: 8, fontWeight: 700 }}>PRACTICE SHOP — nothing here is real · 1,438 of 1,500 clicks left today</div>
+            <div style={{ background: "#4b5bc4", color: "#ffffff", padding: "8px 14px", borderRadius: 8, fontWeight: 700 }}>TRAINING LAB — nothing here is real · 2,938 of 3,000 clicks left today</div>
           </Shell>
         ),
         actions: [{ t: "wait", ms: 300 }],
       },
       {
-        say: "You get a fixed number of clicks each day, and the strip counts them down. There are also small limits on how many products or orders you can add, and on storage (1 MB), so it stays tidy. It starts fresh the next day.",
-        screen: () => <Slide title="What is limited" points={[["Clicks per day", "1,500 page views and button presses. Pictures and signing in are free."], ["Products", "Up to 25 at the same time."], ["Orders", "Up to 60 at the same time."], ["Other things", "A few discount codes, flash sales, questions and shops."]]} foot="If you reach a limit the page tells you in plain words. Nothing breaks." />,
+        say: "The lab is shared by everyone who has the training password. It has a fixed number of clicks each day, and the strip counts them down. There are also small limits on products, orders and storage, so it stays tidy. It starts fresh the next day.",
+        screen: () => <Slide title="What is limited" points={[["Clicks per day", "3,000 page views and button presses for the whole lab. Pictures and signing in are free."], ["Products", "Up to 25 at the same time."], ["Orders", "Up to 60 at the same time."], ["Other things", "A few discount codes, flash sales, questions and shops."]]} foot="If you reach a limit the page tells you in plain words. Nothing breaks." />,
         actions: [{ t: "wait", ms: 300 }],
       },
       {
-        say: "Made a mess? Press “Start again” in the orange strip. Every product, order and setting goes back to how it was at the beginning. When you are done, press “Leave practice” to go back to your real shop.",
+        say: "Made a mess? Press “Start again” in the strip. Every product, order and setting goes back to how it was at the beginning, for everyone using the lab. Your real shop is never touched.",
         screen: (s) => (
           <Shell nav="Home" title="Start again">
             <Card><T id="sa-btn" s={s} className="a-btn">Start again</T>{s.sa && <Badge tone="done">Back to the starting practice data ✓</Badge>}</Card>
@@ -487,8 +487,8 @@ const LESSON_DEFS: Array<Omit<Lesson, "minutes">> = [
         actions: [{ t: "click", on: "sa-btn", set: { sa: "1" } }],
       },
       {
-        say: "Try these, in order: add a product with sizes; confirm an order and add a tracking number; cancel one; make a flash sale; write a notification; edit the Our story page. Repeat until it feels easy.",
-        screen: () => <Slide title="Your practice list" points={[["Add a product", "Name, sizes, price, stock – then Preview."], ["Process an order", "Confirm → pack → add the tracking number."], ["Cancel and refund", "See what happens to stock."], ["Run a flash sale", "Set the dates and watch the prices."], ["Write a message", "Preview first, then send the test."]]} />,
+        say: "Open “Guided labs” in the menu. Each lab gives you a few small tasks, a guide that stays on screen, and a “Check my work” button that ticks a step only when you really did it. Or choose free practice and try anything.",
+        screen: () => <Slide title="Guided labs" points={[["Add your first product", "Name, price, a size with stock, then publish."], ["Take an order to packed", "Confirm → pack → add the tracking number."], ["Cancel an order", "Choose a reason and see the stock return."], ["Run a flash sale", "Set the discount and what it covers."], ["Discount code, FAQ", "Two short ones to finish."]]} />,
         actions: [{ t: "wait", ms: 300 }],
       },
     ],
