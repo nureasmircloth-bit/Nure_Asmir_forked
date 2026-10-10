@@ -112,10 +112,14 @@
 .product-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 28px clamp(8px, 1vw, 16px); }
 .pcard { position: relative; min-width: 0; }
 .pcard-media { position: relative; display: block; aspect-ratio: 3 / 4; overflow: hidden; background: #f3f3f2; }
-.pcard-media img { transition: opacity .45s ease, transform .6s cubic-bezier(.2,.7,.2,1); }
-.pcard-media .pcard-alt { opacity: 0; }
-.pcard:hover .pcard-media.has-alt .pcard-alt { opacity: 1; }
-.pcard:hover .pcard-media:not(.has-alt) img { transform: scale(1.03); }
+.pcard-media.can-swipe { touch-action: pan-y; }
+.pcard-link { position: absolute; inset: 0; display: block; }
+.pcard-media img { transition: transform .6s cubic-bezier(.2,.7,.2,1); }
+.pcard:hover .pcard-media:not(.has-many) img { transform: scale(1.03); }
+.pcard-media .slide-arrow { width: 30px; height: 30px; margin-top: -15px; }
+.pcard-media .slide-arrow.prev { left: 6px; } .pcard-media .slide-arrow.next { right: 6px; }
+.pcard-media .slide-dots { bottom: 8px; }
+@media (hover: hover) { .pcard-media .slide-arrow { opacity: 0; } .pcard:hover .pcard-media .slide-arrow:not(:disabled) { opacity: .94; } }
 .pcard-badge { position: absolute; z-index: 2; top: 10px; left: 10px; padding: 5px 9px; background: #fff; color: var(--ink); font-size: 10px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
 .pcard-badge.soldout { background: var(--ink); color: #fff; }
 .pcard-info { padding-top: 12px; text-align: center; }
@@ -157,10 +161,8 @@
 .footer-bottom a:hover { color: #fff; }
 
 /* ---------- floating widgets ---------- */
-.float-whatsapp { position: fixed; z-index: 70; left: max(16px, env(safe-area-inset-left)); bottom: max(16px, env(safe-area-inset-bottom)); width: 52px; height: 52px; display: grid; place-items: center; border-radius: 50%; background: #25d366; color: #fff; box-shadow: 0 6px 20px rgba(0,0,0,.25); transition: transform .2s ease; }
+.float-whatsapp { position: static; width: 52px; height: 52px; display: grid; place-items: center; border-radius: 50%; background: #25d366; color: #fff; box-shadow: 0 6px 20px rgba(0,0,0,.25); transition: transform .2s ease; }
 .float-whatsapp:hover { transform: scale(1.06); }
-.currency-switcher { position: fixed; z-index: 70; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); }
-.currency-switcher > button { height: 38px; padding: 0 14px; border: 1px solid var(--line); border-radius: 6px; background: #fff; box-shadow: 0 4px 16px rgba(0,0,0,.12); font-size: 12px; font-weight: 500; letter-spacing: .08em; cursor: pointer; }
 .currency-switcher ul { position: absolute; right: 0; bottom: 46px; width: 250px; margin: 0; padding: 6px; list-style: none; background: #fff; border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 12px 40px rgba(0,0,0,.18); }
 .currency-switcher li button { width: 100%; padding: 9px 10px; display: flex; gap: 10px; align-items: baseline; border: 0; border-radius: 5px; background: transparent; text-align: left; font-size: 13px; cursor: pointer; }
 .currency-switcher li button:hover, .currency-switcher li button.active { background: #f3f3f2; }
@@ -195,7 +197,7 @@
 .product-thumbnails button { position: relative; width: 76px; aspect-ratio: 3 / 4; border: 1px solid transparent; padding: 0; overflow: hidden; background: #f3f3f2; opacity: .6; cursor: pointer; }
 .product-thumbnails button.active { border-color: var(--ink); opacity: 1; }
 .product-stage { touch-action: pan-y pinch-zoom; position: relative; aspect-ratio: 3 / 4; overflow: hidden; background: #f3f3f2; }
-.product-stage > span { position: absolute; z-index: 2; right: 12px; bottom: 12px; padding: 5px 9px; background: rgba(255,255,255,.9); font-size: 11px; letter-spacing: .12em; }
+.product-stage > span { position: absolute; z-index: 2; right: 62px; bottom: 18px; padding: 5px 9px; background: rgba(255,255,255,.9); font-size: 11px; letter-spacing: .12em; }
 .product-buy { padding-top: 6px; }
 .product-buy nav { display: flex; align-items: center; gap: 8px; margin-bottom: 26px; color: var(--muted); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; }
 .product-buy nav a:hover { color: var(--ink); }
@@ -297,8 +299,8 @@
   .filter-tabs { width: 100%; }
   .shop-toolbar label { align-self: flex-end; }
   .cart-toast { left: 12px; right: 12px; bottom: 70px; width: auto; }
-  .float-whatsapp { width: 46px; height: 46px; left: 12px; bottom: 12px; }
-  .currency-switcher { right: 12px; bottom: 12px; }
+  .float-whatsapp { width: 46px; height: 46px; }
+  .edge-left, .edge-right { bottom: 12px; --edge-gap: 12px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .banner-slide { transition: none; }
@@ -405,16 +407,33 @@
 .lp-note { color: var(--muted); font-size: 12px; }
 
 /* ---- Floating buttons: flags, and a small ✕ on each ---- */
-.float-whatsapp-wrap { position: fixed; z-index: 70; left: max(16px, env(safe-area-inset-left)); bottom: max(16px, env(safe-area-inset-bottom)); }
-.float-whatsapp-wrap .float-whatsapp { position: static; }
-.float-close, .currency-close { display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 1px solid var(--line); border-radius: 50%; background: #fff; color: #444; font-size: 10px; line-height: 1; cursor: pointer; box-shadow: 0 2px 8px rgba(0, 0, 0, .18); }
-.float-close { position: absolute; top: -8px; right: -8px; }
-.float-close:hover, .currency-close:hover { background: #1b1714; color: #fff; }
+/* Floating buttons that tuck against the screen edge: they slide out of the way and leave a small tab to bring them back. */
+.edge-widget { --edge-peek: 22px; position: fixed; z-index: 70; transition: transform .45s cubic-bezier(.2, .9, .25, 1), opacity .3s ease; }
+.edge-widget:not(.is-ready) { opacity: 0; pointer-events: none; transition: none; }
+.edge-widget.is-ready { animation: edge-in .55s .5s cubic-bezier(.2, .9, .25, 1) backwards; }
+.edge-left { left: var(--edge-gap); bottom: max(16px, env(safe-area-inset-bottom)); --edge-gap: max(16px, env(safe-area-inset-left)); }
+.edge-right { right: var(--edge-gap); bottom: max(16px, env(safe-area-inset-bottom)); --edge-gap: max(16px, env(safe-area-inset-right)); }
+.edge-left.is-tucked { transform: translateX(calc(-100% - var(--edge-gap) + var(--edge-peek))); }
+.edge-right.is-tucked { transform: translateX(calc(100% + var(--edge-gap) - var(--edge-peek))); }
+.edge-body { position: relative; transition: opacity .25s ease; }
+.is-tucked .edge-body { opacity: .85; }
+.edge-handle { position: absolute; z-index: 2; display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 1px solid var(--line); border-radius: 50%; background: #fff; color: #444; line-height: 1; cursor: pointer; box-shadow: 0 2px 8px rgba(0, 0, 0, .18); transition: background .2s ease, color .2s ease, transform .2s ease; -webkit-tap-highlight-color: transparent; }
+.edge-left .edge-handle { top: -8px; left: -8px; }
+.edge-right .edge-handle { top: -8px; right: -8px; }
+.edge-handle:hover { background: #1b1714; color: #fff; }
+.edge-handle:active { transform: scale(.9); }
+/* tucked: the tab becomes a tap target over the visible sliver, with the chevron on the inside edge of it */
+.is-tucked .edge-handle { inset: 0; top: 0; left: 0; right: 0; width: 100%; height: 100%; border: 0; border-radius: 0; background: transparent; box-shadow: none; color: #fff; }
+.edge-left.is-tucked .edge-handle { justify-content: end; padding-right: 3px; }
+.edge-right.is-tucked .edge-handle { justify-content: start; padding-left: 5px; }
+.edge-right.is-tucked .edge-handle { color: var(--ink); }
+.is-tucked .edge-handle:hover { background: transparent; color: inherit; }
+@keyframes edge-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .edge-widget, .edge-widget.is-ready { transition: none; animation: none; } }
 .currency-bar { display: flex; align-items: center; gap: 6px; }
-.currency-switcher > .currency-bar > .currency-main { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px; border: 1px solid var(--line); border-radius: 6px; background: #fff; box-shadow: 0 4px 16px rgba(0,0,0,.12); font-size: 12px; font-weight: 500; letter-spacing: .08em; cursor: pointer; }
+.currency-switcher .currency-bar > .currency-main { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px; border: 1px solid var(--line); border-radius: 6px; background: #fff; box-shadow: 0 4px 16px rgba(0,0,0,.12); font-size: 12px; font-weight: 500; letter-spacing: .08em; cursor: pointer; }
 .currency-main img, .currency-switcher li button img { width: 20px; height: 15px; object-fit: cover; border-radius: 2px; box-shadow: 0 0 0 1px rgba(0, 0, 0, .12); }
 .currency-switcher li button { align-items: center; }
-.footer-restore { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; opacity: .8; }
 
 /* ---- Shop filters ---- */
 .shop-controls { display: flex; align-items: center; gap: 18px; }
@@ -587,10 +606,44 @@
   /* keep content, widgets and messages clear of the bar */
   body:has(.tab-bar) { padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
   html { scroll-padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
-  .float-whatsapp, .float-whatsapp-wrap { bottom: calc(72px + env(safe-area-inset-bottom)); }
-  .currency-switcher { bottom: calc(72px + env(safe-area-inset-bottom)); }
+  .edge-left, .edge-right { bottom: calc(72px + env(safe-area-inset-bottom)); }
   .cart-toast { bottom: calc(136px + env(safe-area-inset-bottom)); }
   .alerts-prompt { bottom: calc(136px + env(safe-area-inset-bottom)); }
   .shop-toast { bottom: calc(136px + env(safe-area-inset-bottom)); }
 }
 .ts-error { margin: 6px 0 0; color: #8d2929; font-size: 13px; }
+
+/* ---------- sliding photos (product page and product cards) ---------- */
+.slide-track { display: flex; width: 100%; height: 100%; transform: translate3d(calc(var(--i, 0) * -100% + var(--dx, 0px)), 0, 0); transition: transform .42s cubic-bezier(.22, .8, .2, 1); will-change: transform; }
+.slide-track.is-dragging { transition: none; }
+.slide-track > .slide { position: relative; flex: 0 0 100%; min-width: 0; height: 100%; overflow: hidden; }
+.slide-arrow { position: absolute; z-index: 3; top: 50%; display: grid; place-items: center; width: 36px; height: 36px; margin-top: -18px; padding: 0; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .92); color: var(--ink); box-shadow: 0 2px 10px rgba(0, 0, 0, .2); cursor: pointer; opacity: .94; transition: opacity .25s ease, transform .2s ease, background .2s ease; -webkit-tap-highlight-color: transparent; }
+.slide-arrow.prev { left: 10px; } .slide-arrow.next { right: 10px; }
+.slide-arrow:active { transform: scale(.88); }
+.slide-arrow:disabled { opacity: 0; pointer-events: none; }
+.slide-dots { position: absolute; z-index: 2; left: 0; right: 0; bottom: 12px; display: flex; justify-content: center; gap: 5px; pointer-events: none; }
+.slide-dots i { width: 6px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, .7); box-shadow: 0 0 0 1px rgba(0, 0, 0, .18); transition: width .3s cubic-bezier(.22, .8, .2, 1), background .25s ease; }
+.slide-dots i.on { width: 18px; background: #fff; }
+.product-stage .slide-dots { right: auto; left: 12px; bottom: 18px; justify-content: flex-start; }
+@media (hover: hover) { .product-stage .slide-arrow { opacity: 0; } .product-stage:hover .slide-arrow:not(:disabled) { opacity: .94; } }
+@media (prefers-reduced-motion: reduce) { .slide-track, .slide-dots i, .slide-arrow { transition: none; } }
+/* the full-size viewer: the photo slides in from the side it came from */
+.lightbox-frame { animation: lb-in-next .32s cubic-bezier(.22, .8, .2, 1) both; }
+.lightbox-frame[data-dir="-1"] { animation-name: lb-in-prev; }
+@keyframes lb-in-next { from { opacity: 0; transform: translateX(36px); } }
+@keyframes lb-in-prev { from { opacity: 0; transform: translateX(-36px); } }
+.lightbox { animation: lb-fade .22s ease both; }
+@keyframes lb-fade { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .lightbox, .lightbox-frame { animation: none; } }
+
+/* ---------- touch feedback and entrance motion ---------- */
+.pcard { animation: card-in .5s cubic-bezier(.22, .8, .2, 1) backwards; }
+.pcard:nth-child(2) { animation-delay: .04s; } .pcard:nth-child(3) { animation-delay: .08s; } .pcard:nth-child(4) { animation-delay: .12s; }
+@keyframes card-in { from { transform: translateY(14px); } }
+@media (hover: none) {
+  .pcard-media { transition: transform .18s ease; }
+  .pcard-media:active { transform: scale(.985); }
+  .tab-bar a, .tab-bar button { transition: transform .15s ease, color .2s ease; }
+  .tab-bar a:active, .tab-bar button:active { transform: scale(.9); }
+}
+@media (prefers-reduced-motion: reduce) { .pcard { animation: none; } .pcard-media, .tab-bar a, .tab-bar button { transition: none; } }
