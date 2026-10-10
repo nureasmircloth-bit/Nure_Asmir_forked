@@ -1,0 +1,28 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // The TRAINING LAB (training.nureasmir.com): a third Worker that runs the very same build as the admin panel (npm run cf:build:admin),
+  // but is switched into practice mode for good (SANDBOX=1). It is given the PRACTICE database connection only (the deploy workflow sets its
+  // DATABASE_URL to the practice URL), and none of the keys for email, WhatsApp, TCS, push or search, so even a mistake cannot reach the
+  // real shop. It has no timer: it only wakes when somebody opens it.
+  "name": "nure-asmir-training",
+  "main": "admin-entry.ts",
+  "compatibility_date": "2026-07-29",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  // Pictures only (the practice products show the shop's pictures). Deliberately NO page-cache bucket: nothing of the lab is ever
+  // saved where the real admin could pick it up.
+  "r2_buckets": [{ "binding": "MEDIA_R2", "bucket_name": "nure-asmir-media-r2" }],
+  "vars": {
+    "APP_TARGET": "training",
+    "SANDBOX": "1",
+    // One lab is shared by everyone with the training password: this is the day's allowance of clicks for all of them.
+    "SANDBOX_HITS_PER_DAY": "3000",
+    "NEXT_PUBLIC_ADMIN_URL": "https://admin.nureasmir.com"
+  },
+  "observability": { "enabled": true },
+  "workers_dev": true,
+  "routes": [{ "pattern": "training.nureasmir.com", "custom_domain": true }]
+}

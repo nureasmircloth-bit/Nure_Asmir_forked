@@ -14,6 +14,8 @@ function clientIp(request: Request): string {
 }
 
 export async function POST(request: Request) {
+  // The training lab has its own entrance (/api/admin/sandbox/enter); real sign-in does not exist there.
+  if (process.env.SANDBOX === "1") return Response.json({ error: "Not found." }, { status: 404 });
   let body: { email?: unknown; password?: unknown };
   try {
     body = await request.json();

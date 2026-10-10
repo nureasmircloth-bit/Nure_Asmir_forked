@@ -155,14 +155,14 @@ export const UR: Record<string, LessonText> = {
     ],
   },
   practice: {
-    title: "14. Practice shop",
-    blurb: "Wohi admin, nakli data ke saath – bina kisi khatre ke har cheez par click karein. Kar ke seekhein.",
+    title: "14. Training lab",
+    blurb: "Alag training website: lessons, guided labs aur nakli data – bina kisi khatre ke har cheez par click karein.",
     steps: [
-      "Menu ke bilkul neeche, “Learn” ke tahat, “Practice shop” hai. “Start practice” dabayein aur taqreeban 10 second intezar karein jab tak tayyar ho. Dobara sign in nahi karna parta: aap sign in hi rehte hain.",
-      "Upar narangi patti likhi hoti hai PRACTICE SHOP, taake aap kabhi asli dukaan se na milayein. Wahan se kuch customer tak nahi pahunchta: na email, na WhatsApp, na TCS, na notification.",
-      "Roz ke liye clicks ki ek tay tadad milti hai, aur patti unhein ginti rehti hai. Products ya orders kitne daal sakte hain aur storage (1 MB) ki bhi choti hadd hai taake sab saaf rahe. Agle din nayi shuru hoti hai.",
-      "Gadbad ho gayi? Narangi patti mein “Start again” dabayein. Har product, order aur setting wapas shuru wali halat mein aa jati hai. Kaam khatam ho to “Leave practice” dabayein aur asli dukaan mein wapas aa jayein.",
-      "Ye is tarteeb se kar ke dekhein: sizes ke saath product daalein; order confirm karein aur tracking number daalein; ek order cancel karein; flash sale banayein; notification likhein; Our story page badlein. Jab tak aasaan na lage dohrayein.",
+      "Menu ke bilkul neeche “Training lab” ka link hai: yeh alag website kholta hai, training.nureasmir.com. Apna naam aur woh training password likhein jo owner dete hain, phir “Start my lab” dabayein aur taqreeban 10 second intezar karein jab tak tayyar ho.",
+      "Upar neeli patti likhi hoti hai TRAINING LAB, aur poori website ke rang alag hote hain, taake aap kabhi asli admin se na milayein. Wahan se kuch customer tak nahi pahunchta: na email, na WhatsApp, na TCS, na notification.",
+      "Lab un sab ka saanjha hai jin ke paas training password hai. Roz ke liye clicks ki ek tay tadad milti hai, aur patti unhein ginti rehti hai. Products, orders aur storage ki bhi choti hadd hai taake sab saaf rahe. Agle din nayi shuru hoti hai.",
+      "Gadbad ho gayi? Patti mein “Start again” dabayein. Har product, order aur setting wapas shuru wali halat mein aa jati hai (lab ke sab logon ke liye). Asli dukaan ko kabhi haath nahi lagta.",
+      "Menu mein “Guided labs” kholein. Har lab mein chand chote kaam hote hain, ek guide jo screen par rehti hai, aur “Mera kaam check karein” ka button jo kaam tabhi tick karta hai jab aap ne waqai kiya ho. Ya azad practice chunein aur jo chahein karein.",
     ],
   },
 };

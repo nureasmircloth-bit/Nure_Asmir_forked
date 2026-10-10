@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export function LogoutButton() {
+export function LogoutButton({ to = "/admin/login" }: { to?: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
@@ -11,7 +11,7 @@ export function LogoutButton() {
     setBusy(true);
     try {
       await fetch("/api/admin/logout", { method: "POST" });
-      router.push("/admin/login");
+      router.push(to);
       router.refresh();
     } catch (error) {
       console.error("logout failed", error);

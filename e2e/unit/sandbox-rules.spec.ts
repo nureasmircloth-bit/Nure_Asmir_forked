@@ -17,9 +17,13 @@ test.describe("the practice shop", () => {
     expect(hitCountsAgainstLimit("/api/admin/settings", "PATCH", headers())).toBe(true);
     expect(hitCountsAgainstLimit("/admin/orders", "GET", headers({ "next-router-prefetch": "1" }))).toBe(false);
     expect(hitCountsAgainstLimit("/admin/login", "GET", headers())).toBe(false);
+    expect(hitCountsAgainstLimit("/admin/training-login", "GET", headers())).toBe(false); // the lab entrance and its start page never count
+    expect(hitCountsAgainstLimit("/admin/training-start", "GET", headers())).toBe(false);
+    expect(hitCountsAgainstLimit("/api/admin/sandbox/enter", "POST", headers())).toBe(false);
+    expect(hitCountsAgainstLimit("/api/admin/sandbox/check", "POST", headers())).toBe(false);
     expect(hitCountsAgainstLimit("/api/admin/login", "POST", headers())).toBe(false);
     expect(hitCountsAgainstLimit("/api/admin/logout", "POST", headers())).toBe(false);
-    expect(hitCountsAgainstLimit("/api/admin/sandbox/reset", "POST", headers())).toBe(false);
+    expect(hitCountsAgainstLimit("/api/admin/sandbox/start", "POST", headers())).toBe(false);
     expect(hitCountsAgainstLimit("/_next/static/chunks/a.js", "GET", headers())).toBe(false);
     expect(hitCountsAgainstLimit("/cdn/pictures/a.webp", "GET", headers())).toBe(false);
     expect(hitCountsAgainstLimit("/shop", "GET", headers())).toBe(false);

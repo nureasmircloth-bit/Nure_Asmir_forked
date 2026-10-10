@@ -72,3 +72,4 @@ next-env.d.ts
 
 /wrangler.deploy.jsonc
 /wrangler.admin.deploy.jsonc
+/wrangler.training.deploy.jsonc
