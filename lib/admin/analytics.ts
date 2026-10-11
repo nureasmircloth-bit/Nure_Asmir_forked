@@ -72,16 +72,16 @@ async function daily(from: Date, to: Date): Promise<DayPoint[]> {
   return out;
 }
 
-export type NamedValue = { name: string; value: number; extra?: number; image?: string | null };
+export type NamedValue = { name: string; value: number; extra?: number; image?: string | null; /** What the row was counted by (a product id), unique per row: use it as the list key, since two products can share a name. */ id?: string };
 
 async function topProducts(from: Date, to: Date): Promise<NamedValue[]> {
-  return rowsOf<{ name: string; units: number; revenue: number; image: string | null }>(
+  return rowsOf<{ id: string; name: string; units: number; revenue: number; image: string | null }>(
     await db.execute(sql`
-      select max(oi.product_name) as name, sum(oi.quantity)::int as units, sum(oi.line_total)::bigint::float8 as revenue, max(oi.image_url) as image
+      select coalesce(oi.product_id::text, oi.product_name) as id, max(oi.product_name) as name, sum(oi.quantity)::int as units, sum(oi.line_total)::bigint::float8 as revenue, max(oi.image_url) as image
       from order_items oi join orders o on o.id = oi.order_id
       where ${LIVE} and o.created_at >= ${from.toISOString()}::timestamptz and o.created_at < ${to.toISOString()}::timestamptz
-      group by coalesce(oi.product_id::text, oi.product_name) order by revenue desc limit 6`),
-  ).map((row) => ({ name: row.name, value: Number(row.revenue), extra: row.units, image: row.image }));
+      group by 1 order by revenue desc limit 6`),
+  ).map((row) => ({ id: row.id, name: row.name, value: Number(row.revenue), extra: row.units, image: row.image }));
 }
 
 async function topCities(from: Date, to: Date): Promise<NamedValue[]> {
