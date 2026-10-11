@@ -668,3 +668,13 @@ p, .pcard-title { text-wrap: pretty; }
   .pcard-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; letter-spacing: .05em; line-height: 1.4; min-height: 2.8em; }
   .pcard-info { padding-top: 10px; }
 }
+
+/* photos that arrive after the page fade in instead of popping in (the first photo is never hidden: it is part of the page itself) */
+.slide-late { opacity: 0; transition: opacity .35s ease; }
+.slide-late[data-ready] { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .slide-late { transition: none; } }
+
+/* a tapped arrow whose photo is still arriving pulses gently, so a slow connection never feels like a dead button */
+.slide-arrow[data-busy] { animation: arrow-wait .9s ease-in-out infinite; }
+@keyframes arrow-wait { 50% { opacity: .4; transform: scale(.92); } }
+@media (prefers-reduced-motion: reduce) { .slide-arrow[data-busy] { animation: none; opacity: .6; } }

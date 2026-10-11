@@ -8,6 +8,7 @@ import type { CatalogImage } from "@/lib/commerce";
 import { Portal } from "../../_components/portal";
 import { cdnSrcForWidth, isCdnUrl } from "@/lib/media-url";
 import { track as trackEvent } from "@/lib/analytics";
+import { waitUntil } from "@/lib/wait-until";
 
 /** The sharpest version of a photo (for zooming); an address that is not one of ours is used as it is. */
 const sharpest = (url: string) => (isCdnUrl(url) ? cdnSrcForWidth(url, 1600) : url);
@@ -69,11 +70,19 @@ export function ProductGallery({ name, images, fallback }: { name: string; image
 
   // Only the photo on show and its neighbours are loaded, so a phone does not download the whole set up front.
   const [seen, setSeen] = useState<ReadonlySet<number>>(new Set([0, 1]));
-  const show = useCallback((to: number) => {
+  const loaded = useRef<Set<number>>(new Set([0])); // which photos have really arrived (the first is already on the page)
+  const [waiting, setWaiting] = useState(false); // an arrow or thumbnail was tapped and its photo is still arriving: the arrows pulse
+  // Slides to a photo once it has arrived (at most ~1 s of waiting): sliding to a photo that is still downloading shows an empty frame.
+  const show = useCallback(async (to: number) => {
+    setSeen((before) => new Set([...before, to - 1, to, to + 1]));
+    if (!loaded.current.has(to)) {
+      setWaiting(true);
+      await waitUntil(() => loaded.current.has(to), 2500);
+      setWaiting(false);
+    }
     setDirection(to >= index ? 1 : -1);
     setActive(to);
     trackEvent("gallery_photo_changed", { to: to + 1 });
-    setSeen((before) => new Set([...before, to - 1, to, to + 1]));
   }, [index]);
   const go = useCallback((next: number) => show(Math.max(0, Math.min(last, next))), [show, last]);
   /** Used by the full-size viewer, where the photos wrap round. */
@@ -140,6 +149,18 @@ export function ProductGallery({ name, images, fallback }: { name: string; image
                   alt={image.altText}
                   fill
                   priority={position === 0}
+                  loading={position === 0 ? undefined : "eager"}
+                  className={position === 0 ? undefined : "slide-late"}
+                  ref={(element) => {
+                    if (position > 0 && element?.complete && element.naturalWidth) {
+                      element.dataset.ready = "1";
+                      loaded.current.add(position);
+                    }
+                  }}
+                  onLoad={(event) => {
+                    event.currentTarget.dataset.ready = "1";
+                    loaded.current.add(position);
+                  }}
                   sizes="(max-width: 900px) 100vw, 52vw"
                   {...(image.blurDataUrl ? { placeholder: "blur" as const, blurDataURL: image.blurDataUrl } : {})}
                 />
@@ -153,10 +174,10 @@ export function ProductGallery({ name, images, fallback }: { name: string; image
             <span>
               {String(index + 1).padStart(2, "0")} / {String(gallery.length).padStart(2, "0")}
             </span>
-            <button type="button" className="slide-arrow prev" aria-label="Previous photo" disabled={index === 0} onClick={(event) => { event.stopPropagation(); go(index - 1); }}>
+            <button type="button" className="slide-arrow prev" aria-label="Previous photo" disabled={index === 0} data-busy={waiting || undefined} onClick={(event) => { event.stopPropagation(); go(index - 1); }}>
               <Chevron left />
             </button>
-            <button type="button" className="slide-arrow next" aria-label="Next photo" disabled={index === last} onClick={(event) => { event.stopPropagation(); go(index + 1); }}>
+            <button type="button" className="slide-arrow next" aria-label="Next photo" disabled={index === last} data-busy={waiting || undefined} onClick={(event) => { event.stopPropagation(); go(index + 1); }}>
               <Chevron />
             </button>
             <div className="slide-dots" aria-hidden="true">

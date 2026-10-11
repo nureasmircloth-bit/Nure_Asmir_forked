@@ -2,10 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import type { CardProduct } from "@/lib/commerce";
 import { useLockedAction } from "@/lib/use-locked-action";
 import { useSlideDrag } from "@/lib/use-slide-drag";
+import { saveDataMode, waitUntil } from "@/lib/wait-until";
 import { Price } from "./currency";
 import { discountLabel } from "./sale";
 import { WishlistButton } from "./wishlist-button";
@@ -31,28 +32,56 @@ export function ProductCard({ product, priority = false, sizes, swipe = true }: 
   const last = photos.length - 1;
   const [index, setIndex] = useState(0);
   const [seen, setSeen] = useState<ReadonlySet<number>>(new Set([0]));
+  const [waiting, setWaiting] = useState(false); // a tapped arrow is waiting for its photo to arrive: the arrow pulses so the tap is seen to work
   const track = useRef<HTMLDivElement>(null);
-  const go = (next: number) => {
-    const to = Math.max(0, Math.min(last, next));
-    setIndex(to);
-    trackEvent("card_photo_changed", { product: product.slug });
+  const media = useRef<HTMLDivElement>(null);
+  const loaded = useRef<Set<number>>(new Set([0])); // which photos have really arrived (the first is already on the page)
+  const stepped = useRef(false); // the shopper moved this card with the arrows or a swipe: leave it where they put it
+  // Slides to a photo, but only once that photo has arrived (a slide to a photo that is still downloading shows an empty frame sliding in).
+  // It waits at most `patience` ms, so a slow or failed picture can never freeze the button.
+  const show = async (to: number, patience: number) => {
     setSeen((before) => new Set([...before, to, to + 1]));
+    if (!loaded.current.has(to)) {
+      setWaiting(true);
+      await waitUntil(() => loaded.current.has(to), patience);
+      setWaiting(false);
+    }
+    setIndex(to);
+  };
+  const go = async (next: number) => {
+    stepped.current = true;
+    await show(Math.max(0, Math.min(last, next)), 2500);
+    trackEvent("card_photo_changed", { product: product.slug });
   };
   const drag = useSlideDrag(track, photos.length, index, go, swipe);
-  // Other photos are only downloaded once the shopper reaches for the card (touch, mouse or keyboard), not for every card on the page.
-  const prime = () => setSeen((before) => (before.has(1) ? before : new Set([...before, 1])));
+  // The second photo is fetched as soon as the card is on the screen (unless the phone is in data-saver mode), so the first tap is instant;
+  // the rest follow one step ahead of the shopper.
+  const prime = useCallback(() => setSeen((before) => (before.has(1) ? before : new Set([...before, 1]))), []);
+  useEffect(() => {
+    const element = media.current;
+    if (!element || !many || saveDataMode()) return;
+    const watcher = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        prime();
+        watcher.disconnect();
+      }
+    }, { threshold: 0.6 });
+    watcher.observe(element);
+    return () => watcher.disconnect();
+  }, [many, prime]);
   return (
     <article className="pcard">
       <div
+        ref={media}
         className={`pcard-media${many ? " has-many" : ""}${many && swipe ? " can-swipe" : ""}`}
         onPointerEnter={(event) => {
-          if (event.pointerType === "mouse" && many) {
+          if (event.pointerType === "mouse" && many && !stepped.current) {
             prime();
-            setIndex(1); // a mouse resting on the card previews the second photo, as before
+            void show(1, 250); // a mouse resting on the card previews the second photo, as before
           }
         }}
         onPointerLeave={(event) => {
-          if (event.pointerType === "mouse" && many) setIndex(0);
+          if (event.pointerType === "mouse" && many && !stepped.current) setIndex(0);
         }}
         onFocus={prime}
         {...(many ? { ...drag.handlers, onTouchStart: (event: React.TouchEvent) => { prime(); drag.handlers.onTouchStart(event); } } : {})}
@@ -74,7 +103,18 @@ export function ProductCard({ product, priority = false, sizes, swipe = true }: 
                     fill
                     sizes={cardSizes}
                     priority={priority && position === 0}
-                    loading={position === 0 ? undefined : "lazy"}
+                    loading={position === 0 ? undefined : "eager"}
+                    className={position === 0 ? undefined : "slide-late"}
+                    ref={(element) => {
+                      if (position > 0 && element?.complete && element.naturalWidth) {
+                        element.dataset.ready = "1";
+                        loaded.current.add(position);
+                      }
+                    }}
+                    onLoad={(event) => {
+                      event.currentTarget.dataset.ready = "1";
+                      loaded.current.add(position);
+                    }}
                     {...(position === 0 && product.blurDataUrl ? { placeholder: "blur" as const, blurDataURL: product.blurDataUrl } : {})}
                   />
                 )}
@@ -91,10 +131,10 @@ export function ProductCard({ product, priority = false, sizes, swipe = true }: 
         </Link>
         {many && (
           <>
-            <button type="button" className="slide-arrow prev" aria-label={`Previous photo of ${product.name}`} disabled={index === 0} onClick={() => { prime(); go(index - 1); }}>
+            <button type="button" className="slide-arrow prev" aria-label={`Previous photo of ${product.name}`} disabled={index === 0} data-busy={waiting || undefined} onClick={() => { prime(); go(index - 1); }}>
               <CardChevron left />
             </button>
-            <button type="button" className="slide-arrow next" aria-label={`Next photo of ${product.name}`} disabled={index === last} onClick={() => { prime(); go(index + 1); }}>
+            <button type="button" className="slide-arrow next" aria-label={`Next photo of ${product.name}`} disabled={index === last} data-busy={waiting || undefined} onClick={() => { prime(); go(index + 1); }}>
               <CardChevron />
             </button>
             <div className="slide-dots" aria-hidden="true">

@@ -344,15 +344,17 @@ test.describe("storefront overhaul", () => {
       await page.mouse.move(0, 0); // no hover preview yet
       expect(await position(media)).toBe(0);
       await expect(media.getByRole("button", { name: /^Previous photo/ })).toBeDisabled(); // nothing before the first photo
-      await media.getByRole("button", { name: /^Next photo/ }).click();
-      const before = await position(media); // a mouse resting on the card previews photo 2, so the click may land one further on
-      expect(before).toBeGreaterThanOrEqual(1);
+      // a plain tap (no mouse movement), so the hover preview cannot mix in; each step waits until the card has really moved
+      await media.getByRole("button", { name: /^Next photo/ }).dispatchEvent("click");
+      await expect.poll(() => position(media)).toBe(1);
       expect(page.url()).toBe(url);
 
+      const photos = await media.locator(".slide-dots i").count();
+      const afterLeft = Math.min(2, photos - 1);
       await swipe(media, 300, 60); // finger moves left = next photo (if there is one)
-      await expect.poll(() => position(media)).toBeGreaterThanOrEqual(1);
+      await expect.poll(() => position(media)).toBe(afterLeft);
       await swipe(media, 60, 300); // finger moves right = back
-      await expect.poll(() => position(media)).toBeLessThanOrEqual(1);
+      await expect.poll(() => position(media)).toBe(afterLeft - 1);
       expect(page.url()).toBe(url); // swiping never opened the product
 
       const dots = await media.locator(".slide-dots i").count();
@@ -374,6 +376,50 @@ test.describe("storefront overhaul", () => {
       await expect.poll(() => position(stage)).toBe(0);
       await stage.getByRole("button", { name: "Next photo" }).click();
       await expect.poll(() => position(stage)).toBe(1);
+    });
+
+    test("on a slow connection a card waits for the next photo to arrive before sliding, so no empty frame slides in", async ({ page }) => {
+      // every picture takes 1.5 seconds to arrive (long enough that the click below always comes first, short enough to be inside the card's patience)
+      await page.route(/\/(cdn\/|_next\/image)/, async (route) => {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        await route.continue().catch(() => undefined);
+      });
+      await page.setViewportSize({ width: 375, height: 760 });
+      await page.goto("/shop");
+      // a card further down the page: the cards on the first screen have already fetched their second photo while the page loaded (on purpose)
+      const cards = page.locator(".pcard-media.can-swipe");
+      const count = await cards.count();
+      test.skip(count === 0, "no product with several photos in this database");
+      const media = cards.nth(Math.min(7, count - 1));
+      await media.scrollIntoViewIfNeeded({ timeout: 20_000 });
+      // dispatchEvent: a plain tap with no mouse movement (a moving mouse would also trigger the hover preview)
+      await media.getByRole("button", { name: /^Next photo/ }).dispatchEvent("click");
+      expect(await position(media)).toBe(0); // the photo has not arrived yet, so the card does not slide to an empty frame
+      await expect(media.getByRole("button", { name: /^Next photo/ })).toHaveAttribute("data-busy", "true"); // and the arrow shows that it is working
+      await expect.poll(() => position(media), { timeout: 15_000 }).toBe(1);
+      const arrived = await media.locator(".slide").nth(1).locator("img").evaluate((image) => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0);
+      expect(arrived, "the photo is on screen by the time the card slides to it").toBe(true);
+    });
+
+    test("a card the shopper stepped through stays where they left it when the mouse moves away", async ({ page }) => {
+      await page.setViewportSize({ width: 1200, height: 800 });
+      await page.goto("/shop");
+      const media = page.locator(".pcard-media.can-swipe").first();
+      test.skip((await media.count()) === 0, "no product with several photos in this database");
+      await media.scrollIntoViewIfNeeded();
+      await media.hover(); // a resting mouse previews the second photo
+      await expect.poll(() => position(media)).toBeGreaterThanOrEqual(1);
+      const next = media.getByRole("button", { name: /^Next photo/ });
+      const before = await position(media);
+      let where = before;
+      if (await next.isEnabled()) {
+        await next.click();
+        where = before + 1;
+        await expect.poll(() => position(media)).toBe(where); // wait until the slide has really happened
+      }
+      await page.mouse.move(0, 0); // leaves the card: it must NOT slide all the way back to the first photo
+      await page.waitForTimeout(700);
+      expect(await position(media)).toBe(where);
     });
 
     test("the New arrivals row keeps its own swipe: no photo swiping on its cards, but the arrows work", async ({ page }) => {
