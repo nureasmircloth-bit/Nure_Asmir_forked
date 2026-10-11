@@ -519,20 +519,19 @@ test.describe("storefront overhaul", () => {
       const right = async () => (await chat.boundingBox())!.x + (await chat.boundingBox())!.width;
       const out = await right();
       await page.mouse.move(180, 400);
-      for (let i = 0; i < 5; i++) {
+      const scrollDown = async () => {
+        const before = await page.evaluate(() => window.scrollY);
         await page.mouse.wheel(0, 160);
-        await page.waitForTimeout(60);
-      }
+        await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(before); // wait for a real scroll, not a pause
+      };
+      for (let i = 0; i < 5; i++) await scrollDown();
       await expect(chat).toHaveClass(/is-away/);
       await expect.poll(right).toBeLessThan(out - 20); // slid to the edge, only a sliver left
       await page.mouse.wheel(0, -200); // scrolling back up brings it back
       await expect(chat).not.toHaveClass(/is-away/);
       await expect.poll(right).toBeCloseTo(out, 0);
       // stopping for a moment also brings it back
-      for (let i = 0; i < 4; i++) {
-        await page.mouse.wheel(0, 160);
-        await page.waitForTimeout(60);
-      }
+      for (let i = 0; i < 4; i++) await scrollDown();
       await expect(chat).toHaveClass(/is-away/);
       await expect(chat).not.toHaveClass(/is-away/, { timeout: 4000 });
     });

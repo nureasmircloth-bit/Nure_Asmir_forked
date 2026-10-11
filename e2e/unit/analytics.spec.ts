@@ -9,7 +9,7 @@ const storage = new Map<string, string>();
 
 Object.assign(globalThis, {
   window: {
-    location: { href: "https://nureasmir.com/products/olive", pathname: "/products/olive", host: "nureasmir.com" },
+    location: { href: "https://nureasmir.com/products/olive?order=NA-1234&token=abc#top", origin: "https://nureasmir.com", pathname: "/products/olive", host: "nureasmir.com" },
     screen: { width: 375, height: 812 },
     localStorage: {
       getItem: (key: string) => storage.get(key) ?? null,
@@ -50,6 +50,9 @@ test.describe("analytics (PostHog sender)", () => {
     // the same browser keeps the same random id, and it looks like a UUID, not a name or phone number
     expect(sent[0].body.distinct_id).toBe(sent[1].body.distinct_id);
     expect(String(sent[0].body.distinct_id)).toMatch(/^[0-9a-f-]{36}$/);
+    // the page address has no ?query or #fragment (they can carry order numbers or tokens), and the order event has no order number
+    expect(properties.$current_url).toBe("https://nureasmir.com/products/olive");
+    expect(JSON.stringify(sent[0].body)).not.toMatch(/NA-1234|token|order_number/);
   });
 
   test("saying no afterwards forgets the id and stops sending", async () => {

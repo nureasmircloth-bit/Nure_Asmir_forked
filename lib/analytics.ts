@@ -2,7 +2,7 @@
  * A very small PostHog sender (EU region) for the storefront: no library, no script tag, nothing downloaded. It sends a short list of
  * events (page views, add to bag, order placed …) so the owner can see how shoppers use the shop, and it does so ONLY after the
  * visitor pressed "Allow analytics" in the cookie banner. It never sends names, phone numbers, addresses or anything typed by the
- * shopper, only things like the page, the product and the order value. The public project key (NEXT_PUBLIC_POSTHOG_KEY) is not a secret.
+ * shopper, only things like the page (never its ?query or #fragment), the product and the order value. The public project key (NEXT_PUBLIC_POSTHOG_KEY) is not a secret.
  */
 const KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY ?? "";
 const HOST = (process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://eu.i.posthog.com").replace(/\/+$/, "");
@@ -50,7 +50,8 @@ export function track(event: string, properties: Record<string, string | number 
       distinct_id: distinctId(),
       timestamp: new Date().toISOString(),
       properties: {
-        $current_url: window.location.href,
+        // page address without ?query or #fragment: those can carry order numbers or tokens
+        $current_url: `${window.location.origin ?? ""}${window.location.pathname}`,
         $pathname: window.location.pathname,
         $host: window.location.host,
         $screen_width: window.screen.width,

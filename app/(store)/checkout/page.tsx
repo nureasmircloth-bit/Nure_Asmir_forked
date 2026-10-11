@@ -372,7 +372,7 @@ export default function CheckoutPage() {
           gtag?: (...args: unknown[]) => void;
         };
         trackers.fbq?.("track", "Purchase", { value: data.total, currency: "PKR" });
-        track("order_placed", { value: data.total, currency: "PKR", order_number: data.orderNumber });
+        track("order_placed", { value: data.total, currency: "PKR" });
         trackers.gtag?.("event", "purchase", {
           transaction_id: data.orderNumber,
           value: data.total,
