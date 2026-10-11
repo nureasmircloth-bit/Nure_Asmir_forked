@@ -29,36 +29,37 @@ export async function GET(request: Request, context: { params: Promise<{ key: st
   // picture is read from R2 once per region, not once per visitor.
   if (backendOf(key.join("/")) === "r2") {
     const bucket = r2Bucket();
-    if (!bucket) return new Response("Not found", { status: 404 });
-    const cache = (globalThis as unknown as { caches?: { default?: Cache } }).caches?.default;
-    const cacheKey = new Request(new URL(request.url).origin + new URL(request.url).pathname);
-    const hit = await cache?.match(cacheKey);
-    if (hit) return hit;
-    try {
-      const object = await bucket.get(key.join("/"));
-      runInBackground(recordApiCall("r2-storage", true), "usage:r2-storage");
-      if (!object) return new Response("Not found", { status: 404, headers: { "Cache-Control": "public, max-age=60" } });
-      const headers = new Headers({
-        "Content-Type": object.httpMetadata?.contentType ?? "application/octet-stream",
-        "Content-Length": String(object.size),
-        "Cache-Control": `public, max-age=${ONE_YEAR}, immutable`,
-        "Access-Control-Allow-Origin": "*",
-        "X-Content-Type-Options": "nosniff",
-      });
-      if (object.httpEtag) headers.set("ETag", object.httpEtag);
-      const response = new Response(object.body, { status: 200, headers });
-      if (cache) {
-        const copy = response.clone();
-        try {
-          getCloudflareContext().ctx.waitUntil(cache.put(cacheKey, copy));
-        } catch {
-          // no execution context: skip caching
+    if (bucket) {
+      const cache = (globalThis as unknown as { caches?: { default?: Cache } }).caches?.default;
+      const cacheKey = new Request(new URL(request.url).origin + new URL(request.url).pathname);
+      const hit = await cache?.match(cacheKey);
+      if (hit) return hit;
+      try {
+        const object = await bucket.get(key.join("/"));
+        runInBackground(recordApiCall("r2-storage", true), "usage:r2-storage");
+        if (!object) return new Response("Not found", { status: 404, headers: { "Cache-Control": "public, max-age=60" } });
+        const headers = new Headers({
+          "Content-Type": object.httpMetadata?.contentType ?? "application/octet-stream",
+          "Content-Length": String(object.size),
+          "Cache-Control": `public, max-age=${ONE_YEAR}, immutable`,
+          "Access-Control-Allow-Origin": "*",
+          "X-Content-Type-Options": "nosniff",
+        });
+        if (object.httpEtag) headers.set("ETag", object.httpEtag);
+        const response = new Response(object.body, { status: 200, headers });
+        if (cache) {
+          const copy = response.clone();
+          try {
+            getCloudflareContext().ctx.waitUntil(cache.put(cacheKey, copy));
+          } catch {
+            // no execution context: skip caching
+          }
         }
+        return response;
+      } catch (error) {
+        runInBackground(recordApiCall("r2-storage", false, error instanceof Error ? error.message : String(error)), "usage:r2-storage");
+        return new Response("Image temporarily unavailable", { status: 502, headers: { "Cache-Control": "no-store" } });
       }
-      return response;
-    } catch (error) {
-      runInBackground(recordApiCall("r2-storage", false, error instanceof Error ? error.message : String(error)), "usage:r2-storage");
-      return new Response("Image temporarily unavailable", { status: 502, headers: { "Cache-Control": "no-store" } });
     }
   }
 
@@ -69,6 +70,12 @@ export async function GET(request: Request, context: { params: Promise<{ key: st
       cf: { cacheEverything: true, cacheTtl: ONE_YEAR, cacheTtlByStatus: { "200-299": ONE_YEAR, "404": 60, "500-599": 0 } },
       signal: AbortSignal.timeout(8000),
     } as RequestInit);
+    if (!origin.ok && objectKey.startsWith("r2/")) {
+      const fallback = await fetch(`${publicBucketOrigin()}/${objectKey.slice(3)}`, {
+        signal: AbortSignal.timeout(8000),
+      } as RequestInit);
+      if (fallback.ok) origin = fallback;
+    }
   } catch (error) {
     console.error("CDN origin fetch failed", error);
     return new Response("Image temporarily unavailable", { status: 502, headers: { "Cache-Control": "no-store" } });
