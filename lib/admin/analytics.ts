@@ -77,7 +77,7 @@ export type NamedValue = { name: string; value: number; extra?: number; image?: 
 async function topProducts(from: Date, to: Date): Promise<NamedValue[]> {
   return rowsOf<{ id: string; name: string; units: number; revenue: number; image: string | null }>(
     await db.execute(sql`
-      select coalesce(oi.product_id::text, oi.product_name) as id, max(oi.product_name) as name, sum(oi.quantity)::int as units, sum(oi.line_total)::bigint::float8 as revenue, max(oi.image_url) as image
+      select case when oi.product_id is null then 'name:' || oi.product_name else 'id:' || oi.product_id::text end as id, max(oi.product_name) as name, sum(oi.quantity)::int as units, sum(oi.line_total)::bigint::float8 as revenue, max(oi.image_url) as image
       from order_items oi join orders o on o.id = oi.order_id
       where ${LIVE} and o.created_at >= ${from.toISOString()}::timestamptz and o.created_at < ${to.toISOString()}::timestamptz
       group by 1 order by revenue desc limit 6`),
