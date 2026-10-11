@@ -57,7 +57,7 @@ async function cf(method: string, path: string, body?: unknown): Promise<unknown
   const json = (await response.json()) as { success: boolean; errors?: Array<{ code: number; message: string }>; result?: unknown };
   if (!json.success) {
     console.error(`  ✗ ${response.status}`, JSON.stringify(json.errors));
-    return null;
+    throw new Error(`Cloudflare API request failed: ${method} ${path} (${response.status}): ${JSON.stringify(json.errors)}`);
   }
   console.log("  ✓");
   return json.result ?? null;
