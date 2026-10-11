@@ -185,3 +185,38 @@ search, and a friendly "please open this on a laptop" screen below 1024 px.
 (`app/analytics-consent.tsx`), forgets the random browser id when they say no, and never sends names, phones or addresses. The storefront only: the
 admin and the training lab do not track. `https://eu.i.posthog.com` is allowed in the CSP (`middleware.ts`). Look at the results with
 `posthog-cli login` (EU) or in the PostHog web app.
+
+## Load testing with lots of data
+
+`scripts/load-seed.ts` fills the **disposable e2e test branch** (it refuses to run on anything else) with 1,500 products (3 sizes and 3 photos
+each) and 8,000 orders, all tagged (`lt-` slugs, `LT-` order numbers) so `--clean` removes them again:
+
+```bash
+node --env-file=.env.development.local node_modules/tsx/dist/cli.mjs scripts/load-seed.ts            # fill
+node --env-file=.env.development.local node_modules/tsx/dist/cli.mjs scripts/load-seed.ts --clean    # remove
+node --env-file=.env.development.local node_modules/tsx/dist/cli.mjs scripts/time-dashboard.ts       # time each dashboard query
+```
+
+Run the browser tests only on a **cleaned** database: the fake photos do not exist, so "every page renders cleanly" and the Excel tests fail on purpose-less noise.
+
+What it found and fixed (1,500 products, 8,000 orders, production build, ~150 ms of every figure is the round trip to Neon in Singapore):
+
+| Page | Before | After |
+|---|---|---|
+| Admin dashboard (7 / 30 / 90-day analytics) | 3.3 s / 10 s / 16 s | 0.5 s / 0.4 s / 0.2 s (the "new vs returning customers" query compared every phone with every order; it is now one pass) |
+| Search page | 1.9 s, whole catalogue loaded (171 KB) | 0.4 s, only the matching products are read |
+| Shop pages 1 to 62, sorting, filters | 0.15 to 0.35 s | unchanged (24 per page, edge-cached for a minute) |
+| Admin orders (page 1 / page 200 / search) | 0.3 s | unchanged (paged, 25 per page) |
+
+Known scaling points (fine today, worth a look past a few thousand products): `GET /api/admin/products` returns every product at once (605 KB at
+1,500; used by the flash-sale picker), and the built-in search engine builds an index of the whole catalogue the first time it is used on a
+cold server (only when Algolia is off or out of allowance).
+
+## Security notes
+
+* Public lookups that could be guessed (order number + phone on track / cancel / refund, coupon codes) pause after 25 wrong guesses from one
+  visitor address in 15 minutes (`lib/auth/rate-limit.ts`, stored in `login_attempts`, no extra table). The address is Cloudflare's `CF-Connecting-IP`.
+* `scripts/cloudflare-harden.ts` (run from Actions → "Cloudflare security + CDN host", dry run first) sets Full (strict) SSL, Always HTTPS, TLS 1.2
+  minimum, Bot Fight Mode, the scanner-path and challenge rules, and one burst rate limit covering sign-in, the training entrance, OTP, orders,
+  order lookups, coupons and the newsletter.
+* `npm audit --omit=dev` is clean; the admin routes all check the signed-in user; the training lab only holds the practice connection.

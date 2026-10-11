@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { lookupBlocked, noteLookupMiss, requestIp } from "@/lib/auth/rate-limit";
 import { findOrderForShopper } from "@/lib/order-access";
 import { PAYOUT_METHODS, REFUND_REASONS } from "@/lib/order-rules";
 import { submitCustomerRefund } from "@/lib/refunds";
@@ -25,8 +26,13 @@ export async function POST(request: Request) {
   if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message ?? "Please check the form." }, { status: 400 });
   const data = parsed.data;
 
+  const ip = requestIp(request);
+  if (await lookupBlocked("order-lookup", ip)) return Response.json({ error: "Too many tries. Please wait a few minutes and try again." }, { status: 429 });
   const order = await findOrderForShopper(data.orderNumber, data.phone);
-  if (!order) return Response.json({ error: "No matching order was found." }, { status: 404 });
+  if (!order) {
+    await noteLookupMiss("order-lookup", ip);
+    return Response.json({ error: "No matching order was found." }, { status: 404 });
+  }
 
   const files = form.getAll("photos").filter((value): value is File => value instanceof File && value.size > 0).slice(0, 3);
   const photoKeys: string[] = [];

@@ -32,6 +32,32 @@ export async function isLoginRateLimited(email: string, ip: string): Promise<boo
   return byEmail || byIp;
 }
 
+/** The visitor's address as Cloudflare saw it (it overwrites CF-Connecting-IP, so a visitor cannot choose it), else the forwarded one. */
+export function requestIp(request: Request): string {
+  return request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+}
+
+/** Wrong guesses allowed per visitor address per 15 minutes before lookups of orders and coupons are paused. */
+export const MAX_LOOKUP_MISSES = 25;
+
+/**
+ * Stops guessing of order numbers + phone numbers (and coupon codes): true when this visitor has already had too many lookups that found
+ * nothing in the last 15 minutes. Kept in the same table as sign-in attempts (the bucket name is stored where the e-mail would be).
+ */
+export async function lookupBlocked(bucket: string, ip: string): Promise<boolean> {
+  const since = new Date(Date.now() - WINDOW_MS);
+  const [row] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(loginAttempts)
+    .where(and(eq(loginAttempts.email, bucket), eq(loginAttempts.ip, ip), eq(loginAttempts.success, false), gt(loginAttempts.createdAt, since)));
+  return Number(row?.count ?? 0) >= MAX_LOOKUP_MISSES;
+}
+
+/** Remembers one lookup that found nothing. Never throws: a failing counter must not break the page. */
+export async function noteLookupMiss(bucket: string, ip: string): Promise<void> {
+  await recordLoginAttempt(bucket, ip, false).catch(() => undefined);
+}
+
 const checkoutAttempts = new Map<string, number[]>();
 const CHECKOUT_WINDOW_MS = 60 * 1000;
 const CHECKOUT_MAX = 8;

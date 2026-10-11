@@ -1,5 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
+import { lookupBlocked, noteLookupMiss, requestIp } from "@/lib/auth/rate-limit";
 import { orderItems, orderStatusHistory, orders } from "@/db/schema";
 import { cleanPhone } from "@/lib/slug";
 import { toWhatsAppPhone } from "@/lib/whatsapp";
@@ -21,6 +22,9 @@ export async function POST(request: Request) {
   if (!orderNumber || phone.replace(/\D/g, "").length < 4) {
     return Response.json({ error: "Enter the order number and phone." }, { status: 400 });
   }
+
+  const ip = requestIp(request);
+  if (await lookupBlocked("order-lookup", ip)) return Response.json({ error: "Too many tries. Please wait a few minutes and try again." }, { status: 429 });
 
   const [order] = await db
     .select({
@@ -56,6 +60,7 @@ export async function POST(request: Request) {
   // isn't guaranteed to type it the same way twice. A raw-string match would silently fail to find
   // a real order any time the two entries used different (but equivalent) formats.
   if (!order || toWhatsAppPhone(order.customerPhone) !== toWhatsAppPhone(phone)) {
+    await noteLookupMiss("order-lookup", ip);
     return Response.json({ error: "No matching order was found." }, { status: 404 });
   }
 

@@ -12,8 +12,9 @@
 //      subdomains/preload), automatic HTTPS rewrites, HTTP/3, Brotli, Early Hints.
 //   2. Bot Fight Mode + Browser Integrity Check + security level "medium".
 //   3. Custom WAF rules (free plan allows 5): block scanner paths, block empty-UA API calls,
-//      managed-challenge the admin login page.
-//   4. One rate-limit rule (free plan allows 1): burst limiter on login / OTP / order creation.
+//      managed-challenge the admin login page and the training-lab entrance.
+//   4. One rate-limit rule (free plan allows 1): burst limiter on the sign-in and training-lab entrance, OTP, order creation, order
+//      lookups (track / cancel / refund), coupon checks and the newsletter form.
 //   5. Cache rule: /cdn/* and the CDN host are cached for a year at the edge and in browsers.
 //   6. Optional dedicated CDN hostname (--cdn-host): proxied DNS record -> Neon storage host, an
 //      origin rule that rewrites Host/SNI, and a URL rewrite that prefixes the bucket name, so
@@ -121,8 +122,8 @@ async function main() {
       action: "block",
     },
     {
-      description: "Challenge the admin login page",
-      expression: '(http.request.uri.path eq "/admin/login")',
+      description: "Challenge the admin login page and the training-lab entrance",
+      expression: '(http.request.uri.path in {"/admin/login" "/admin/training-login"})',
       action: "managed_challenge",
     },
   ]);
@@ -130,9 +131,9 @@ async function main() {
   // 4. Rate limiting (free plan: 1 rule, 10 s window / 10 s block)
   await phase("http_ratelimit", [
     {
-      description: "Burst limiter: login, OTP and order creation",
+      description: "Burst limiter: sign-in, training entrance, OTP, orders, order lookups, coupons, newsletter",
       expression:
-        '(http.request.uri.path in {"/api/admin/login" "/api/checkout/request-otp" "/api/checkout/verify-otp" "/api/orders"} and http.request.method eq "POST")',
+        '(http.request.uri.path in {"/api/admin/login" "/api/admin/sandbox/enter" "/api/checkout/request-otp" "/api/checkout/verify-otp" "/api/checkout/validate-coupon" "/api/orders" "/api/orders/track" "/api/orders/cancel" "/api/orders/refund" "/api/newsletter"} and http.request.method eq "POST")',
       action: "block",
       ratelimit: { characteristics: ["cf.colo.id", "ip.src"], period: 10, requests_per_period: 6, mitigation_timeout: 10 },
     },
