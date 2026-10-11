@@ -1,7 +1,7 @@
 // Applies the Nure Asmir Cloudflare configuration to a zone — everything here is available on the FREE plan.
 //
 //   CLOUDFLARE_API_TOKEN=... node ./node_modules/tsx/dist/cli.mjs scripts/cloudflare-harden.ts \
-//     --zone <zone-id> [--cdn-host cdn.example.com] [--apply]
+//     --zone <zone-id> [--security-only] [--cdn-host cdn.example.com] [--apply]
 //
 // Without --apply it only prints what it would send (dry run). The token needs, for the zone:
 //   Zone Settings:Edit, Zone WAF:Edit, Cache Rules:Edit, Config Rules:Edit, Transform Rules:Edit,
@@ -30,6 +30,8 @@ function arg(name: string): string | undefined {
   return i > -1 ? process.argv[i + 1] : undefined;
 }
 const apply = process.argv.includes("--apply");
+// --security-only: only the security parts (1 to 4: TLS, bot protection, WAF rules, rate limit). Caching rules and the image host are left alone.
+const securityOnly = process.argv.includes("--security-only");
 const zone = arg("zone");
 const cdnHost = arg("cdn-host");
 const token = process.env.CLOUDFLARE_API_TOKEN;
@@ -138,6 +140,12 @@ async function main() {
       ratelimit: { characteristics: ["cf.colo.id", "ip.src"], period: 10, requests_per_period: 6, mitigation_timeout: 10 },
     },
   ]);
+
+  if (securityOnly) {
+    console.log("--security-only: cache rules and the image host were left alone.");
+    console.log(apply ? "\nDone." : "\nDry run complete — re-run with --apply to send these changes.");
+    return;
+  }
 
   // 5. Cache rules (media + HTML) – see 5b.
   const cdnMatch = cdnHost ? `(http.host eq "${cdnHost}") or ` : "";
