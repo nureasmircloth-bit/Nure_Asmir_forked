@@ -9,6 +9,7 @@ import { useSlideDrag } from "@/lib/use-slide-drag";
 import { Price } from "./currency";
 import { discountLabel } from "./sale";
 import { WishlistButton } from "./wishlist-button";
+import { track as trackEvent } from "@/lib/analytics";
 
 const CardChevron = ({ left }: { left?: boolean }) => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -34,6 +35,7 @@ export function ProductCard({ product, priority = false, sizes, swipe = true }: 
   const go = (next: number) => {
     const to = Math.max(0, Math.min(last, next));
     setIndex(to);
+    trackEvent("card_photo_changed", { product: product.slug });
     setSeen((before) => new Set([...before, to, to + 1]));
   };
   const drag = useSlideDrag(track, photos.length, index, go, swipe);

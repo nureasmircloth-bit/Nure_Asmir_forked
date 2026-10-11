@@ -22,7 +22,7 @@ test.describe("storefront overhaul", () => {
   });
   test.beforeEach(async ({ page }) => {
     // never talk to outside services from a test: rates and flag pictures are stubbed
-    await page.route("**/api/currency", (route) => route.fulfill({ json: { date: "2026-01-01", fetchedAt: Date.now(), rates: { PKR: 1, USD: 0.0036, GBP: 0.0027, EUR: 0.0033, AED: 0.0132, SAR: 0.0135, CAD: 0.005, AUD: 0.0055 } } }));
+    await page.route("**/api/currency", (route) => route.fulfill({ json: { date: "2026-01-01", fetchedAt: Date.now(), rates: { PKR: 1, USD: 0.0036, GBP: 0.0027, EUR: 0.0033, AED: 0.0132, SAR: 0.0135, CAD: 0.005, AUD: 0.0055 } } }));
   });
 
   test.describe("top bar", () => {
@@ -449,7 +449,7 @@ test.describe("storefront overhaul", () => {
       await expect(page.locator(".currency-main")).toContainText("PKR");
       const fresh = await page.context().browser()!.newContext();
       const other = await fresh.newPage();
-      await other.route("**/api/geo/country", (route) => route.fulfill({ json: { country: null } }));
+      await other.route("**/api/geo/country", (route) => route.fulfill({ json: { country: null } }));
       await other.goto(`${BASE}/`);
       await expect(other.locator(".currency-main")).toContainText("PKR");
       await fresh.close();
@@ -509,6 +509,32 @@ test.describe("storefront overhaul", () => {
       await expect(page.locator(".float-whatsapp")).toBeVisible();
       await page.getByRole("button", { name: "Tuck the WhatsApp button to the edge of the screen" }).click();
       expect(errors.filter((e) => /blocked/.test(e))).toEqual([]);
+    });
+
+    test("on a phone the buttons step aside while scrolling down and come back when scrolling up or stopping", async ({ page }) => {
+      await page.setViewportSize({ width: 375, height: 760 });
+      await page.goto("/shop");
+      await expect(page.locator(".pcard").first()).toBeVisible();
+      const chat = page.locator(".float-whatsapp-wrap");
+      const right = async () => (await chat.boundingBox())!.x + (await chat.boundingBox())!.width;
+      const out = await right();
+      await page.mouse.move(180, 400);
+      for (let i = 0; i < 5; i++) {
+        await page.mouse.wheel(0, 160);
+        await page.waitForTimeout(60);
+      }
+      await expect(chat).toHaveClass(/is-away/);
+      await expect.poll(right).toBeLessThan(out - 20); // slid to the edge, only a sliver left
+      await page.mouse.wheel(0, -200); // scrolling back up brings it back
+      await expect(chat).not.toHaveClass(/is-away/);
+      await expect.poll(right).toBeCloseTo(out, 0);
+      // stopping for a moment also brings it back
+      for (let i = 0; i < 4; i++) {
+        await page.mouse.wheel(0, 160);
+        await page.waitForTimeout(60);
+      }
+      await expect(chat).toHaveClass(/is-away/);
+      await expect(chat).not.toHaveClass(/is-away/, { timeout: 4000 });
     });
 
     test("on a small phone the two buttons do not cover the add-to-bag button or each other", async ({ page }) => {

@@ -12,6 +12,7 @@ import { computeDeliveryCharge, freeDeliveryHint, isDeliveryMode } from "@/lib/s
 import { useLockedAction } from "@/lib/use-locked-action";
 import { ThemedSelect } from "../_components/themed-select";
 import { CopyButton } from "../_components/copy-button";
+import { track } from "@/lib/analytics";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 const GOOGLE_MERCHANT_ID = process.env.NEXT_PUBLIC_GOOGLE_MERCHANT_ID;
@@ -371,6 +372,7 @@ export default function CheckoutPage() {
           gtag?: (...args: unknown[]) => void;
         };
         trackers.fbq?.("track", "Purchase", { value: data.total, currency: "PKR" });
+        track("order_placed", { value: data.total, currency: "PKR", order_number: data.orderNumber });
         trackers.gtag?.("event", "purchase", {
           transaction_id: data.orderNumber,
           value: data.total,

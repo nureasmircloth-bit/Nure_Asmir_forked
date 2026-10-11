@@ -647,3 +647,24 @@
   .tab-bar a:active, .tab-bar button:active { transform: scale(.9); }
 }
 @media (prefers-reduced-motion: reduce) { .pcard { animation: none; } .pcard-media, .tab-bar a, .tab-bar button { transition: none; } }
+
+/* ---------- polish: floating buttons step aside while scrolling on a phone ---------- */
+.edge-left.is-away { transform: translateX(calc(-100% - var(--edge-gap) + var(--edge-peek))); }
+.edge-right.is-away { transform: translateX(calc(100% + var(--edge-gap) - var(--edge-peek))); }
+.is-away .edge-handle { inset: 0; width: 100%; height: 100%; border: 0; border-radius: 0; background: transparent; box-shadow: none; color: #fff; }
+.edge-left.is-away .edge-handle { justify-content: end; padding-right: 3px; }
+.edge-right.is-away .edge-handle { justify-content: start; padding-left: 5px; color: var(--ink); }
+
+/* ---------- polish: reading, numbers, keyboard and touch feel ---------- */
+h1, h2, h3, .section-title { text-wrap: balance; }
+p, .pcard-title { text-wrap: pretty; }
+.pcard-price, .product-price, .cart-total, [class*="price"] { font-variant-numeric: tabular-nums; }
+/* a visible keyboard focus everywhere (mouse clicks do not show it); low specificity so any component style still wins */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+.button { transition: background-color .2s ease, color .2s ease, border-color .2s ease, transform .15s ease; }
+.button:not(:disabled):active { transform: scale(.985); }
+/* product names get two calm lines on a phone instead of a cut-off one */
+@media (max-width: 700px) {
+  .pcard-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; letter-spacing: .05em; line-height: 1.4; min-height: 2.8em; }
+  .pcard-info { padding-top: 10px; }
+}

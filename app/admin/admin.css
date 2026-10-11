@@ -777,3 +777,10 @@
   .lab-guide, .lab-pill, .lab-card, .lab-entrance-card, .lab-boot-stage, .lab-done, .lab-steps li.is-done .lab-tick { animation: none; }
   .lab-card, .lab-open, .lab-tick, .lab-guide-x { transition: none; }
 }
+
+/* ---------- polish for every admin view (owner, developer and the training lab) ---------- */
+.adm h1, .adm h2, .adm h3 { text-wrap: balance; }
+.adm table, .adm .count, .adm .a-stat, .adm [class*="stat"] strong { font-variant-numeric: tabular-nums; }
+.adm-page { animation: adm-page-in .28s cubic-bezier(.22, .8, .2, 1) backwards; }
+@keyframes adm-page-in { from { transform: translateY(6px); } }
+@media (prefers-reduced-motion: reduce) { .adm-page { animation: none; } }

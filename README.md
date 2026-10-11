@@ -67,7 +67,7 @@ linked in `.neon` (git-ignored): project `blue-bread-34552165`, branch `producti
 product/variant/image/category routes re-index on change; a nightly workflow calls
 `/api/cron/search-reindex`. The browser only ever sees the **search-only** key.
 
-## Two deployables, one repo
+## Three Workers, two builds, one repo
 
 The customer storefront and the owner's admin panel are built and deployed as **separate Cloudflare Workers**
 (`scripts/build-target.mjs`): `nure-asmir` (storefront, no admin code in the bundle) and
@@ -75,6 +75,12 @@ The customer storefront and the owner's admin panel are built and deployed as **
 admin code or admin CSS (`app/admin/admin.css` is loaded only by the admin layout); the storefront footer
 links to the admin URL (`NEXT_PUBLIC_ADMIN_URL`) and nothing of it loads until that link is opened.
 `npm run dev`, tests and a plain `next build` still run the whole app on one origin.
+
+A **third Worker, `nure-asmir-training`** (`wrangler.training.jsonc`, `training.nureasmir.com`), is the admin build deployed again
+in permanent practice mode (`SANDBOX=1`). It is given only the practice database connection (schema `practice`, role `practice_user`),
+the picture-store keys and the shared `TRAINING_PASSWORD`, and none of the email / WhatsApp / TCS / push / search / AI keys. It holds the
+lessons, six guided labs (`lib/labs.ts`, checked by read-only queries in `lib/lab-check-queries.ts`) and free practice; the real admin only
+links to it. One lab is shared by everyone with the password; "Start again" resets it for all. See `docs/consultant/03-loading-and-indexing.html#sandbox`.
 
 ```bash
 npm run cf:build:store     # → .open-next, deploy with: npx wrangler deploy -c wrangler.jsonc
@@ -120,7 +126,7 @@ notifications go to a local mock of Google's OAuth + FCM endpoints (`e2e/support
   `NEXT_PUBLIC_SITE_URL`, `SESSION_SECRET`, `ADMIN_EMAIL`, `ADMIN_INITIAL_PASSWORD`, `CSP_NONCE`,
   `CRON_SECRET`, `AWS_ENDPOINT_URL_S3`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`,
   `ALGOLIA_APP_ID`, `ALGOLIA_ADMIN_KEY`, `ALGOLIA_INDEX_NAME`, `NEXT_PUBLIC_ALGOLIA_SEARCH_KEY`,
-  `NEXT_PUBLIC_SENTRY_DSN`, `NEXT_PUBLIC_CDN_URL` (optional), plus the Resend / WhatsApp / TCS (`TCS_USERNAME`, `TCS_PASSWORD`, `TCS_ACCOUNT_NO`, `TCS_COST_CENTER_CODE`, `TCS_ENV`) /
+  `NEXT_PUBLIC_SENTRY_DSN`, `NEXT_PUBLIC_POSTHOG_KEY` (the public PostHog EU project key; analytics stay off without it), `TRAINING_PASSWORD` (the shared training-lab password), `PRACTICE_DATABASE_URL` (practice schema connection, made by `scripts/practice-create.ts`), `NEXT_PUBLIC_CDN_URL` (optional), plus the Resend / WhatsApp / TCS (`TCS_USERNAME`, `TCS_PASSWORD`, `TCS_ACCOUNT_NO`, `TCS_COST_CENTER_CODE`, `TCS_ENV`) /
   Firebase (`FIREBASE_SERVICE_ACCOUNT`, the whole service-account JSON) / Groq (`GROQ_API_KEY`) /
   Turnstile ones listed in `.env.example`, and `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_ENDPOINT` (S3 credentials for the ISR cache bucket only, used by `scripts/purge-isr-cache.ts`).
 * The ISR page cache lives in a small Cloudflare R2 bucket, `nure-asmir-cache`
@@ -171,3 +177,11 @@ search, and a friendly "please open this on a laptop" screen below 1024 px.
   share image). Every owner change refreshes the storefront cache (`lib/storefront-cache.ts` → `/api/revalidate`).
 * **Settings** – contact + social links (also in the footer / JSON-LD), TCS pickup details + connection test,
   bank, free-delivery threshold, refund window, and a "what is connected" checklist.
+
+## Visitor analytics (PostHog)
+
+`lib/analytics.ts` is a tiny sender (no library, nothing downloaded) that posts a few events to PostHog's EU address: page views, `added_to_bag`,
+`order_placed`, `card_photo_changed`, `gallery_photo_changed`. It sends **nothing** until the visitor presses "Allow analytics" in the cookie banner
+(`app/analytics-consent.tsx`), forgets the random browser id when they say no, and never sends names, phones or addresses. The storefront only: the
+admin and the training lab do not track. `https://eu.i.posthog.com` is allowed in the CSP (`middleware.ts`). Look at the results with
+`posthog-cli login` (EU) or in the PostHog web app.

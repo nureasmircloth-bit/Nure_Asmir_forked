@@ -13,11 +13,12 @@
 <ul class="toc" aria-label="On this page"><li><a href="#overview">Big picture</a></li><li><a href="#stack">Technology</a></li><li><a href="#flow">What happens on a visit</a></li><li><a href="#api">API routes</a></li><li><a href="#limits">Limits</a></li><li><a href="#security">Security</a></li><li><a href="#questions">Questions</a></li></ul>
 
 <h2 id="overview">1. The big picture (in simple words)</h2>
-<p>Two websites run from one code base. The <strong>shop</strong> (what customers see) and the <strong>admin</strong> (what the owner and staff use). Both run on Cloudflare&rsquo;s network, close to the customer, and both talk to one database and two picture stores.</p>
+<p>Three websites run from one code base. The <strong>shop</strong> (what customers see), the <strong>admin</strong> (what the owner and staff use) and the <strong>training lab</strong> (a practice copy of the admin, for learning). All three run on Cloudflare&rsquo;s network, close to the customer, and both talk to one database and two picture stores.</p>
 <div class="grid">
   <div class="card"><h3>Shop</h3><p><span class="mono">nureasmir.com</span> (and <span class="mono">www</span>, which redirects to it). Cloudflare Worker named <code>nure-asmir</code>.</p></div>
   <div class="card"><h3>Admin</h3><p><span class="mono">admin.nureasmir.com</span>. A separate Worker named <code>nure-asmir-admin</code>, never indexed by search engines.</p></div>
-  <div class="card"><h3>Why two?</h3><p>The free Cloudflare plan allows a program of at most 3&nbsp;MB (compressed). The shop and admin together were too big, so each is built separately (<code>scripts/build-target.mjs</code>).</p></div>
+  <div class="card"><h3>Training lab</h3><p><span class="mono">training.nureasmir.com</span>. A third Worker, <code>nure-asmir-training</code>: the admin program again, always in practice mode, on practice tables only, with no real email, WhatsApp, courier or push keys. Never indexed.</p></div>
+  <div class="card"><h3>Why separate?</h3><p>The free Cloudflare plan allows a program of at most 3&nbsp;MB (compressed). The shop and admin together were too big, so each is built separately (<code>scripts/build-target.mjs</code>).</p></div>
 </div>
 
 <h2 id="stack">2. Technology</h2>
@@ -28,6 +29,7 @@
 <tr><td>Database</td><td>Neon Postgres (Singapore), Drizzle ORM, 27 migrations</td><td>Orders, products, customers, settings, FAQs, refunds. Applied automatically on every deploy before the new code goes live.</td></tr>
 <tr><td>Pictures</td><td>Two stores used together: Neon Storage and Cloudflare R2, served as five sizes of WebP through <code>/cdn/…</code></td><td>Doubles free space; pictures are cut to size in the browser before upload.</td></tr>
 <tr><td>Page cache</td><td>OpenNext incremental cache in R2 plus Cloudflare&rsquo;s regional cache</td><td>Pages re-render at most every 24–60 seconds, not on every visit.</td></tr>
+<tr><td>Visitor analytics</td><td>PostHog (EU region) through a tiny built-in sender (<code>lib/analytics.ts</code>), only after the visitor allows analytics</td><td>Shows which pages, products and steps shoppers use, without names or phone numbers. Nothing is loaded or sent for visitors who say no.</td></tr>
 <tr><td>Search</td><td>Algolia, with a built-in search that takes over when Algolia&rsquo;s allowance ends</td><td>Fast search as you type.</td></tr>
 <tr><td>Emails</td><td>Resend (two accounts) then Brevo, tried in turn</td><td>Order and status emails keep flowing if one provider is full or down.</td></tr>
 <tr><td>AI writing</td><td>Groq (up to three keys used in turn)</td><td>&ldquo;Write it for me&rdquo; for product text and Google text.</td></tr>

@@ -1,7 +1,9 @@
 "use client";
 
 import Script from "next/script";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { analyticsConfigured, setAnalyticsConsent, track } from "@/lib/analytics";
 
 const KEY = "na-cookie-choice";
 
@@ -39,12 +41,18 @@ export function AnalyticsConsent({
 }) {
   const metaId = plainId(metaPixelId);
   const gaId = plainId(gaMeasurementId);
-  const enabled = Boolean(metaId || gaId);
+  const enabled = Boolean(metaId || gaId || analyticsConfigured());
+  const pathname = usePathname();
   const [choice, setChoice] = useState<"accepted" | "essential" | null>(null);
   useEffect(() => {
     const timer = window.setTimeout(() => setChoice(readChoice()), 0);
     return () => clearTimeout(timer);
   }, []);
+  // Page views: one for every page the visitor opens, but only after they allowed analytics.
+  useEffect(() => {
+    setAnalyticsConsent(choice === "accepted");
+    if (choice === "accepted") track("$pageview");
+  }, [choice, pathname]);
   if (!enabled) return null;
   function choose(value: "accepted" | "essential") {
     saveChoice(value);

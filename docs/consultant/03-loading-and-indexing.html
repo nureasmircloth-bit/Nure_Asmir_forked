@@ -97,15 +97,15 @@
 </table>
 <p><strong>Go signal:</strong> after (1) the pull request is merged and live, (2) real products are added, (3) Search Console is verified. Then request indexing of the home page and a few products, and wait. Google can take days to weeks and up to a month; searching Chrome right after is not a valid test.</p>
 
-<h2 id="sandbox">D. Admin training sandbox: do we have one?</h2>
+<h2 id="sandbox">D. Admin training: the training lab</h2>
 <div class="card">
-<p><strong>Today: no real sandbox.</strong> The training area (Admin &rarr; Training) plays <em>simulated</em> lessons on a pretend screen that looks like the real admin, in Roman Urdu or English, with a written guide. Nothing the learner clicks touches real data, but they also cannot practise freely.</p>
-<p><strong>Proposal (not built yet):</strong></p>
+<p><strong>Today: yes, a real training lab.</strong> It lives at <span class="mono">training.nureasmir.com</span> as its own Worker (<code>nure-asmir-training</code>), reached from the &ldquo;Training lab&rdquo; link in the admin menu. A trainee enters a name and one shared training password, presses &ldquo;Start my lab&rdquo; and waits about 10 seconds while the practice data is put back to its start. The site has its own colours and a &ldquo;TRAINING LAB&rdquo; strip so it is never mistaken for the real admin.</p>
 <ul>
-<li><strong>Guided sandbox:</strong> a practice copy of the admin with sample orders and products, a task list (&ldquo;create a discount code&rdquo;, &ldquo;mark an order as shipped&rdquo;) and automatic checking when the task is done.</li>
-<li><strong>Open sandbox:</strong> the same copy with free hands, like a cloud practice account, reset every night.</li>
+<li><strong>Lessons:</strong> the simulated lessons (Roman Urdu and English) moved here from the admin.</li>
+<li><strong>Guided labs:</strong> six hands-on tasks (add a product, take an order to packed, cancel an order, run a flash sale, make a discount code, answer a customer question). A guide stays on screen and ticks a step only when the practice data shows it was really done.</li>
+<li><strong>Free practice:</strong> the same admin screens with no checks; &ldquo;Start again&rdquo; puts everything back.</li>
 </ul>
-<p><strong>How:</strong> a third Worker (<code>APP_TARGET=sandbox</code>) connected to a separate Neon database branch filled with sample data; emails, TCS bookings, WhatsApp and push alerts switched off in that mode; a visible &ldquo;Practice mode&rdquo; strip; a nightly reset job. We already use a database branch for testing, so the pieces exist. Rough size: a few days; needs a decision on whether practice accounts are shared or per person.</p>
+<p><strong>How it is kept safe:</strong> the Worker is given only the practice database connection (a separate schema in the same Neon database, with its own database user that cannot see the real tables), the picture-store keys and the training password. It has no email, WhatsApp, courier, push, search or AI keys. A daily allowance of clicks (3,000 for the whole lab) and small limits on rows and storage keep it tidy. There is one lab, shared by everyone who has the password, so &ldquo;Start again&rdquo; resets it for all of them.</p>
 </div>
 
 <h2 id="decisions">E. Decisions we need from the consultant or owner</h2>

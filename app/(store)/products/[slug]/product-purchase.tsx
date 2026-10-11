@@ -9,6 +9,7 @@ import { addCartItem, readCart, updateCartItemQuantity } from "@/lib/cart";
 import { Price } from "../../_components/currency";
 import { Portal } from "../../_components/portal";
 import { SizeGuideLink } from "./size-guide";
+import { track } from "@/lib/analytics";
 
 type Added = { variantId: string; variantName: string; price: number; inBag: number };
 
@@ -98,6 +99,7 @@ export function ProductPurchase({
       return;
     }
     setMessage("");
+    track("added_to_bag", { product: product.slug, price: selected.price, buy_now: buyNow });
     if (buyNow) {
       setPhase("buying"); // stays locked until the cart page replaces this one
       router.push("/cart");
