@@ -102,7 +102,7 @@ async function main() {
   await setting("http3", "off");
   await setting("brotli", "on");
   await setting("early_hints", "off");
-  await setting("ipv6", "on");
+  await setting("ipv6", "off");
 
   // 2. Bots / browser checks — kept off/low on the public storefront to prevent challenging
   // real customers on shared residential CGNAT IPs or mobile in-app webviews (Instagram, WhatsApp).
