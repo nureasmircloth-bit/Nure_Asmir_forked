@@ -7,6 +7,7 @@ import { useSlideDrag } from "@/lib/use-slide-drag";
 import type { CatalogImage } from "@/lib/commerce";
 import { Portal } from "../../_components/portal";
 import { cdnSrcForWidth, isCdnUrl } from "@/lib/media-url";
+import { track as trackEvent } from "@/lib/analytics";
 
 /** The sharpest version of a photo (for zooming); an address that is not one of ours is used as it is. */
 const sharpest = (url: string) => (isCdnUrl(url) ? cdnSrcForWidth(url, 1600) : url);
@@ -71,6 +72,7 @@ export function ProductGallery({ name, images, fallback }: { name: string; image
   const show = useCallback((to: number) => {
     setDirection(to >= index ? 1 : -1);
     setActive(to);
+    trackEvent("gallery_photo_changed", { to: to + 1 });
     setSeen((before) => new Set([...before, to - 1, to, to + 1]));
   }, [index]);
   const go = useCallback((next: number) => show(Math.max(0, Math.min(last, next))), [show, last]);

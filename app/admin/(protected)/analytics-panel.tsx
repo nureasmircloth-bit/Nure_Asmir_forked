@@ -124,7 +124,7 @@ export function AnalyticsPanel({ initial, initialKey }: { initial: Analytics; in
             {data.products.length ? (
               <ul style={{ listStyle: "none", margin: 0, padding: "6px 18px 14px", display: "grid", gap: 10 }}>
                 {data.products.map((product) => (
-                  <li key={product.name} className="a-prodcell">
+                  <li key={product.id ?? product.name} className="a-prodcell">
                     <Thumb src={product.image} square />
                     <span style={{ minWidth: 0, flex: 1 }}>
                       <strong style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{product.name}</strong>

@@ -72,16 +72,16 @@ async function daily(from: Date, to: Date): Promise<DayPoint[]> {
   return out;
 }
 
-export type NamedValue = { name: string; value: number; extra?: number; image?: string | null };
+export type NamedValue = { name: string; value: number; extra?: number; image?: string | null; /** What the row was counted by (a product id), unique per row: use it as the list key, since two products can share a name. */ id?: string };
 
 async function topProducts(from: Date, to: Date): Promise<NamedValue[]> {
-  return rowsOf<{ name: string; units: number; revenue: number; image: string | null }>(
+  return rowsOf<{ id: string; name: string; units: number; revenue: number; image: string | null }>(
     await db.execute(sql`
-      select oi.product_name as name, sum(oi.quantity)::int as units, sum(oi.line_total)::bigint::float8 as revenue, max(oi.image_url) as image
+      select case when oi.product_id is null then 'name:' || oi.product_name else 'id:' || oi.product_id::text end as id, max(oi.product_name) as name, sum(oi.quantity)::int as units, sum(oi.line_total)::bigint::float8 as revenue, max(oi.image_url) as image
       from order_items oi join orders o on o.id = oi.order_id
       where ${LIVE} and o.created_at >= ${from.toISOString()}::timestamptz and o.created_at < ${to.toISOString()}::timestamptz
-      group by oi.product_name order by revenue desc limit 6`),
-  ).map((row) => ({ name: row.name, value: Number(row.revenue), extra: row.units, image: row.image }));
+      group by 1 order by revenue desc limit 6`),
+  ).map((row) => ({ id: row.id, name: row.name, value: Number(row.revenue), extra: row.units, image: row.image }));
 }
 
 async function topCities(from: Date, to: Date): Promise<NamedValue[]> {
@@ -119,15 +119,21 @@ async function byHour(from: Date, to: Date): Promise<number[]> {
 }
 
 async function newVsReturning(from: Date, to: Date): Promise<{ fresh: number; returning: number }> {
+  // One pass over the orders (not one search per customer): every customer's first order ever, then the customers who ordered in this
+  // period are "new" when that first order falls inside the period and "returning" when it came before it.
   const [row] = rowsOf<{ fresh: number; returning: number }>(
     await db.execute(sql`
-      with phones as (
-        select distinct regexp_replace(o.customer_phone, '\\D', '', 'g') as p
-        from orders o where ${LIVE} and o.created_at >= ${from.toISOString()}::timestamptz and o.created_at < ${to.toISOString()}::timestamptz
+      with norm as (
+        select regexp_replace(o.customer_phone, '\\D', '', 'g') as p, o.created_at
+        from orders o where ${LIVE}
+      ),
+      firsts as (select p, min(created_at) as first_at from norm group by p),
+      in_period as (
+        select distinct p from norm where created_at >= ${from.toISOString()}::timestamptz and created_at < ${to.toISOString()}::timestamptz
       )
-      select count(*) filter (where not exists (select 1 from orders e where regexp_replace(e.customer_phone, '\\D', '', 'g') = phones.p and e.created_at < ${from.toISOString()}::timestamptz and e.order_status not in ('cancelled','returned')))::int as fresh,
-             count(*) filter (where exists (select 1 from orders e where regexp_replace(e.customer_phone, '\\D', '', 'g') = phones.p and e.created_at < ${from.toISOString()}::timestamptz and e.order_status not in ('cancelled','returned')))::int as returning
-      from phones`),
+      select count(*) filter (where f.first_at >= ${from.toISOString()}::timestamptz)::int as fresh,
+             count(*) filter (where f.first_at < ${from.toISOString()}::timestamptz)::int as returning
+      from in_period r join firsts f on f.p = r.p`),
   );
   return { fresh: row?.fresh ?? 0, returning: row?.returning ?? 0 };
 }

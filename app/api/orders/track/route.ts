@@ -1,5 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
+import { reserveLookup, requestIp } from "@/lib/auth/rate-limit";
 import { orderItems, orderStatusHistory, orders } from "@/db/schema";
 import { cleanPhone } from "@/lib/slug";
 import { toWhatsAppPhone } from "@/lib/whatsapp";
@@ -21,6 +22,10 @@ export async function POST(request: Request) {
   if (!orderNumber || phone.replace(/\D/g, "").length < 4) {
     return Response.json({ error: "Enter the order number and phone." }, { status: 400 });
   }
+
+  const ip = requestIp(request);
+  const guard = await reserveLookup("order-lookup", ip);
+  if (!guard.allowed) return Response.json({ error: "Too many tries. Please wait a few minutes and try again." }, { status: 429 });
 
   const [order] = await db
     .select({
@@ -58,6 +63,7 @@ export async function POST(request: Request) {
   if (!order || toWhatsAppPhone(order.customerPhone) !== toWhatsAppPhone(phone)) {
     return Response.json({ error: "No matching order was found." }, { status: 404 });
   }
+  await guard.release(); // a real match does not use up the allowance
 
   const [items, history] = await Promise.all([
     db

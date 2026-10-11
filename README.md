@@ -67,7 +67,7 @@ linked in `.neon` (git-ignored): project `blue-bread-34552165`, branch `producti
 product/variant/image/category routes re-index on change; a nightly workflow calls
 `/api/cron/search-reindex`. The browser only ever sees the **search-only** key.
 
-## Two deployables, one repo
+## Three Workers, two builds, one repo
 
 The customer storefront and the owner's admin panel are built and deployed as **separate Cloudflare Workers**
 (`scripts/build-target.mjs`): `nure-asmir` (storefront, no admin code in the bundle) and
@@ -75,6 +75,12 @@ The customer storefront and the owner's admin panel are built and deployed as **
 admin code or admin CSS (`app/admin/admin.css` is loaded only by the admin layout); the storefront footer
 links to the admin URL (`NEXT_PUBLIC_ADMIN_URL`) and nothing of it loads until that link is opened.
 `npm run dev`, tests and a plain `next build` still run the whole app on one origin.
+
+A **third Worker, `nure-asmir-training`** (`wrangler.training.jsonc`, `training.nureasmir.com`), is the admin build deployed again
+in permanent practice mode (`SANDBOX=1`). It is given only the practice database connection (schema `practice`, role `practice_user`),
+the picture-store keys and the shared `TRAINING_PASSWORD`, and none of the email / WhatsApp / TCS / push / search / AI keys. It holds the
+lessons, six guided labs (`lib/labs.ts`, checked by read-only queries in `lib/lab-check-queries.ts`) and free practice; the real admin only
+links to it. One lab is shared by everyone with the password; "Start again" resets it for all. See `docs/consultant/03-loading-and-indexing.html#sandbox`.
 
 ```bash
 npm run cf:build:store     # → .open-next, deploy with: npx wrangler deploy -c wrangler.jsonc
@@ -120,7 +126,7 @@ notifications go to a local mock of Google's OAuth + FCM endpoints (`e2e/support
   `NEXT_PUBLIC_SITE_URL`, `SESSION_SECRET`, `ADMIN_EMAIL`, `ADMIN_INITIAL_PASSWORD`, `CSP_NONCE`,
   `CRON_SECRET`, `AWS_ENDPOINT_URL_S3`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`,
   `ALGOLIA_APP_ID`, `ALGOLIA_ADMIN_KEY`, `ALGOLIA_INDEX_NAME`, `NEXT_PUBLIC_ALGOLIA_SEARCH_KEY`,
-  `NEXT_PUBLIC_SENTRY_DSN`, `NEXT_PUBLIC_CDN_URL` (optional), plus the Resend / WhatsApp / TCS (`TCS_USERNAME`, `TCS_PASSWORD`, `TCS_ACCOUNT_NO`, `TCS_COST_CENTER_CODE`, `TCS_ENV`) /
+  `NEXT_PUBLIC_SENTRY_DSN`, `NEXT_PUBLIC_POSTHOG_KEY` (the public PostHog EU project key; analytics stay off without it), `TRAINING_PASSWORD` (the shared training-lab password), `PRACTICE_DATABASE_URL` (practice schema connection, made by `scripts/practice-create.ts`), `NEXT_PUBLIC_CDN_URL` (optional), plus the Resend / WhatsApp / TCS (`TCS_USERNAME`, `TCS_PASSWORD`, `TCS_ACCOUNT_NO`, `TCS_COST_CENTER_CODE`, `TCS_ENV`) /
   Firebase (`FIREBASE_SERVICE_ACCOUNT`, the whole service-account JSON) / Groq (`GROQ_API_KEY`) /
   Turnstile ones listed in `.env.example`, and `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_ENDPOINT` (S3 credentials for the ISR cache bucket only, used by `scripts/purge-isr-cache.ts`).
 * The ISR page cache lives in a small Cloudflare R2 bucket, `nure-asmir-cache`
@@ -171,3 +177,67 @@ search, and a friendly "please open this on a laptop" screen below 1024 px.
   share image). Every owner change refreshes the storefront cache (`lib/storefront-cache.ts` → `/api/revalidate`).
 * **Settings** – contact + social links (also in the footer / JSON-LD), TCS pickup details + connection test,
   bank, free-delivery threshold, refund window, and a "what is connected" checklist.
+
+## Visitor analytics (PostHog)
+
+`lib/analytics.ts` is a tiny sender (no library, nothing downloaded) that posts a few events to PostHog's EU address: page views, `added_to_bag`,
+`order_placed`, `card_photo_changed`, `gallery_photo_changed`. It sends **nothing** until the visitor presses "Allow analytics" in the cookie banner
+(`app/analytics-consent.tsx`), forgets the random browser id when they say no, and never sends names, phones or addresses. The storefront only: the
+admin and the training lab do not track. `https://eu.i.posthog.com` is allowed in the CSP (`middleware.ts`). Look at the results with
+`posthog-cli login` (EU) or in the PostHog web app.
+
+## Load testing with lots of data
+
+`scripts/load-seed.ts` fills the **disposable e2e test branch** (it refuses to run on anything else) with 1,500 products (3 sizes and 3 photos
+each) and 8,000 orders, all tagged (`lt-` slugs, `LT-` order numbers) so `--clean` removes them again:
+
+```bash
+node --env-file=.env.development.local node_modules/tsx/dist/cli.mjs scripts/load-seed.ts            # fill
+node --env-file=.env.development.local node_modules/tsx/dist/cli.mjs scripts/load-seed.ts --clean    # remove
+node --env-file=.env.development.local node_modules/tsx/dist/cli.mjs scripts/time-dashboard.ts       # time each dashboard query
+```
+
+Run the browser tests only on a **cleaned** database: the fake photos do not exist, so "every page renders cleanly" and the Excel tests fail on purpose-less noise.
+
+What it found and fixed (1,500 products, 8,000 orders, production build, ~150 ms of every figure is the round trip to Neon in Singapore):
+
+| Page | Before | After |
+|---|---|---|
+| Admin dashboard (7 / 30 / 90-day analytics) | 3.3 s / 10 s / 16 s | 0.5 s / 0.4 s / 0.2 s (the "new vs returning customers" query compared every phone with every order; it is now one pass) |
+| Search page | 1.9 s, whole catalogue loaded (171 KB) | 0.4 s, only the matching products are read |
+| Shop pages 1 to 62, sorting, filters | 0.15 to 0.35 s | unchanged (24 per page, edge-cached for a minute) |
+| Admin orders (page 1 / page 200 / search) | 0.3 s | unchanged (paged, 25 per page) |
+
+Known scaling points (fine today, worth a look past a few thousand products): `GET /api/admin/products` returns every product at once (605 KB at
+1,500; used by the flash-sale picker), and the built-in search engine builds an index of the whole catalogue the first time it is used on a
+cold server (only when Algolia is off or out of allowance).
+
+## Security notes
+
+* Public lookups that could be guessed (order number + phone on track / cancel / refund, coupon codes) pause after 25 wrong guesses from one
+  visitor address in 15 minutes (`lib/auth/rate-limit.ts`, stored in `login_attempts`, no extra table). A place is reserved before the lookup (so
+  parallel requests cannot all slip through) and given back when the lookup finds something. The address is Cloudflare's `CF-Connecting-IP`.
+  The daily maintenance job deletes attempts older than a day.
+* `scripts/cloudflare-harden.ts` (run from Actions → "Cloudflare security + CDN host", dry run first) sets Full (strict) SSL, Always HTTPS, TLS 1.2
+  minimum, Bot Fight Mode, the scanner-path and challenge rules, and one burst rate limit covering sign-in, the training entrance, OTP, orders,
+  order lookups, coupons and the newsletter.
+* `npm audit --omit=dev` is clean; the admin routes all check the signed-in user; the training lab only holds the practice connection.
+
+## Database tuning (migration 0030)
+
+Found by running `EXPLAIN (ANALYZE)` on the hot queries with 1,500 products and 8,000 orders. At that size the database itself answers in 0.1 to 7 ms
+(the rest of a page time is the trip to Neon), so the changes are about staying fast as the shop grows. All are additive indexes:
+
+| Index | Why |
+|---|---|
+| `products_published_order_idx` (partial: published, newest first) | the shop and home page read a page straight off the index (3.3 ms → 0.3 ms); note `DESC` means `NULLS FIRST` in Postgres, so the index is built that way |
+| `variants_default_idx`, `images_primary_idx` (partial) | every product card joins its default size and main photo |
+| `orders_status_created_idx` (replaces `orders_status_idx`) | an admin tab is "this status, newest first" (0.4 ms → 0.1 ms) |
+| `orders_phone_digits_idx` (on `regexp_replace(customer_phone, '\D', '', 'g')`) | customers type 0300…, +92300… or 92300…; reports and lookups compare digits only, and an expression index matches that exactly. No extra column: a generated column would break the training lab's "Start again" (it re-inserts saved rows) |
+| `order_items_product_idx`, `order_items_variant_idx`, `images_variant_idx`, `flash_sale_products_product_idx`, `product_collections_collection_idx`, `idempotency_order_idx` | foreign keys that had no index: deleting a product or size scanned these tables |
+| `login_attempts_bucket_idx` | the guessing limiter looks up (bucket, address, time) |
+
+Also: the dashboard's "top products" now counts by product, not by name (renaming a product used to split its sales in two). Not done on purpose:
+trigram indexes for search (they need the `pg_trgm` extension, which the training lab's restricted database user cannot use; Algolia answers search and
+the database fallback is small), and temporary tables (the Neon HTTP driver has no session, so a temporary table would vanish between calls; the
+dashboard runs its queries in parallel instead).

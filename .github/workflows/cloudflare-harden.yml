@@ -11,6 +11,10 @@ on:
         description: "Really apply the changes (leave off for a dry run)"
         type: boolean
         default: false
+      security_only:
+        description: "Only the security settings and rules (TLS, bot protection, WAF, rate limit). Leave caching rules and the image host alone."
+        type: boolean
+        default: true
       zone_name:
         description: "Domain"
         default: nureasmir.com
@@ -43,6 +47,7 @@ jobs:
       - name: Apply
         run: |
           args="--zone ${{ steps.zone.outputs.id }}"
-          if [ -n "${{ inputs.cdn_host }}" ]; then args="$args --cdn-host ${{ inputs.cdn_host }}"; fi
+          if [ "${{ inputs.security_only }}" = "true" ]; then args="$args --security-only"; fi
+          if [ -n "${{ inputs.cdn_host }}" ] && [ "${{ inputs.security_only }}" != "true" ]; then args="$args --cdn-host ${{ inputs.cdn_host }}"; fi
           if [ "${{ inputs.apply }}" = "true" ]; then args="$args --apply"; fi
           npx tsx scripts/cloudflare-harden.ts $args

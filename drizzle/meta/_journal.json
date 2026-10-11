@@ -211,6 +211,13 @@
       "when": 1791474220724,
       "tag": "0029_sandbox_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1791696227245,
+      "tag": "0030_db_tuning",
+      "breakpoints": true
     }
   ]
 }

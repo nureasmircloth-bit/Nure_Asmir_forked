@@ -1,6 +1,6 @@
 import { hasFilters, type CatalogFilters } from "@/lib/catalog-filters";
 import { cache } from "react";
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { BRAND } from "@/lib/brand";
 import { mediaUrl } from "@/lib/media-url";
@@ -167,6 +167,8 @@ export type CatalogQuery = {
   ids?: string[];
   /** Only products the owner ticked "Show on the home page". */
   featuredOnly?: boolean;
+  /** Words to look for in the name, type or short description (the search page's fallback when the search engine knows nothing). */
+  search?: string;
   /** Price range / sizes / colours / in-stock-only: a product matches when ONE of its sizes-and-colours satisfies all of them together. */
   filters?: CatalogFilters;
   sort?: "newest" | "low" | "high";
@@ -195,6 +197,21 @@ function catalogWhere(query: CatalogQuery) {
     query.categorySlug ? eq(categories.slug, query.categorySlug) : undefined,
     query.ids ? (query.ids.length ? inArray(products.id, query.ids) : sql`false`) : undefined,
     query.featuredOnly ? eq(products.featured, true) : undefined,
+    query.search ? searchWhere(query.search) : undefined,
+  );
+}
+
+/** Matches a product when every typed word appears in its name, type or short description. Typed % and _ are taken literally. */
+/** Most words of a search that are used; the search page tells the shopper when it cut the rest. */
+export const SEARCH_MAX_WORDS = 10;
+
+function searchWhere(text: string) {
+  const words = text.toLowerCase().split(/\s+/).filter(Boolean).slice(0, SEARCH_MAX_WORDS);
+  return and(
+    ...words.map((word) => {
+      const like = `%${word.replace(/[\\%_]/g, (character) => `\\${character}`)}%`;
+      return or(ilike(products.name, like), ilike(products.typeLabel, like), ilike(products.shortDescription, like));
+    }),
   );
 }
 

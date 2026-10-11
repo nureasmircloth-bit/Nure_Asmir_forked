@@ -30,6 +30,7 @@ function setTucked(key: string, tucked: boolean) {
  */
 export function useEdgeWidget(key: string, side: "left" | "right") {
   const [state, setState] = useState({ ready: false, tucked: false });
+  const [away, setAway] = useState(false);
   useEffect(() => {
     const read = () => setState({ ready: true, tucked: isTucked(key) });
     read();
@@ -41,11 +42,36 @@ export function useEdgeWidget(key: string, side: "left" | "right") {
     };
   }, [key]);
 
+  // On a phone the buttons step aside while the shopper scrolls down (so they never sit on top of prices and photos) and return as soon as
+  // they scroll up, stop for a moment, or reach the top. This is temporary and is not the saved "tucked" choice.
+  useEffect(() => {
+    const phone = window.matchMedia("(max-width: 760px)");
+    let last = window.scrollY;
+    let timer = 0;
+    const onScroll = () => {
+      if (!phone.matches) return;
+      const y = window.scrollY;
+      const dy = y - last;
+      last = y;
+      if (y > 160 && dy > 6) setAway(true);
+      else if (dy < -6 || y <= 160) setAway(false);
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => setAway(false), 1600);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.clearTimeout(timer);
+    };
+  }, []);
+
   // A swipe toward the edge tucks the button, a swipe away from it brings it back.
   const startX = useRef(0);
   const toward = side === "left" ? -1 : 1;
   return {
     ...state,
+    away: away && !state.tucked,
+    wake: () => setAway(false),
     tuck: () => setTucked(key, true),
     untuck: () => setTucked(key, false),
     swipe: {
@@ -84,16 +110,17 @@ function EdgeHandle({ tucked, name, side, onToggle }: { tucked: boolean; name: s
 export function EdgeWidget({ storageKey, side, name, className, children, onTuck }: { storageKey: string; side: "left" | "right"; name: string; className: string; children: ReactNode; onTuck?: () => void }) {
   const widget = useEdgeWidget(storageKey, side);
   return (
-    <div className={`edge-widget edge-${side} ${className}${widget.tucked ? " is-tucked" : ""}${widget.ready ? " is-ready" : ""}`} {...widget.swipe}>
+    <div className={`edge-widget edge-${side} ${className}${widget.tucked ? " is-tucked" : ""}${widget.away ? " is-away" : ""}${widget.ready ? " is-ready" : ""}`} {...widget.swipe}>
       <div className="edge-body" inert={widget.tucked}>
         {children}
       </div>
       <EdgeHandle
-        tucked={widget.tucked}
+        tucked={widget.tucked || widget.away}
         name={name}
         side={side}
         onToggle={() => {
-          if (widget.tucked) widget.untuck();
+          if (widget.away) widget.wake();
+          else if (widget.tucked) widget.untuck();
           else {
             onTuck?.();
             widget.tuck();

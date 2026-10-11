@@ -1,7 +1,7 @@
 // Applies the Nure Asmir Cloudflare configuration to a zone — everything here is available on the FREE plan.
 //
 //   CLOUDFLARE_API_TOKEN=... node ./node_modules/tsx/dist/cli.mjs scripts/cloudflare-harden.ts \
-//     --zone <zone-id> [--cdn-host cdn.example.com] [--apply]
+//     --zone <zone-id> [--security-only] [--cdn-host cdn.example.com] [--apply]
 //
 // Without --apply it only prints what it would send (dry run). The token needs, for the zone:
 //   Zone Settings:Edit, Zone WAF:Edit, Cache Rules:Edit, Config Rules:Edit, Transform Rules:Edit,
@@ -12,8 +12,9 @@
 //      subdomains/preload), automatic HTTPS rewrites, HTTP/3, Brotli, Early Hints.
 //   2. Bot Fight Mode + Browser Integrity Check + security level "medium".
 //   3. Custom WAF rules (free plan allows 5): block scanner paths, block empty-UA API calls,
-//      managed-challenge the admin login page.
-//   4. One rate-limit rule (free plan allows 1): burst limiter on login / OTP / order creation.
+//      managed-challenge the admin login page and the training-lab entrance.
+//   4. One rate-limit rule (free plan allows 1): burst limiter on the sign-in and training-lab entrance, OTP, order creation, order
+//      lookups (track / cancel / refund), coupon checks and the newsletter form.
 //   5. Cache rule: /cdn/* and the CDN host are cached for a year at the edge and in browsers.
 //   6. Optional dedicated CDN hostname (--cdn-host): proxied DNS record -> Neon storage host, an
 //      origin rule that rewrites Host/SNI, and a URL rewrite that prefixes the bucket name, so
@@ -29,6 +30,8 @@ function arg(name: string): string | undefined {
   return i > -1 ? process.argv[i + 1] : undefined;
 }
 const apply = process.argv.includes("--apply");
+// --security-only: only the security parts (1 to 4: TLS, bot protection, WAF rules, rate limit). Caching rules and the image host are left alone.
+const securityOnly = process.argv.includes("--security-only");
 const zone = arg("zone");
 const cdnHost = arg("cdn-host");
 const token = process.env.CLOUDFLARE_API_TOKEN;
@@ -121,8 +124,8 @@ async function main() {
       action: "block",
     },
     {
-      description: "Challenge the admin login page",
-      expression: '(http.request.uri.path eq "/admin/login")',
+      description: "Challenge the admin login page and the training-lab entrance",
+      expression: '(http.request.uri.path in {"/admin/login" "/admin/training-login"})',
       action: "managed_challenge",
     },
   ]);
@@ -130,13 +133,19 @@ async function main() {
   // 4. Rate limiting (free plan: 1 rule, 10 s window / 10 s block)
   await phase("http_ratelimit", [
     {
-      description: "Burst limiter: login, OTP and order creation",
+      description: "Burst limiter: sign-in, training entrance, OTP, orders, order lookups, coupons, newsletter",
       expression:
-        '(http.request.uri.path in {"/api/admin/login" "/api/checkout/request-otp" "/api/checkout/verify-otp" "/api/orders"} and http.request.method eq "POST")',
+        '(http.request.uri.path in {"/api/admin/login" "/api/admin/sandbox/enter" "/api/checkout/request-otp" "/api/checkout/verify-otp" "/api/checkout/validate-coupon" "/api/orders" "/api/orders/track" "/api/orders/cancel" "/api/orders/refund" "/api/newsletter"} and http.request.method eq "POST")',
       action: "block",
       ratelimit: { characteristics: ["cf.colo.id", "ip.src"], period: 10, requests_per_period: 6, mitigation_timeout: 10 },
     },
   ]);
+
+  if (securityOnly) {
+    console.log("--security-only: cache rules and the image host were left alone.");
+    console.log(apply ? "\nDone." : "\nDry run complete — re-run with --apply to send these changes.");
+    return;
+  }
 
   // 5. Cache rules (media + HTML) – see 5b.
   const cdnMatch = cdnHost ? `(http.host eq "${cdnHost}") or ` : "";

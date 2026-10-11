@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { boolean, date, doublePrecision, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
 const timestamps = {
@@ -38,7 +39,7 @@ export const loginAttempts = pgTable("login_attempts", {
   ip: text("ip").notNull(),
   success: boolean("success").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-}, (table) => [index("login_attempts_email_idx").on(table.email, table.createdAt)]);
+}, (table) => [index("login_attempts_email_idx").on(table.email, table.createdAt), index("login_attempts_bucket_idx").on(table.email, table.ip, table.createdAt)]);
 
 // Checkout email verification: a customer requests a 6-digit code, receives it via Resend, and
 // submits it back before the order can be created. `verifiedToken` is only set once the code
@@ -142,6 +143,8 @@ export const products = pgTable("products", {
   index("products_category_idx").on(table.categoryId),
   index("products_status_idx").on(table.status),
   index("products_featured_idx").on(table.featured),
+  // the shop and the home page list live products newest first: this index is already in that order, so a page is read straight off it
+  index("products_published_order_idx").on(table.publishedAt.desc().nullsFirst(), table.createdAt.desc().nullsFirst(), table.id.desc().nullsFirst()).where(sql`${table.status} = 'published'`),
 ]);
 
 export const productVariants = pgTable("product_variants", {
@@ -168,6 +171,8 @@ export const productVariants = pgTable("product_variants", {
 }, (table) => [
   index("variants_product_idx").on(table.productId),
   index("variants_stock_idx").on(table.stockQuantity),
+  // every product card joins its one default size
+  index("variants_default_idx").on(table.productId).where(sql`${table.isDefault}`),
 ]);
 
 export const productImages = pgTable("product_images", {
@@ -193,7 +198,13 @@ export const productImages = pgTable("product_images", {
   // Set once the photo has been squeezed harder (sold-out items kept for the record) – see lib/photo-compaction.ts.
   compactedAt: timestamp("compacted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-}, (table) => [index("images_product_idx").on(table.productId)]);
+}, (table) => [
+  index("images_product_idx").on(table.productId),
+  // the main photo that every product card joins
+  index("images_primary_idx").on(table.productId).where(sql`${table.isPrimary} and ${table.status} = 'active'`),
+  // deleting or changing a size looks up the photos that point at it
+  index("images_variant_idx").on(table.variantId),
+]);
 
 export const campaignSlides = pgTable("campaign_slides", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -227,6 +238,7 @@ export const productCollections = pgTable("product_collections", {
   collectionId: uuid("collection_id").notNull().references(() => collections.id, { onDelete: "cascade" }),
 }, (table) => [
   primaryKey({ columns: [table.productId, table.collectionId] }),
+  index("product_collections_collection_idx").on(table.collectionId),
 ]);
 
 export const inventoryMovements = pgTable("inventory_movements", {
@@ -302,8 +314,11 @@ export const orders = pgTable("orders", {
   ...timestamps,
 }, (table) => [
   index("orders_phone_idx").on(table.customerPhone),
-  index("orders_status_idx").on(table.orderStatus),
+  // an order list tab is "this status, newest first" (also serves plain status counts, so the old status-only index is gone)
+  index("orders_status_created_idx").on(table.orderStatus, table.createdAt.desc().nullsFirst()),
   index("orders_created_idx").on(table.createdAt),
+  // customers type phones as 0300..., +92300... or 92300...: reports and searches compare the digits only, and this index matches that exact expression
+  index("orders_phone_digits_idx").on(sql`regexp_replace(${table.customerPhone}, '\\D', '', 'g')`),
 ]);
 
 export const orderItems = pgTable("order_items", {
@@ -318,7 +333,11 @@ export const orderItems = pgTable("order_items", {
   unitPrice: integer("unit_price").notNull(),
   quantity: integer("quantity").notNull(),
   lineTotal: integer("line_total").notNull(),
-}, (table) => [index("order_items_order_idx").on(table.orderId)]);
+}, (table) => [
+  index("order_items_order_idx").on(table.orderId),
+  index("order_items_product_idx").on(table.productId),
+  index("order_items_variant_idx").on(table.variantId),
+]);
 
 // Time-boxed storewide or per-product discounts ("flash sales"). The price a shopper pays is always
 // computed server-side at order time from the sales active *right then* (lib/sales.ts), so a stale
@@ -340,7 +359,7 @@ export const flashSales = pgTable("flash_sales", {
 export const flashSaleProducts = pgTable("flash_sale_products", {
   saleId: uuid("sale_id").notNull().references(() => flashSales.id, { onDelete: "cascade" }),
   productId: uuid("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
-}, (table) => [primaryKey({ columns: [table.saleId, table.productId] })]);
+}, (table) => [primaryKey({ columns: [table.saleId, table.productId] }), index("flash_sale_products_product_idx").on(table.productId)]);
 
 // Shopper devices that opted into push (Firebase Cloud Messaging): order updates for the orders they
 // placed on this device and sale alerts for wishlisted products. No account exists for shoppers, so a
@@ -380,7 +399,7 @@ export const orderIdempotencyKeys = pgTable("order_idempotency_keys", {
   // created. A row with a null orderId means someone is still in the middle of processing this key.
   orderId: uuid("order_id").references(() => orders.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (table) => [index("idempotency_order_idx").on(table.orderId)]);
 
 export const paymentProofs = pgTable("payment_proofs", {
   id: uuid("id").primaryKey().defaultRandom(),
