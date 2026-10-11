@@ -37,15 +37,26 @@ export function ProductCard({ product, priority = false, sizes, swipe = true }: 
   const media = useRef<HTMLDivElement>(null);
   const loaded = useRef<Set<number>>(new Set([0])); // which photos have really arrived (the first is already on the page)
   const stepped = useRef(false); // the shopper moved this card with the arrows or a swipe: leave it where they put it
+  const currentRequest = useRef(0);
   // Slides to a photo, but only once that photo has arrived (a slide to a photo that is still downloading shows an empty frame sliding in).
   // It waits at most `patience` ms, so a slow or failed picture can never freeze the button.
   const show = async (to: number, patience: number) => {
-    setSeen((before) => new Set([...before, to, to + 1]));
+    const id = ++currentRequest.current;
+    setSeen((before) => {
+      const next = new Set(before);
+      next.add(to);
+      if (!saveDataMode() && to + 1 < photos.length) {
+        next.add(to + 1);
+      }
+      return next;
+    });
     if (!loaded.current.has(to)) {
       setWaiting(true);
       await waitUntil(() => loaded.current.has(to), patience);
+      if (currentRequest.current !== id) return;
       setWaiting(false);
     }
+    if (currentRequest.current !== id) return;
     setIndex(to);
   };
   const go = async (next: number) => {
@@ -81,7 +92,11 @@ export function ProductCard({ product, priority = false, sizes, swipe = true }: 
           }
         }}
         onPointerLeave={(event) => {
-          if (event.pointerType === "mouse" && many && !stepped.current) setIndex(0);
+          if (event.pointerType === "mouse" && many && !stepped.current) {
+            currentRequest.current++;
+            setWaiting(false);
+            setIndex(0);
+          }
         }}
         onFocus={prime}
         {...(many ? { ...drag.handlers, onTouchStart: (event: React.TouchEvent) => { prime(); drag.handlers.onTouchStart(event); } } : {})}

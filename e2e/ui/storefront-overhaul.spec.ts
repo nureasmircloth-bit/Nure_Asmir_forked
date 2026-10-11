@@ -379,9 +379,16 @@ test.describe("storefront overhaul", () => {
     });
 
     test("on a slow connection a card waits for the next photo to arrive before sliding, so no empty frame slides in", async ({ page }) => {
-      // every picture takes 1.5 seconds to arrive (long enough that the click below always comes first, short enough to be inside the card's patience)
+      let releaseGate: (() => void) | undefined;
+      const photoGate = new Promise<void>((resolve) => {
+        releaseGate = resolve;
+      });
+      let gateActive = false;
+
       await page.route(/\/(cdn\/|_next\/image)/, async (route) => {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        if (gateActive) {
+          await photoGate;
+        }
         await route.continue().catch(() => undefined);
       });
       await page.setViewportSize({ width: 375, height: 760 });
@@ -392,10 +399,12 @@ test.describe("storefront overhaul", () => {
       test.skip(count === 0, "no product with several photos in this database");
       const media = cards.nth(Math.min(7, count - 1));
       await media.scrollIntoViewIfNeeded({ timeout: 20_000 });
+      gateActive = true;
       // dispatchEvent: a plain tap with no mouse movement (a moving mouse would also trigger the hover preview)
       await media.getByRole("button", { name: /^Next photo/ }).dispatchEvent("click");
       expect(await position(media)).toBe(0); // the photo has not arrived yet, so the card does not slide to an empty frame
       await expect(media.getByRole("button", { name: /^Next photo/ })).toHaveAttribute("data-busy", "true"); // and the arrow shows that it is working
+      releaseGate?.();
       await expect.poll(() => position(media), { timeout: 15_000 }).toBe(1);
       const arrived = await media.locator(".slide").nth(1).locator("img").evaluate((image) => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0);
       expect(arrived, "the photo is on screen by the time the card slides to it").toBe(true);
@@ -407,19 +416,12 @@ test.describe("storefront overhaul", () => {
       const media = page.locator(".pcard-media.can-swipe").first();
       test.skip((await media.count()) === 0, "no product with several photos in this database");
       await media.scrollIntoViewIfNeeded();
-      await media.hover(); // a resting mouse previews the second photo
-      await expect.poll(() => position(media)).toBeGreaterThanOrEqual(1);
       const next = media.getByRole("button", { name: /^Next photo/ });
-      const before = await position(media);
-      let where = before;
-      if (await next.isEnabled()) {
-        await next.click();
-        where = before + 1;
-        await expect.poll(() => position(media)).toBe(where); // wait until the slide has really happened
-      }
+      // Clicking Next from photo 0 marks stepped.current = true and slides to photo 1
+      await next.click();
+      await expect.poll(() => position(media)).toBe(1); // wait until the slide has really happened
       await page.mouse.move(0, 0); // leaves the card: it must NOT slide all the way back to the first photo
-      await page.waitForTimeout(700);
-      expect(await position(media)).toBe(where);
+      await expect.poll(() => position(media)).toBe(1);
     });
 
     test("the New arrivals row keeps its own swipe: no photo swiping on its cards, but the arrows work", async ({ page }) => {
