@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 
 /**
@@ -6,14 +7,17 @@ import { expect, test } from "@playwright/test";
  * is what the app trusts), so no earlier run or other test can interfere.
  */
 const BASE = process.env.E2E_BASE_URL ?? "http://localhost:3100";
-const fakeIp = () => `203.0.113.${Math.floor(Math.random() * 250) + 1}`;
-// a made-up address range per run keeps old attempt rows (they live 15 minutes) from counting against this run
-const uniqueIp = () => `198.51.100.${Math.floor(Math.random() * 250) + 1}`;
+// Attempts are remembered for 15 minutes, so every test uses a brand-new made-up address (from the IPv6 documentation range, 64 random bits):
+// nothing left over from an earlier run can ever count against it.
+const uniqueIp = () => {
+  const bits = randomUUID().replace(/-/g, "");
+  return `2001:db8:${bits.slice(0, 4)}:${bits.slice(4, 8)}:${bits.slice(8, 12)}::${bits.slice(12, 16)}`;
+};
 
 test.describe("lookup guessing limit", () => {
   test("order lookup: wrong guesses are answered 404 up to the limit, then 429; another visitor is not affected", async ({ request }) => {
     const ip = uniqueIp();
-    const other = fakeIp();
+    const other = uniqueIp();
     const guess = (address: string, number: string) =>
       request.post(`${BASE}/api/orders/track`, { headers: { "cf-connecting-ip": address }, data: { orderNumber: number, phone: "03001234567" } });
     for (let i = 0; i < 25; i++) expect((await guess(ip, `NA-NOPE${i}`)).status(), `guess ${i + 1}`).toBe(404);

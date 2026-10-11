@@ -3,15 +3,25 @@
 //
 //   node --env-file=.env.development.local node_modules/tsx/dist/cli.mjs scripts/load-seed.ts [--products 1500] [--orders 8000] [--clean]
 //
-// It refuses to run unless DATABASE_URL is the throw-away test branch (the host must contain "ep-restless-art"), and never touches the
-// real shop's database.
+// It refuses to run unless the HOST NAME of DATABASE_URL is the throw-away test branch (ep-restless-art-…), and never touches the real
+// shop's database.
 import { neon } from "@neondatabase/serverless";
 
-const url = process.env.DATABASE_URL ?? "";
-if (!/ep-restless-art/.test(url)) {
-  console.error("Refusing to run: DATABASE_URL is not the disposable e2e test branch.");
-  process.exit(1);
+/** Fails closed: only a disposable test database may be touched, judged by the host name alone (never by words elsewhere in the URL). */
+function assertDisposable(url: string): void {
+  let host = "";
+  try {
+    host = new URL(url).hostname;
+  } catch {
+    // not a URL at all
+  }
+  if (!/^ep-restless-art-[a-z0-9]+(-pooler)?\./.test(host)) {
+    console.error("Refusing to run: DATABASE_URL is not the disposable e2e test branch.");
+    process.exit(1);
+  }
 }
+const url = process.env.DATABASE_URL ?? "";
+assertDisposable(url);
 const arg = (name: string, fallback: number) => {
   const index = process.argv.indexOf(`--${name}`);
   return index > -1 ? Number(process.argv[index + 1]) || fallback : fallback;
@@ -57,7 +67,7 @@ async function main() {
     insert into orders (order_number, customer_name, customer_phone, customer_email, city, province, address, subtotal, delivery_charge, discount, total, payment_method, payment_status, order_status, created_at, updated_at)
     select 'LT-' || g, 'Load Customer ' || g, '0300' || lpad((1000000 + g)::text, 7, '0'), null,
            (array['Lahore','Karachi','Islamabad','Faisalabad','Multan','Peshawar'])[1 + g % 6], (array['Punjab','Sindh','Islamabad','Punjab','Punjab','KPK'])[1 + g % 6],
-           'House ' || g || ', Street ' || (g % 90), 5000 + (g % 30) * 300, 250, 0, 5250 + (g % 30) * 300, 'cod', 'pending',
+           'House ' || g || ', Street ' || (g % 90), 0, 250, 0, 0, 'cod', 'pending',
            (array['pending_confirmation','confirmed','processing','packed','shipped','delivered','delivered','delivered','cancelled'])[1 + g % 9],
            now() - ((g * 37) % 260000 || ' minutes')::interval, now()
     from generate_series(1, ${ORDERS}) g`;
@@ -68,6 +78,11 @@ async function main() {
     join lateral (select * from product_variants pv where pv.sku like 'LT-%' order by pv.sku offset ((substr(o.order_number, 4))::int * 3) % ${PRODUCTS * 3} limit 1) v on true
     join products p on p.id = v.product_id
     where o.order_number like 'LT-%'`;
+  // The money columns are filled from the items, so every order's subtotal and total match its lines (totals = lines + delivery - discount).
+  await sql`
+    update orders o set subtotal = s.lines, total = s.lines + o.delivery_charge - o.discount
+    from (select order_id, sum(line_total)::int as lines from order_items group by order_id) s
+    where s.order_id = o.id and o.order_number like 'LT-%'`;
   console.log(`orders: ${ORDERS} (with items)  in ${((Date.now() - started) / 1000).toFixed(1)}s`);
 }
 

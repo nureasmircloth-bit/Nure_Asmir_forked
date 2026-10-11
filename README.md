@@ -215,8 +215,29 @@ cold server (only when Algolia is off or out of allowance).
 ## Security notes
 
 * Public lookups that could be guessed (order number + phone on track / cancel / refund, coupon codes) pause after 25 wrong guesses from one
-  visitor address in 15 minutes (`lib/auth/rate-limit.ts`, stored in `login_attempts`, no extra table). The address is Cloudflare's `CF-Connecting-IP`.
+  visitor address in 15 minutes (`lib/auth/rate-limit.ts`, stored in `login_attempts`, no extra table). A place is reserved before the lookup (so
+  parallel requests cannot all slip through) and given back when the lookup finds something. The address is Cloudflare's `CF-Connecting-IP`.
+  The daily maintenance job deletes attempts older than a day.
 * `scripts/cloudflare-harden.ts` (run from Actions → "Cloudflare security + CDN host", dry run first) sets Full (strict) SSL, Always HTTPS, TLS 1.2
   minimum, Bot Fight Mode, the scanner-path and challenge rules, and one burst rate limit covering sign-in, the training entrance, OTP, orders,
   order lookups, coupons and the newsletter.
 * `npm audit --omit=dev` is clean; the admin routes all check the signed-in user; the training lab only holds the practice connection.
+
+## Database tuning (migration 0030)
+
+Found by running `EXPLAIN (ANALYZE)` on the hot queries with 1,500 products and 8,000 orders. At that size the database itself answers in 0.1 to 7 ms
+(the rest of a page time is the trip to Neon), so the changes are about staying fast as the shop grows. All are additive indexes:
+
+| Index | Why |
+|---|---|
+| `products_published_order_idx` (partial: published, newest first) | the shop and home page read a page straight off the index (3.3 ms → 0.3 ms); note `DESC` means `NULLS FIRST` in Postgres, so the index is built that way |
+| `variants_default_idx`, `images_primary_idx` (partial) | every product card joins its default size and main photo |
+| `orders_status_created_idx` (replaces `orders_status_idx`) | an admin tab is "this status, newest first" (0.4 ms → 0.1 ms) |
+| `orders_phone_digits_idx` (on `regexp_replace(customer_phone, '\D', '', 'g')`) | customers type 0300…, +92300… or 92300…; reports and lookups compare digits only, and an expression index matches that exactly. No extra column: a generated column would break the training lab's "Start again" (it re-inserts saved rows) |
+| `order_items_product_idx`, `order_items_variant_idx`, `images_variant_idx`, `flash_sale_products_product_idx`, `product_collections_collection_idx`, `idempotency_order_idx` | foreign keys that had no index: deleting a product or size scanned these tables |
+| `login_attempts_bucket_idx` | the guessing limiter looks up (bucket, address, time) |
+
+Also: the dashboard's "top products" now counts by product, not by name (renaming a product used to split its sales in two). Not done on purpose:
+trigram indexes for search (they need the `pg_trgm` extension, which the training lab's restricted database user cannot use; Algolia answers search and
+the database fallback is small), and temporary tables (the Neon HTTP driver has no session, so a temporary table would vanish between calls; the
+dashboard runs its queries in parallel instead).

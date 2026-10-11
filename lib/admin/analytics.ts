@@ -77,10 +77,10 @@ export type NamedValue = { name: string; value: number; extra?: number; image?: 
 async function topProducts(from: Date, to: Date): Promise<NamedValue[]> {
   return rowsOf<{ name: string; units: number; revenue: number; image: string | null }>(
     await db.execute(sql`
-      select oi.product_name as name, sum(oi.quantity)::int as units, sum(oi.line_total)::bigint::float8 as revenue, max(oi.image_url) as image
+      select max(oi.product_name) as name, sum(oi.quantity)::int as units, sum(oi.line_total)::bigint::float8 as revenue, max(oi.image_url) as image
       from order_items oi join orders o on o.id = oi.order_id
       where ${LIVE} and o.created_at >= ${from.toISOString()}::timestamptz and o.created_at < ${to.toISOString()}::timestamptz
-      group by oi.product_name order by revenue desc limit 6`),
+      group by coalesce(oi.product_id::text, oi.product_name) order by revenue desc limit 6`),
   ).map((row) => ({ name: row.name, value: Number(row.revenue), extra: row.units, image: row.image }));
 }
 

@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { lookupBlocked, noteLookupMiss, requestIp } from "@/lib/auth/rate-limit";
+import { reserveLookup, requestIp } from "@/lib/auth/rate-limit";
 import { checkCoupon, computeDiscountAmount } from "@/lib/coupons";
 
 export const dynamic = "force-dynamic";
@@ -27,12 +27,11 @@ export async function POST(request: Request) {
 
   // Guessing codes: after too many wrong ones from one visitor the check pauses for a while.
   const ip = requestIp(request);
-  if (await lookupBlocked("coupon-lookup", ip)) return Response.json({ valid: false, error: "Too many tries. Please wait a few minutes and try again." }, { status: 429 });
+  const guard = await reserveLookup("coupon-lookup", ip);
+  if (!guard.allowed) return Response.json({ valid: false, error: "Too many tries. Please wait a few minutes and try again." }, { status: 429 });
   const result = await checkCoupon(db, code, subtotal);
-  if (!result.ok) {
-    await noteLookupMiss("coupon-lookup", ip);
-    return Response.json({ valid: false, error: result.error }, { status: 400 });
-  }
+  if (!result.ok) return Response.json({ valid: false, error: result.error }, { status: 400 });
+  await guard.release(); // a valid code does not use up the allowance
 
   const discount = computeDiscountAmount(result.coupon, subtotal, deliveryCharge);
   return Response.json({

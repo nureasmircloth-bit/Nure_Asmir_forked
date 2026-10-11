@@ -202,8 +202,11 @@ function catalogWhere(query: CatalogQuery) {
 }
 
 /** Matches a product when every typed word appears in its name, type or short description. Typed % and _ are taken literally. */
+/** Most words of a search that are used; the search page tells the shopper when it cut the rest. */
+export const SEARCH_MAX_WORDS = 10;
+
 function searchWhere(text: string) {
-  const words = text.toLowerCase().split(/\s+/).filter(Boolean).slice(0, 6);
+  const words = text.toLowerCase().split(/\s+/).filter(Boolean).slice(0, SEARCH_MAX_WORDS);
   return and(
     ...words.map((word) => {
       const like = `%${word.replace(/[\\%_]/g, (character) => `\\${character}`)}%`;

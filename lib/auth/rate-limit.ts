@@ -40,22 +40,31 @@ export function requestIp(request: Request): string {
 /** Wrong guesses allowed per visitor address per 15 minutes before lookups of orders and coupons are paused. */
 export const MAX_LOOKUP_MISSES = 25;
 
-/**
- * Stops guessing of order numbers + phone numbers (and coupon codes): true when this visitor has already had too many lookups that found
- * nothing in the last 15 minutes. Kept in the same table as sign-in attempts (the bucket name is stored where the e-mail would be).
- */
-export async function lookupBlocked(bucket: string, ip: string): Promise<boolean> {
-  const since = new Date(Date.now() - WINDOW_MS);
-  const [row] = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(loginAttempts)
-    .where(and(eq(loginAttempts.email, bucket), eq(loginAttempts.ip, ip), eq(loginAttempts.success, false), gt(loginAttempts.createdAt, since)));
-  return Number(row?.count ?? 0) >= MAX_LOOKUP_MISSES;
-}
+export type LookupGuard = { allowed: boolean; /** Call when the lookup FOUND something: the reserved place is given back, so only wrong guesses use up the allowance. */ release: () => Promise<void> };
 
-/** Remembers one lookup that found nothing. Never throws: a failing counter must not break the page. */
-export async function noteLookupMiss(bucket: string, ip: string): Promise<void> {
-  await recordLoginAttempt(bucket, ip, false).catch(() => undefined);
+/**
+ * Stops guessing of order numbers + phone numbers (and coupon codes). It reserves a place first (a row is written BEFORE counting), so many
+ * requests arriving at the same moment cannot all slip through: each one counts its own row too, and only 25 can ever be inside the limit
+ * for one visitor address in 15 minutes. Wrong guesses keep their row; a lookup that finds something calls release(). Kept in the same
+ * table as sign-in attempts (the bucket name is stored where the e-mail would be). A failing counter never blocks a shopper.
+ */
+export async function reserveLookup(bucket: string, ip: string): Promise<LookupGuard> {
+  try {
+    const [row] = await db.insert(loginAttempts).values({ email: bucket, ip, success: false }).returning({ id: loginAttempts.id });
+    const since = new Date(Date.now() - WINDOW_MS);
+    const [counted] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(loginAttempts)
+      .where(and(eq(loginAttempts.email, bucket), eq(loginAttempts.ip, ip), eq(loginAttempts.success, false), gt(loginAttempts.createdAt, since)));
+    return {
+      allowed: Number(counted?.count ?? 0) <= MAX_LOOKUP_MISSES,
+      release: async () => {
+        if (row) await db.delete(loginAttempts).where(eq(loginAttempts.id, row.id)).catch(() => undefined);
+      },
+    };
+  } catch {
+    return { allowed: true, release: async () => undefined };
+  }
 }
 
 const checkoutAttempts = new Map<string, number[]>();
