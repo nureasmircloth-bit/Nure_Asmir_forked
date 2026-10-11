@@ -146,12 +146,16 @@ export function ProductCard({ product, priority = false, sizes, swipe = true }: 
         </Link>
         {many && (
           <>
-            <button type="button" className="slide-arrow prev" aria-label={`Previous photo of ${product.name}`} disabled={index === 0} data-busy={waiting || undefined} onClick={() => { prime(); go(index - 1); }}>
-              <CardChevron left />
-            </button>
-            <button type="button" className="slide-arrow next" aria-label={`Next photo of ${product.name}`} disabled={index === last} data-busy={waiting || undefined} onClick={() => { prime(); go(index + 1); }}>
-              <CardChevron />
-            </button>
+            {!swipe && (
+              <>
+                <button type="button" className="slide-arrow prev" aria-label={`Previous photo of ${product.name}`} disabled={index === 0} data-busy={waiting || undefined} onClick={() => { prime(); go(index - 1); }}>
+                  <CardChevron left />
+                </button>
+                <button type="button" className="slide-arrow next" aria-label={`Next photo of ${product.name}`} disabled={index === last} data-busy={waiting || undefined} onClick={() => { prime(); go(index + 1); }}>
+                  <CardChevron />
+                </button>
+              </>
+            )}
             <div className="slide-dots" aria-hidden="true">
               {photos.map((url, position) => (
                 <i key={url} className={position === index ? "on" : ""} />

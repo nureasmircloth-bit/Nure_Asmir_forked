@@ -334,7 +334,7 @@ test.describe("storefront overhaul", () => {
     }
     const position = (locator: import("@playwright/test").Locator) => locator.locator(".slide-track").evaluate((el) => Number(getComputedStyle(el).getPropertyValue("--i")));
 
-    test("a product card changes its photo with the arrows and with a swipe, without opening the product; the lift of a swipe is not a tap", async ({ page }) => {
+    test("a product card changes its photo with a swipe, without opening the product; the lift of a swipe is not a tap; grid cards do not render arrow buttons", async ({ page }) => {
       await page.setViewportSize({ width: 375, height: 760 });
       await page.goto("/shop");
       const media = page.locator(".pcard-media.can-swipe").first();
@@ -343,16 +343,17 @@ test.describe("storefront overhaul", () => {
       const url = page.url();
       await page.mouse.move(0, 0); // no hover preview yet
       expect(await position(media)).toBe(0);
-      await expect(media.getByRole("button", { name: /^Previous photo/ })).toBeDisabled(); // nothing before the first photo
-      // a plain tap (no mouse movement), so the hover preview cannot mix in; each step waits until the card has really moved
-      await media.getByRole("button", { name: /^Next photo/ }).dispatchEvent("click");
-      await expect.poll(() => position(media)).toBe(1);
-      expect(page.url()).toBe(url);
+      // Grid cards (vertical layout) do not render noisy arrow buttons; swiping changes photos
+      await expect(media.getByRole("button", { name: /^Next photo/ })).toHaveCount(0);
 
       const photos = await media.locator(".slide-dots i").count();
       const afterLeft = Math.min(2, photos - 1);
       await swipe(media, 300, 60); // finger moves left = next photo (if there is one)
-      await expect.poll(() => position(media)).toBe(afterLeft);
+      await expect.poll(() => position(media)).toBe(1);
+      if (afterLeft > 1) {
+        await swipe(media, 300, 60);
+        await expect.poll(() => position(media)).toBe(afterLeft);
+      }
       await swipe(media, 60, 300); // finger moves right = back
       await expect.poll(() => position(media)).toBe(afterLeft - 1);
       expect(page.url()).toBe(url); // swiping never opened the product
@@ -400,24 +401,23 @@ test.describe("storefront overhaul", () => {
       const media = cards.nth(Math.min(7, count - 1));
       await media.scrollIntoViewIfNeeded({ timeout: 20_000 });
       gateActive = true;
-      // dispatchEvent: a plain tap with no mouse movement (a moving mouse would also trigger the hover preview)
-      await media.getByRole("button", { name: /^Next photo/ }).dispatchEvent("click");
+      // swipe to trigger next photo
+      await swipe(media, 300, 60);
       expect(await position(media)).toBe(0); // the photo has not arrived yet, so the card does not slide to an empty frame
-      await expect(media.getByRole("button", { name: /^Next photo/ })).toHaveAttribute("data-busy", "true"); // and the arrow shows that it is working
       releaseGate?.();
       await expect.poll(() => position(media), { timeout: 15_000 }).toBe(1);
       const arrived = await media.locator(".slide").nth(1).locator("img").evaluate((image) => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0);
       expect(arrived, "the photo is on screen by the time the card slides to it").toBe(true);
     });
 
-    test("a card the shopper stepped through stays where they left it when the mouse moves away", async ({ page }) => {
+    test("a card the shopper stepped through in the rail stays where they left it when the mouse moves away", async ({ page }) => {
       await page.setViewportSize({ width: 1200, height: 800 });
-      await page.goto("/shop");
-      const media = page.locator(".pcard-media.can-swipe").first();
-      test.skip((await media.count()) === 0, "no product with several photos in this database");
+      await page.goto("/");
+      const media = page.locator(".rail .pcard-media.has-many").first();
+      test.skip((await media.count()) === 0, "no multi-photo product in the rail");
       await media.scrollIntoViewIfNeeded();
       const next = media.getByRole("button", { name: /^Next photo/ });
-      // Clicking Next from photo 0 marks stepped.current = true and slides to photo 1
+      // In the rail, cards render arrow buttons
       await next.click();
       await expect.poll(() => position(media)).toBe(1); // wait until the slide has really happened
       await page.mouse.move(0, 0); // leaves the card: it must NOT slide all the way back to the first photo
@@ -433,6 +433,18 @@ test.describe("storefront overhaul", () => {
       await media.scrollIntoViewIfNeeded();
       await media.getByRole("button", { name: /^Next photo/ }).click();
       await expect.poll(() => position(media)).toBeGreaterThanOrEqual(1); // (a resting mouse already previews photo 2)
+    });
+
+    test("the homepage banner slides when swiped on a touch device", async ({ page }) => {
+      await page.setViewportSize({ width: 375, height: 760 });
+      await page.goto("/");
+      const banner = page.locator(".banner");
+      test.skip((await banner.count()) === 0, "no banner on home page");
+      const slides = banner.locator(".banner-slide");
+      if ((await slides.count()) < 2) return;
+      await expect(slides.nth(0)).toHaveClass(/active/);
+      await swipe(banner, 300, 60);
+      await expect(slides.nth(1)).toHaveClass(/active/);
     });
   });
 

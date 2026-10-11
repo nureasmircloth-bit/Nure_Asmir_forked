@@ -68,7 +68,7 @@
 .search-powered { margin-top: 18px; text-align: center; color: #aaa; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }
 
 /* ---------- banner carousel ---------- */
-.banner { position: relative; background: #f3f3f2; overflow: hidden; }
+.banner { position: relative; background: #f3f3f2; overflow: hidden; touch-action: pan-y pinch-zoom; user-select: none; }
 .banner-track { position: relative; aspect-ratio: 2048 / 768; }
 .banner-slide { position: absolute; inset: 0; opacity: 0; transition: opacity .9s ease; background-size: cover; background-position: center; }
 .banner-slide.active { opacity: 1; z-index: 1; }
