@@ -99,15 +99,16 @@ async function main() {
   await setting("security_header", {
     strict_transport_security: { enabled: true, max_age: 63072000, include_subdomains: false, preload: false, nosniff: true },
   });
-  await setting("http3", "on");
+  await setting("http3", "off");
   await setting("brotli", "on");
-  await setting("early_hints", "on");
+  await setting("early_hints", "off");
   await setting("ipv6", "on");
 
-  // 2. Bots / browser checks
-  await cf("PUT", `/zones/${zone}/bot_management`, { fight_mode: true });
-  await setting("browser_check", "on");
-  await setting("security_level", "medium");
+  // 2. Bots / browser checks — kept off/low on the public storefront to prevent challenging
+  // real customers on shared residential CGNAT IPs or mobile in-app webviews (Instagram, WhatsApp).
+  await cf("PUT", `/zones/${zone}/bot_management`, { fight_mode: false });
+  await setting("browser_check", "off");
+  await setting("security_level", "essentially_off");
   await setting("challenge_ttl", 1800);
 
   // 3. Custom WAF rules
