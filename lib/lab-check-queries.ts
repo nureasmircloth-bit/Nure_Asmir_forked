@@ -40,4 +40,14 @@ export const LAB_CHECKS: Record<string, string[]> = {
     `select exists (select 1 from faqs q where ${madeByTrainee("faqs", "q")}) as ok`,
     `select exists (select 1 from faqs q where ${madeByTrainee("faqs", "q")} and length(trim(q.answer)) >= 20 and q.active) as ok`,
   ],
+  "bulk-orders": [
+    `select exists (select 1 from delivery_zones where active = true) as ok`,
+    `select exists (select 1 from orders o where ${madeByTrainee("orders", "o")}) as ok`,
+    `select count(*) >= 2 from orders o where ${madeByTrainee("orders", "o")} and o.order_status in ('confirmed', 'processing', 'packed', 'shipped') as ok`,
+  ],
+  "settings-buffer": [
+    `select exists (select 1 from site_settings s where s.id = 'store') as ok`,
+    `select exists (select 1 from site_settings s where s.id = 'store' and (s.pending_apply_at is not null or s.previous_settings is not null or s.updated_at is not null)) as ok`,
+    `select exists (select 1 from site_settings s where s.id = 'store' and s.pending_apply_at is null) as ok`,
+  ],
 };

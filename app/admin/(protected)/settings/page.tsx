@@ -50,6 +50,21 @@ export default async function SettingsPage() {
     fontFamily: row?.fontFamily || "Cormorant Garamond",
     contactFontFamily: row?.contactFontFamily || "Inter",
   };
+  let initialPending: { changes: Partial<SettingsValues>; applyAt: string; remainingSeconds: number } | null = null;
+  if (row?.pendingApplyAt && row.pendingChanges) {
+    const applyAtTime = new Date(row.pendingApplyAt).getTime();
+    const now = Date.now();
+    if (applyAtTime > now) {
+      try {
+        initialPending = {
+          changes: JSON.parse(row.pendingChanges),
+          applyAt: new Date(row.pendingApplyAt).toISOString(),
+          remainingSeconds: Math.max(0, Math.ceil((applyAtTime - now) / 1000)),
+        };
+      } catch {}
+    }
+  }
+
   const status: SystemStatus = {
     tcs: isTcsConfigured(),
     tcsLive: process.env.TCS_ENV === "production",
@@ -63,7 +78,7 @@ export default async function SettingsPage() {
   return (
     <>
       <PageHeader title="Settings" intro="Your shop details, delivery, payments and connections. Change what you need and press Save at the bottom." />
-      <SettingsForm initial={values} status={status} />
+      <SettingsForm initial={values} status={status} initialPending={initialPending} />
     </>
   );
 }

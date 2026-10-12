@@ -27,6 +27,9 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
         actions={
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <OrdersAdvancedTools />
+            <Link className="a-btn" href="/admin/orders/bulk" title="Place multiple orders at once with Excel">
+              <Icon name="sheet" /> Bulk orders
+            </Link>
             <Link className="a-btn a-btn-primary" href="/admin/orders/new">
               <Icon name="plus" /> New order
             </Link>

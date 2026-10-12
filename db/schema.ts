@@ -496,6 +496,9 @@ export const siteSettings = pgTable("site_settings", {
   themeAccentColor: text("theme_accent_color").notNull().default("#c5a059"),
   fontFamily: text("font_family").notNull().default("Cormorant Garamond"),
   contactFontFamily: text("contact_font_family").notNull().default("Inter"),
+  pendingChanges: text("pending_changes"),
+  pendingApplyAt: timestamp("pending_apply_at", { withTimezone: true }),
+  previousSettings: text("previous_settings"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

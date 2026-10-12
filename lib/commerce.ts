@@ -775,7 +775,24 @@ export type PublicSettings = {
 };
 
 export const getPublicSettings = cache(async (): Promise<PublicSettings> => {
-  const [row] = await db.select().from(siteSettings).where(eq(siteSettings.id, "store")).limit(1);
+  let [row] = await db.select().from(siteSettings).where(eq(siteSettings.id, "store")).limit(1);
+  if (row?.pendingApplyAt && new Date(row.pendingApplyAt).getTime() <= Date.now() && row.pendingChanges) {
+    try {
+      const changes = JSON.parse(row.pendingChanges);
+      const [updated] = await db
+        .update(siteSettings)
+        .set({
+          ...changes,
+          pendingChanges: null,
+          pendingApplyAt: null,
+          previousSettings: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(siteSettings.id, "store"))
+        .returning();
+      if (updated) row = updated;
+    } catch {}
+  }
   return {
     whatsappNumber: row?.whatsappNumber || process.env.WHATSAPP_DEFAULT_NUMBER || BRAND.contact.whatsappPhone,
     supportPhone: row?.supportPhone || BRAND.contact.phone,

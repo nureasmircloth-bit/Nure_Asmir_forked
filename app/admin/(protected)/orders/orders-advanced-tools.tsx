@@ -72,6 +72,13 @@ export function OrdersAdvancedTools() {
                 >
                   <Icon name="download" size={15} /> Past 1 year
                 </a>
+                <Link
+                  className="a-btn a-btn-sm a-btn-quiet"
+                  href="/admin/orders/bulk"
+                  title="Import and place orders in bulk via Excel"
+                >
+                  <Icon name="upload" size={15} /> Import with Excel
+                </Link>
               </div>
             </div>
 
@@ -96,6 +103,9 @@ export function OrdersAdvancedTools() {
 
           <div style={{ display: "flex", gap: 10, marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--line)" }}>
             <span className="a-muted" style={{ fontSize: 13, alignSelf: "center" }}>Quick links:</span>
+            <Link className="a-btn a-btn-sm a-btn-quiet" href="/admin/orders/bulk">
+              <Icon name="sheet" size={15} /> Bulk Orders (Excel)
+            </Link>
             <Link className="a-btn a-btn-sm a-btn-quiet" href="/admin/courier">
               <Icon name="truck" size={15} /> Courier Settings
             </Link>

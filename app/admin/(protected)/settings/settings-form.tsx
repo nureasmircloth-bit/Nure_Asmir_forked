@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { FormEvent, ReactNode, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useState } from "react";
 import { useLockedAction } from "@/lib/use-locked-action";
 import { AnnouncementBar } from "@/components/announcement-bar";
 import { callApi, Dialog, Hint, useToast } from "../../_ui/client";
@@ -47,6 +47,12 @@ export type SettingsValues = {
   fontFamily: string;
   contactFontFamily: string;
 };
+export type PendingSettings = {
+  changes: Partial<SettingsValues>;
+  applyAt: string;
+  remainingSeconds: number;
+};
+
 export type SystemStatus = { tcs: boolean; tcsLive: boolean; push: boolean; search: boolean; email: boolean; whatsapp: boolean; writer: boolean; spamShield: boolean };
 
 const CITY_CODES: Array<[string, string]> = [["Karachi", "KHI"], ["Lahore", "LHE"], ["Islamabad", "ISB"], ["Rawalpindi", "RWP"], ["Faisalabad", "LYP"], ["Multan", "MUX"], ["Peshawar", "PEW"], ["Quetta", "UET"], ["Hyderabad", "HDD"], ["Sialkot", "SKT"], ["Gujranwala", "GRW"]];
@@ -65,7 +71,13 @@ function Section({ id, title, intro, children }: { id: string; title: string; in
   );
 }
 
-export function SettingsForm({ initial, status }: { initial: SettingsValues; status: SystemStatus }) {
+function formatSeconds(total: number) {
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+export function SettingsForm({ initial, status, initialPending }: { initial: SettingsValues; status: SystemStatus; initialPending?: PendingSettings | null }) {
   const router = useRouter();
   const toast = useToast();
   const saving = useLockedAction();
@@ -74,6 +86,25 @@ export function SettingsForm({ initial, status }: { initial: SettingsValues; sta
   const [dirty, setDirty] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null);
+  const [pending, setPending] = useState<PendingSettings | null>(initialPending ?? null);
+  const [countdown, setCountdown] = useState<number>(initialPending?.remainingSeconds ?? 0);
+
+  useEffect(() => {
+    if (!pending || countdown <= 0) return;
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          setPending(null);
+          toast("Buffered settings changes have taken effect on your live storefront.", "good");
+          router.refresh();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [pending, countdown, router, toast]);
 
   const set = (key: keyof SettingsValues) => (event: { target: { value: string } }) => {
     setForm((current) => ({ ...current, [key]: typeof initial[key] === "number" ? Number(event.target.value.replace(/\D/g, "")) : event.target.value }));
@@ -115,15 +146,64 @@ export function SettingsForm({ initial, status }: { initial: SettingsValues; sta
       return;
     }
     await saving.run(async () => {
-      const result = await callApi<{ settings: Partial<Record<keyof SettingsValues, string | number>> }>("/api/admin/settings", "PATCH", form);
+      const result = await callApi<{ settings: Partial<Record<keyof SettingsValues, string | number>>; pending?: PendingSettings }>("/api/admin/settings", "PATCH", form);
       if (result.ok) {
-        // Show what was actually stored (web addresses get https:// added, phone numbers are tidied).
-        const saved = result.data.settings ?? {};
-        setForm((current) => ({ ...current, ...Object.fromEntries((Object.keys(current) as Array<keyof SettingsValues>).filter((key) => saved[key] !== undefined).map((key) => [key, saved[key]])) }));
-        toast("Settings saved. Your website is updating.", "good");
+        if (result.data.pending) {
+          setPending(result.data.pending);
+          setCountdown(result.data.pending.remainingSeconds || 300);
+          toast("Settings saved with a 5-minute safety buffer. You can revert at any time before it applies.", "good");
+        } else {
+          const saved = result.data.settings ?? {};
+          setForm((current) => ({ ...current, ...Object.fromEntries((Object.keys(current) as Array<keyof SettingsValues>).filter((key) => saved[key] !== undefined).map((key) => [key, saved[key]])) }));
+          toast("Settings saved. Your website is updating.", "good");
+        }
         setDirty(false);
         router.refresh();
       } else toast(result.error, "bad");
+    });
+  }
+
+  async function revertChanges() {
+    await saving.run(async () => {
+      const result = await callApi<{ settings: Partial<Record<keyof SettingsValues, string | number>> }>("/api/admin/settings", "PATCH", { action: "revert" });
+      if (result.ok) {
+        setPending(null);
+        setCountdown(0);
+        if (result.data.settings) {
+          const saved = result.data.settings;
+          setForm((current) => ({
+            ...current,
+            ...Object.fromEntries((Object.keys(current) as Array<keyof SettingsValues>).filter((key) => saved[key] !== undefined).map((key) => [key, saved[key]])),
+          }));
+        }
+        toast("Pending settings changes reverted.", "good");
+        setDirty(false);
+        router.refresh();
+      } else {
+        toast(result.error || "Could not revert changes.", "bad");
+      }
+    });
+  }
+
+  async function applyImmediately() {
+    await saving.run(async () => {
+      const result = await callApi<{ settings: Partial<Record<keyof SettingsValues, string | number>> }>("/api/admin/settings", "PATCH", { action: "apply-now" });
+      if (result.ok) {
+        setPending(null);
+        setCountdown(0);
+        if (result.data.settings) {
+          const saved = result.data.settings;
+          setForm((current) => ({
+            ...current,
+            ...Object.fromEntries((Object.keys(current) as Array<keyof SettingsValues>).filter((key) => saved[key] !== undefined).map((key) => [key, saved[key]])),
+          }));
+        }
+        toast("Settings applied immediately to the live website.", "good");
+        setDirty(false);
+        router.refresh();
+      } else {
+        toast(result.error || "Could not apply settings.", "bad");
+      }
     });
   }
 
@@ -139,6 +219,61 @@ export function SettingsForm({ initial, status }: { initial: SettingsValues; sta
 
   return (
     <form onSubmit={save} className="a-stack">
+      {pending && (
+        <aside
+          className="a-card"
+          role="status"
+          aria-live="polite"
+          style={{
+            padding: "16px 20px",
+            background: "linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)",
+            border: "1.5px solid #f59e0b",
+            borderRadius: 14,
+            boxShadow: "0 4px 16px rgba(245, 158, 11, 0.12)",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: "#fef3c7", border: "1px solid #fde68a", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
+                ⏳
+              </div>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <strong style={{ color: "#92400e", fontSize: 15 }}>5-Minute Safety Buffer Active</strong>
+                  <span style={{ background: "#b45309", color: "#fff", fontWeight: 700, fontSize: 12, padding: "2px 8px", borderRadius: 6, fontVariantNumeric: "tabular-nums" }}>
+                    {formatSeconds(countdown)}
+                  </span>
+                </div>
+                <p style={{ margin: "3px 0 0", color: "#78350f", fontSize: 13 }}>
+                  Your changes are buffered. They will automatically apply to the live storefront in <strong>{formatSeconds(countdown)}</strong> unless reverted.
+                </p>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <button
+                type="button"
+                className="a-btn a-btn-sm"
+                style={{ background: "#dc2626", color: "#fff", borderColor: "#b91c1c", fontWeight: 600 }}
+                onClick={revertChanges}
+                disabled={saving.pending}
+                title="Cancel and restore previous settings"
+              >
+                <Icon name="x" size={14} /> Revert changes
+              </button>
+              <button
+                type="button"
+                className="a-btn a-btn-sm a-btn-primary"
+                style={{ fontWeight: 600 }}
+                onClick={applyImmediately}
+                disabled={saving.pending}
+                title="Skip buffer and apply now to live website"
+              >
+                <Icon name="check" size={14} /> Apply immediately
+              </button>
+            </div>
+          </div>
+        </aside>
+      )}
       <section className="a-card">
         <header className="a-card-head">
           <h2>Is everything connected?</h2>

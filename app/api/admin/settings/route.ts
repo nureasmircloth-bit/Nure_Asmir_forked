@@ -73,15 +73,95 @@ export async function GET() {
   const admin = await getAdminUser();
   if (!admin) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const [row] = await db.select().from(siteSettings).where(eq(siteSettings.id, "store")).limit(1);
-  return Response.json({ settings: row ?? null });
+  let [row] = await db.select().from(siteSettings).where(eq(siteSettings.id, "store")).limit(1);
+  let pending: { changes: Record<string, unknown>; applyAt: string; remainingSeconds: number } | null = null;
+
+  if (row?.pendingApplyAt && row.pendingChanges) {
+    const applyAtTime = new Date(row.pendingApplyAt).getTime();
+    const now = Date.now();
+    if (applyAtTime <= now) {
+      try {
+        const changes = JSON.parse(row.pendingChanges);
+        const [updated] = await db
+          .update(siteSettings)
+          .set({
+            ...changes,
+            pendingChanges: null,
+            pendingApplyAt: null,
+            previousSettings: null,
+            updatedAt: new Date(),
+          })
+          .where(eq(siteSettings.id, "store"))
+          .returning();
+        if (updated) row = updated;
+      } catch {
+        // ignore parse error
+      }
+    } else {
+      try {
+        pending = {
+          changes: JSON.parse(row.pendingChanges),
+          applyAt: new Date(row.pendingApplyAt).toISOString(),
+          remainingSeconds: Math.max(0, Math.ceil((applyAtTime - now) / 1000)),
+        };
+      } catch {
+        // ignore parse error
+      }
+    }
+  }
+
+  return Response.json({ settings: row ?? null, pending });
 }
 
 export async function PATCH(request: Request) {
   const admin = await getAdminUser();
   if (!admin) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const parsed = updateSchema.safeParse(await request.json().catch(() => ({})));
+  const raw = await request.json().catch(() => ({}));
+
+  // Action 1: Revert pending changes
+  if (raw?.action === "revert") {
+    const [row] = await db.select().from(siteSettings).where(eq(siteSettings.id, "store")).limit(1);
+    if (!row?.pendingChanges) {
+      return Response.json({ message: "No pending changes to revert.", settings: row ?? null, pending: null });
+    }
+    const [updated] = await db
+      .update(siteSettings)
+      .set({
+        pendingChanges: null,
+        pendingApplyAt: null,
+        previousSettings: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(siteSettings.id, "store"))
+      .returning();
+    await auditLogEntry({ actorEmail: admin.email, action: "settings.revert", entityType: "site-settings", entityId: "store", detail: { reverted: true } });
+    return Response.json({ settings: updated, pending: null, reverted: true });
+  }
+
+  // Action 2: Apply pending changes immediately
+  if (raw?.action === "apply-now") {
+    const [row] = await db.select().from(siteSettings).where(eq(siteSettings.id, "store")).limit(1);
+    if (!row?.pendingChanges) {
+      return Response.json({ message: "No pending changes to apply.", settings: row ?? null, pending: null });
+    }
+    const changes = JSON.parse(row.pendingChanges);
+    const [updated] = await db
+      .update(siteSettings)
+      .set({
+        ...changes,
+        pendingChanges: null,
+        pendingApplyAt: null,
+        previousSettings: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(siteSettings.id, "store"))
+      .returning();
+    await auditLogEntry({ actorEmail: admin.email, action: "settings.apply-immediate", entityType: "site-settings", entityId: "store", detail: changes });
+    return Response.json({ settings: updated, pending: null, applied: true });
+  }
+
+  const parsed = updateSchema.safeParse(raw);
   if (!parsed.success) return Response.json({ error: "Invalid settings payload." }, { status: 400 });
   const data = parsed.data;
 
@@ -124,16 +204,62 @@ export async function PATCH(request: Request) {
     ...(data.themeAccentColor !== undefined ? { themeAccentColor: data.themeAccentColor } : {}),
     ...(data.fontFamily !== undefined ? { fontFamily: data.fontFamily } : {}),
     ...(data.contactFontFamily !== undefined ? { contactFontFamily: data.contactFontFamily } : {}),
-    updatedAt: new Date(),
   };
+
+  const [currentRow] = await db.select().from(siteSettings).where(eq(siteSettings.id, "store")).limit(1);
+
+  if (raw?.immediate === true) {
+    const fullValues = {
+      ...values,
+      pendingChanges: null,
+      pendingApplyAt: null,
+      previousSettings: null,
+      updatedAt: new Date(),
+    };
+    const [row] = await db
+      .insert(siteSettings)
+      .values({ id: "store", ...fullValues })
+      .onConflictDoUpdate({ target: siteSettings.id, set: fullValues })
+      .returning();
+
+    await auditLogEntry({ actorEmail: admin.email, action: "settings.update", entityType: "site-settings", entityId: "store", detail: data });
+    return Response.json({ settings: row, pending: null });
+  }
+
+  // 5-minute safety buffer before applying changes to live site
+  const bufferMs = 5 * 60 * 1000;
+  const applyAt = new Date(Date.now() + bufferMs);
+  const pendingData = JSON.stringify(values);
+  const previousData = currentRow ? JSON.stringify(currentRow) : null;
 
   const [row] = await db
     .insert(siteSettings)
-    .values({ id: "store", ...values })
-    .onConflictDoUpdate({ target: siteSettings.id, set: values })
+    .values({
+      id: "store",
+      pendingChanges: pendingData,
+      pendingApplyAt: applyAt,
+      previousSettings: previousData,
+      updatedAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: siteSettings.id,
+      set: {
+        pendingChanges: pendingData,
+        pendingApplyAt: applyAt,
+        previousSettings: previousData,
+        updatedAt: new Date(),
+      },
+    })
     .returning();
 
-  await auditLogEntry({ actorEmail: admin.email, action: "settings.update", entityType: "site-settings", entityId: "store", detail: data });
+  await auditLogEntry({ actorEmail: admin.email, action: "settings.buffered-update", entityType: "site-settings", entityId: "store", detail: { ...data, applyAt } });
 
-  return Response.json({ settings: row });
+  return Response.json({
+    settings: currentRow ?? row,
+    pending: {
+      changes: values,
+      applyAt: applyAt.toISOString(),
+      remainingSeconds: 300,
+    },
+  });
 }
