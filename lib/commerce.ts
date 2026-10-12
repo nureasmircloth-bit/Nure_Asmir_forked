@@ -29,7 +29,7 @@ export type CatalogVariant = {
  * variants and gallery images stay on the server. */
 export type CardProduct = Pick<
   CatalogProduct,
-  "id" | "slug" | "name" | "price" | "compareAtPrice" | "imageUrl" | "altImageUrl" | "moreImageUrls" | "blurDataUrl" | "badge" | "stock" | "saleEndsAt" | "category"
+  "id" | "slug" | "name" | "price" | "compareAtPrice" | "imageUrl" | "altImageUrl" | "moreImageUrls" | "blurDataUrl" | "badge" | "stock" | "saleEndsAt" | "category" | "type" | "shortDescription"
 >;
 
 export function toCard(product: CatalogProduct): CardProduct {
@@ -47,6 +47,8 @@ export function toCard(product: CatalogProduct): CardProduct {
     stock: product.stock,
     saleEndsAt: product.saleEndsAt,
     category: product.category,
+    type: product.type,
+    shortDescription: product.shortDescription,
   };
 }
 

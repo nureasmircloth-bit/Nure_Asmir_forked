@@ -1,7 +1,7 @@
 /* The strip at the top of every page (components/announcement-bar.tsx). Used by the shop and by the admin preview, so it carries its own colours. */
 .announcement { height: 36px; padding: 0 3vw; background: var(--announce-bg, #111); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; text-transform: uppercase; letter-spacing: .18em; overflow: hidden; }
 .announcement-ticker { position: relative; overflow: hidden; height: 1.4em; width: 100%; }
-.announcement-ticker span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; white-space: nowrap; opacity: 0; transition: transform .5s cubic-bezier(.25, 1, .5, 1), opacity .5s ease; pointer-events: none; }
+.announcement-ticker span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: 0; transition: transform .5s cubic-bezier(.25, 1, .5, 1), opacity .5s ease; pointer-events: none; }
 
 /* Default vertical luxury slide/fade */
 .announcement[data-style="rotate"] .announcement-ticker span { transform: translateY(8px); }
@@ -9,14 +9,14 @@
 .announcement[data-style="rotate"] .announcement-ticker .ticker-prev { transform: translateY(-8px); opacity: 0; }
 
 /* Horizontal slide from right to left */
-.announcement[data-style="scroll-left"] .announcement-ticker span { transform: translateX(24px); }
+.announcement[data-style="scroll-left"] .announcement-ticker span { transform: translateX(100%); }
 .announcement[data-style="scroll-left"] .announcement-ticker .ticker-current { transform: translateX(0); opacity: 1; pointer-events: auto; }
-.announcement[data-style="scroll-left"] .announcement-ticker .ticker-prev { transform: translateX(-24px); opacity: 0; }
+.announcement[data-style="scroll-left"] .announcement-ticker .ticker-prev { transform: translateX(-100%); opacity: 0; }
 
 /* Horizontal slide from left to right */
-.announcement[data-style="scroll-right"] .announcement-ticker span { transform: translateX(-24px); }
+.announcement[data-style="scroll-right"] .announcement-ticker span { transform: translateX(-100%); }
 .announcement[data-style="scroll-right"] .announcement-ticker .ticker-current { transform: translateX(0); opacity: 1; pointer-events: auto; }
-.announcement[data-style="scroll-right"] .announcement-ticker .ticker-prev { transform: translateX(24px); opacity: 0; }
+.announcement[data-style="scroll-right"] .announcement-ticker .ticker-prev { transform: translateX(100%); opacity: 0; }
 
 .announcement-ticker .ticker-hidden { opacity: 0; pointer-events: none; }
 

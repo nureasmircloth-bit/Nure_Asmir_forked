@@ -115,7 +115,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
             href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(settings.fontFamily.trim())}:wght@400;500;600;700&display=swap`}
           />
         )}
-        {settings.contactFontFamily && settings.contactFontFamily !== "Inter" && settings.contactFontFamily !== "system-ui" && (
+        {settings.contactFontFamily && settings.contactFontFamily !== "system-ui" && (
           <link
             rel="stylesheet"
             href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(settings.contactFontFamily.trim())}:wght@400;500;600&display=swap`}

@@ -28,6 +28,7 @@ export function LogoutButton({ to = "/admin/login", compact = false }: { to?: st
         className="a-icon-btn"
         onClick={logout}
         disabled={busy}
+        aria-busy={busy}
         title={busy ? "Signing out…" : "Sign out"}
         aria-label="Sign out"
       >

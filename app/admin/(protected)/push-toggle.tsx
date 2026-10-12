@@ -96,13 +96,20 @@ export function PushToggle({ compact = false }: { compact?: boolean }) {
         disabled={state === "busy" || state === "blocked"}
         onClick={state === "on" ? disable : enable}
         title={
-          state === "on"
+          note ||
+          (state === "on"
             ? "Order alerts: on (click to disable)"
             : state === "blocked"
             ? "Alerts are blocked in this browser"
+            : "Turn on order alerts")
+        }
+        aria-label={
+          state === "on"
+            ? "Turn off order alerts"
+            : state === "blocked"
+            ? "Order alerts blocked in browser"
             : "Turn on order alerts"
         }
-        aria-label={state === "on" ? "Order alerts on" : "Turn on order alerts"}
       >
         {state === "busy" ? (
           <span className="spinner" aria-hidden="true" />

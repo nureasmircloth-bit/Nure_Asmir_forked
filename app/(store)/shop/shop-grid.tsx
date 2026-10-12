@@ -196,6 +196,8 @@ export function ShopGrid({
         (p) =>
           p.name.toLowerCase().includes(lower) ||
           p.slug.toLowerCase().includes(lower) ||
+          (p.type && p.type.toLowerCase().includes(lower)) ||
+          (p.shortDescription && p.shortDescription.toLowerCase().includes(lower)) ||
           (p.category && p.category.toLowerCase().includes(lower))
       );
     }
@@ -349,7 +351,11 @@ export function ShopGrid({
       )}
 
       <p className="result-count" aria-live="polite">
-        {paged && count > visible.length ? `Showing ${visible.length} of ${count} products` : `${count} ${count === 1 ? "product" : "products"}`}
+        {paged
+          ? count > visible.length
+            ? `Showing ${visible.length} of ${count} products`
+            : `${count} ${count === 1 ? "product" : "products"}`
+          : `${visible.length} ${visible.length === 1 ? "product" : "products"}`}
       </p>
       <div className="product-grid shop-grid" style={busy ? { opacity: 0.6, transition: "opacity .15s" } : undefined} aria-busy={busy}>
         {visible.map((product, index) => (
@@ -358,10 +364,17 @@ export function ShopGrid({
       </div>
       {!visible.length && !busy && (
         <div className="shop-empty">
-          <p>{hasFilters(filters) ? "Nothing matches these filters." : "Nothing here yet — check back soon."}</p>
-          {hasFilters(filters) && (
-            <button type="button" className="filter-btn" onClick={() => removeChip(EMPTY_FILTERS)}>
-              Clear the filters
+          <p>{hasFilters(filters) || searchQuery.trim() ? "Nothing matches your search or filters." : "Nothing here yet — check back soon."}</p>
+          {(hasFilters(filters) || searchQuery.trim()) && (
+            <button
+              type="button"
+              className="filter-btn"
+              onClick={() => {
+                setSearchQuery("");
+                removeChip(EMPTY_FILTERS);
+              }}
+            >
+              Clear filters and search
             </button>
           )}
         </div>

@@ -46,6 +46,12 @@ test.describe("currency display", () => {
     expect(formatPrice(12500, "USD", { USD: 0.0036 })).toBe("$45.99");
     // 7500 to EUR with rate 24.19/7500 (approx 0.00322533) -> 24.6738 -> 24.99 €
     expect(formatPrice(7500, "EUR", { EUR: 24.19 / 7500 })).toBe("24.99 €");
+    // Exact .99 boundary after buffer stays on .99
+    expect(formatPrice(100, "USD", { USD: (24.99 / 1.02) / 100 })).toBe("$24.99");
+    // Exact integer boundary maps up to .99
+    expect(formatPrice(100, "GBP", { GBP: (24.00 / 1.02) / 100 })).toBe("£24.99");
+    // Thousands grouping for large amounts
+    expect(formatPrice(100000, "AED", { AED: (1250.00 / 1.02) / 100000 })).toBe("AED 1,250.99");
   });
 });
 

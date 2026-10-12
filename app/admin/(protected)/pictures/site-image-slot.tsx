@@ -9,7 +9,7 @@ import { callApi, useToast } from "../../_ui/client";
 import { Icon } from "../../_ui/icons";
 import { ImageCropper } from "../campaign/image-cropper";
 
-export function SiteImageSlot({ slot, label, help, size, aspect, fallback, current }: { slot: string; label: string; help: string; size: string; aspect: string; fallback: string; current: { url: string; version: number } | null }) {
+export function SiteImageSlot({ slot, label, help, size, aspect, fallback, current, isMobile }: { slot: string; label: string; help: string; size: string; aspect: string; fallback: string; current: { url: string; version: number } | null; isMobile?: boolean }) {
   const router = useRouter();
   const toast = useToast();
   const upload = useLockedAction();
@@ -48,7 +48,7 @@ export function SiteImageSlot({ slot, label, help, size, aspect, fallback, curre
     });
   }
 
-  const isMobileSlot = slot.includes("mobile") || aspect.includes("9 / 16") || aspect.includes("9/16");
+  const isMobileSlot = isMobile ?? (slot.includes("mobile") || aspect.includes("9 / 16") || aspect.includes("9/16"));
   const [previewMode, setPreviewMode] = useState<"box" | "phone">(isMobileSlot ? "phone" : "box");
 
   const shown = current ? current.url : fallback;
@@ -67,6 +67,7 @@ export function SiteImageSlot({ slot, label, help, size, aspect, fallback, curre
             <button
               type="button"
               onClick={() => setPreviewMode("box")}
+              aria-pressed={previewMode === "box"}
               style={{
                 border: 0,
                 background: previewMode === "box" ? "var(--bg)" : "transparent",
@@ -84,6 +85,7 @@ export function SiteImageSlot({ slot, label, help, size, aspect, fallback, curre
             <button
               type="button"
               onClick={() => setPreviewMode("phone")}
+              aria-pressed={previewMode === "phone"}
               style={{
                 border: 0,
                 background: previewMode === "phone" ? "var(--bg)" : "transparent",

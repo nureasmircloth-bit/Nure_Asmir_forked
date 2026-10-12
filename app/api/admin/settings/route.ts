@@ -58,9 +58,9 @@ const updateSchema = z.object({
   codReservationHours: z.coerce.number().int().min(1).optional(),
   bankReservationHours: z.coerce.number().int().min(1).optional(),
   taxEnabled: z.boolean().optional(),
-  themeAccentColor: z.string().max(30).optional(),
-  fontFamily: z.string().max(80).optional(),
-  contactFontFamily: z.string().max(80).optional(),
+  themeAccentColor: z.string().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/).or(z.literal("")).optional(),
+  fontFamily: z.string().regex(/^[a-zA-Z0-9\s\-',]+$/).max(80).or(z.literal("")).optional(),
+  contactFontFamily: z.string().regex(/^[a-zA-Z0-9\s\-',]+$/).max(80).or(z.literal("")).optional(),
 });
 
 /** Accepts the bare code or the whole <meta …> tag the search engine shows, and keeps only the code. */

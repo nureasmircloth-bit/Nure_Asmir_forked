@@ -11,11 +11,12 @@ export const metadata: Metadata = { title: "Search", robots: { index: false, fol
 /** Typo-tolerant search through Algolia, then mapped back onto the live catalogue so cards always show
  * current stock and prices. If Algolia's free allowance runs out (or it is unreachable) the built-in
  * MiniSearch engine answers instead – see lib/search/server.ts – so search never goes dark. */
-const SEARCH_LIMIT = 48;
+const SEARCH_DISPLAY_LIMIT = 48;
+const SEARCH_SCOPE_LIMIT = 200;
 
-/** Only the products that match are read from the database (never the whole catalogue): the engine's best ids first, otherwise a word match in the database. */
+/** Only the products that match are read from the database: the engine's best ids first, otherwise a word match in the database. */
 async function searchProducts(query: string): Promise<{ results: CatalogProduct[]; total: number }> {
-  const { ids } = await searchProductIds(query, SEARCH_LIMIT).catch(() => ({ ids: [] as string[] }));
+  const { ids } = await searchProductIds(query, SEARCH_SCOPE_LIMIT).catch(() => ({ ids: [] as string[] }));
   let ordered: CatalogProduct[] = [];
   if (ids.length) {
     const live = await getCatalogProducts({ ids });
@@ -23,10 +24,10 @@ async function searchProducts(query: string): Promise<{ results: CatalogProduct[
     ordered = ids.map((id) => byId.get(id)).filter((product): product is CatalogProduct => !!product);
     if (ordered.length === ids.length) return { results: ordered, total: ordered.length }; // every product the engine named is still live
   }
-  // The engine knew nothing, or some of what it named has been hidden since (its list can lag behind): fill up from the database.
-  const [more, total] = await Promise.all([getCatalogProducts({ search: query, limit: SEARCH_LIMIT }), countCatalogProducts({ search: query })]);
+  // The engine knew nothing, or some of what it named has been hidden since: fill up from the database.
+  const [more, total] = await Promise.all([getCatalogProducts({ search: query, limit: SEARCH_SCOPE_LIMIT }), countCatalogProducts({ search: query })]);
   const seen = new Set(ordered.map((product) => product.id));
-  const results = [...ordered, ...more.filter((product) => !seen.has(product.id))].slice(0, SEARCH_LIMIT);
+  const results = [...ordered, ...more.filter((product) => !seen.has(product.id))];
   return { results, total: Math.max(total, results.length) };
 }
 
@@ -52,6 +53,9 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   if (sort === "low") filtered = [...filtered].sort((a, b) => a.price - b.price);
   if (sort === "high") filtered = [...filtered].sort((a, b) => b.price - a.price);
 
+  const filteredTotal = filtered.length;
+  const displayed = filtered.slice(0, SEARCH_DISPLAY_LIMIT);
+
   return (
     <main className="page-fade-in">
       <section className="search-page">
@@ -59,8 +63,8 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
           <h1 className="page-title">{query ? `Results for “${query}”` : "Search"}</h1>
           <p className="result-count">
             {query
-              ? filtered.length !== total
-                ? `Showing ${filtered.length} products (filtered from ${total})`
+              ? filteredTotal !== total
+                ? `Showing ${displayed.length} of ${filteredTotal} products (filtered from ${total})`
                 : `${total} ${total === 1 ? "product" : "products"}`
               : "Use the search button to find a product."}
           </p>
@@ -120,14 +124,14 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
           </div>
         )}
 
-        {filtered.length > 0 && (
+        {displayed.length > 0 && (
           <div className="product-grid">
-            {filtered.map((product) => (
+            {displayed.map((product) => (
               <ProductCard key={product.slug} product={toCard(product)} />
             ))}
           </div>
         )}
-        {query && !filtered.length && (
+        {query && !displayed.length && (
           <div className="cart-empty">
             <h2>No match found.</h2>
             <p>Try clearing price filters or search for another keyword.</p>

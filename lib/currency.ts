@@ -64,12 +64,10 @@ export function formatPrice(amountPkr: number, currency: CurrencyCode, rates: Ra
   const buffered = amountPkr * rate * 1.02;
 
   // Smart ecommerce ceiling ending in .99 (e.g. 24.19 -> 24.67 -> 24.99)
-  const floorVal = Math.floor(buffered);
-  const target99 = floorVal + 0.99;
-  const finalValue = buffered <= target99 ? target99 : floorVal + 1.99;
+  const finalValue = Math.ceil(buffered - 0.99 - 1e-9) + 0.99;
 
-  // Format with period (.) separator for visual clarity across all international shoppers
-  const formattedNumber = finalValue.toFixed(2);
+  // Format with thousands grouping and period (.) separator for visual clarity
+  const formattedNumber = finalValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   switch (currency) {
     case "EUR":
       return `${formattedNumber} €`;

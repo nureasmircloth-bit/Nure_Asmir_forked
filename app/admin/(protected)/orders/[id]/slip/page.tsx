@@ -78,7 +78,7 @@ export default async function SlipPage({ params }: { params: Promise<{ id: strin
           <strong style={{ fontSize: 20, border: "2px solid #111", display: "inline-block", marginLeft: "auto", padding: "6px 12px" }}>{cod > 0 ? `Cash to collect: ${pkr(cod)}` : "PAID — nothing to collect"}</strong>
         </div>
         <footer style={{ marginTop: 22, color: "#555", fontSize: 13.5 }}>
-          Thank you for shopping with {BRAND.name}. Questions? WhatsApp {BRAND.contact.phone}. Changed your mind or something is wrong? Contact us within 7 days of delivery.
+          Thank you for shopping with {BRAND.name}. Questions? WhatsApp {BRAND.contact.whatsappPhone}. Changed your mind or something is wrong? Contact us within 7 days of delivery.
         </footer>
       </article>
     </>

@@ -12,6 +12,7 @@ export const SITE_IMAGE_SLOTS = [
     size: "about 1200 × 1500 pixels (portrait 4:5)",
     fallback: "/cdn/products/seed-noir-kameez-shalwar-with-waistcoat-1-w960.webp",
     aspect: "4 / 5",
+    isMobile: false,
   },
   {
     slot: "about_hero_mobile",
@@ -20,6 +21,7 @@ export const SITE_IMAGE_SLOTS = [
     size: "about 1080 × 1920 pixels (vertical 9:16)",
     fallback: "/cdn/products/seed-noir-kameez-shalwar-with-waistcoat-1-w960.webp",
     aspect: "9 / 16",
+    isMobile: true,
   },
   {
     slot: "share_image",
@@ -28,6 +30,7 @@ export const SITE_IMAGE_SLOTS = [
     size: "1200 × 630 pixels (wide)",
     fallback: "/og.jpg",
     aspect: "1200 / 630",
+    isMobile: false,
   },
 ] as const;
 export type SiteImageSlot = (typeof SITE_IMAGE_SLOTS)[number]["slot"];

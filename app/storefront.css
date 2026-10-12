@@ -204,8 +204,10 @@
 .shop-toolbar select { -webkit-appearance: none; appearance: none; margin-left: 8px; padding-right: 16px; border: 0; background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath fill='%23716b64' d='M1 1l5 5 5-5'/%3E%3C/svg%3E") right center / 9px no-repeat; color: var(--ink); font-size: 12px; outline: 0; cursor: pointer; }
 .result-count { margin: 22px 0 18px; color: var(--muted); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; }
 .in-cat-search-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin: 10px 0 18px; padding: 10px 14px; background: #fafaf9; border: 1px solid var(--line); border-radius: 12px; }
-.in-cat-search-wrap { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 220px; max-width: 480px; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 0 10px; height: 38px; }
+.in-cat-search-wrap { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 220px; max-width: 480px; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 0 10px; height: 38px; transition: border-color .15s ease, box-shadow .15s ease; }
+.in-cat-search-wrap:focus-within { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
 .in-cat-search-wrap input { flex: 1; border: 0; outline: 0; font-size: 13px; background: transparent; color: var(--ink); }
+.in-cat-search-wrap input:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .in-cat-search-wrap input::placeholder { color: #888; }
 .in-cat-search-clear { border: 0; background: transparent; font-size: 16px; color: #999; cursor: pointer; padding: 2px 6px; }
 .in-cat-price-pills { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
