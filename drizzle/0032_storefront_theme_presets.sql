@@ -1,4 +1,4 @@
-ALTER TABLE categories ADD COLUMN IF NOT EXISTS subcategories text;
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS subcategories text;--> statement-breakpoint
 ALTER TABLE site_settings 
 ADD COLUMN IF NOT EXISTS theme_accent_color text NOT NULL DEFAULT '#c5a059',
 ADD COLUMN IF NOT EXISTS theme_preset text NOT NULL DEFAULT 'signature',

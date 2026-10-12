@@ -27,8 +27,7 @@ async function main() {
     const statements = readFileSync(path.join("drizzle", `${tag}.sql`), "utf8")
       .replaceAll('"public".', '"practice".')
       .split("--> statement-breakpoint")
-      .map((statement) => statement.trim())
-      .filter(Boolean);
+      .flatMap((chunk) => chunk.split(/;\s*(?:\r?\n|$)/).map((statement) => statement.trim()).filter(Boolean));
     // one migration = one all-or-nothing step, recorded in the same step
     await sql.transaction([...statements.map((statement) => sql.query(statement)), sql.query(`insert into practice.__practice_migrations (tag) values ('${tag}')`)]);
     console.log(`applied ${tag}`);
