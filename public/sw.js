@@ -28,11 +28,36 @@ const TTLS = {
   image: 30 * 24 * 60 * 60 * 1000,
 };
 const MAX_ENTRIES = { [PAGE_CACHE]: 60, [IMAGE_CACHE]: 400, [STATIC_CACHE]: 200 };
-const NETWORK_TIMEOUT = 3500;
+const NETWORK_TIMEOUT = 8000;
 // A returning visitor who has a saved copy waits at most this long for the network (a slow or stalled lookup must not hold the page back),
 // then sees the saved copy; the fresh one is stored for next time.
-const SAVED_COPY_RACE = 1500;
+const SAVED_COPY_RACE = 4500;
 const QUIET_PAGE = /^\/(about|contact|faq|policies\/[a-z0-9-]+)\/?$/;
+
+const OFFLINE_HTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nure Asmir · Connection issue</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0b0f19; color: #f3f4f6; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; text-align: center; }
+    .box { max-width: 400px; width: 100%; background: #131b2e; border: 1px solid #1f293d; border-radius: 18px; padding: 36px 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    h1 { font-size: 20px; font-weight: 700; margin-bottom: 12px; color: #ffffff; }
+    p { font-size: 14.5px; color: #9ca3af; line-height: 1.5; margin-bottom: 24px; }
+    .btn { display: inline-block; background: #2B6B5E; color: #ffffff; border: 0; padding: 13px 32px; border-radius: 999px; font-weight: 600; font-size: 15px; cursor: pointer; text-decoration: none; -webkit-tap-highlight-color: transparent; }
+    .btn:active { transform: scale(0.97); opacity: 0.9; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h1>Connection issue</h1>
+    <p>We couldn’t reach the server. Please check your internet connection and try again.</p>
+    <button class="btn" onclick="window.location.reload()">Try again</button>
+  </div>
+</body>
+</html>`;
 
 const IS_ADMIN_HOST = self.location.hostname.startsWith("admin.");
 
@@ -171,7 +196,12 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       staleWhileRevalidate(event, request, PAGE_CACHE, QUIET_PAGE.test(url.pathname) ? TTLS.quietPage : TTLS.page, TTLS.pageMax, SAVED_COPY_RACE).catch(async () => {
         const cache = await caches.open(PAGE_CACHE);
-        return (await cache.match("/")) || new Response("You appear to be offline. Please reconnect and try again.", { status: 503, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+        const fallback = (await cache.match(request)) || (await cache.match("/")) || (await cache.match(self.location.origin));
+        if (fallback) return fallback;
+        return new Response(OFFLINE_HTML, {
+          status: 200,
+          headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
+        });
       }),
     );
   }
