@@ -6,6 +6,7 @@ import { BRAND } from "@/lib/brand";
 import { mediaUrl } from "@/lib/media-url";
 import { applySales, getActiveSales, getActiveSalesChecked } from "@/lib/sales";
 import { campaignSlides, categories, collections, productCollections, productImages, products, productVariants, siteSettings } from "@/db/schema";
+import { refreshStorefront } from "@/lib/storefront-cache";
 
 export type CatalogVariant = {
   id: string;
@@ -634,40 +635,45 @@ export async function getSalePricesByIds(ids: string[]): Promise<Record<string, 
  * hero banner (via heroImageUrl, falling back to imageUrl). Categories without an uploaded image
  * simply omit imageUrl/heroImageUrl; callers fall back to a static placeholder. */
 export async function getActiveCategories(): Promise<CategoryWithImage[]> {
-  const rows = await db
-    .select({
-      id: categories.id,
-      name: categories.name,
-      slug: categories.slug,
-      sortOrder: categories.sortOrder,
-      description: categories.description,
-      subcategories: categories.subcategories,
-      imageR2Key: categories.imageR2Key,
-      imageWidths: categories.imageVariantWidths,
-      blurDataUrl: categories.imageBlurDataUrl,
-      heroR2Key: categories.heroR2Key,
-      heroWidths: categories.heroVariantWidths,
-      heroBlurDataUrl: categories.heroBlurDataUrl,
-      updatedAt: categories.updatedAt,
-    })
-    .from(categories)
-    .where(eq(categories.status, "active"))
-    .orderBy(asc(categories.sortOrder), asc(categories.name));
+  try {
+    const rows = await db
+      .select({
+        id: categories.id,
+        name: categories.name,
+        slug: categories.slug,
+        sortOrder: categories.sortOrder,
+        description: categories.description,
+        subcategories: categories.subcategories,
+        imageR2Key: categories.imageR2Key,
+        imageWidths: categories.imageVariantWidths,
+        blurDataUrl: categories.imageBlurDataUrl,
+        heroR2Key: categories.heroR2Key,
+        heroWidths: categories.heroVariantWidths,
+        heroBlurDataUrl: categories.heroBlurDataUrl,
+        updatedAt: categories.updatedAt,
+      })
+      .from(categories)
+      .where(eq(categories.status, "active"))
+      .orderBy(asc(categories.sortOrder), asc(categories.name));
 
-  return rows.map((row) => ({
-    id: row.id,
-    name: row.name,
-    slug: row.slug,
-    sortOrder: row.sortOrder,
-    description: row.description ?? undefined,
-    subcategories: row.subcategories
-      ? row.subcategories.split(",").map((s) => s.trim()).filter(Boolean)
-      : undefined,
-    imageUrl: row.imageR2Key ? mediaUrl(row.imageR2Key, row.imageWidths) : undefined,
-    blurDataUrl: row.blurDataUrl ?? undefined,
-    heroImageUrl: row.heroR2Key ? mediaUrl(row.heroR2Key, row.heroWidths) : undefined,
-    heroBlurDataUrl: row.heroBlurDataUrl ?? undefined,
-  }));
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      sortOrder: row.sortOrder,
+      description: row.description ?? undefined,
+      subcategories: row.subcategories
+        ? row.subcategories.split(",").map((s) => s.trim()).filter(Boolean)
+        : undefined,
+      imageUrl: row.imageR2Key ? mediaUrl(row.imageR2Key, row.imageWidths) : undefined,
+      blurDataUrl: row.blurDataUrl ?? undefined,
+      heroImageUrl: row.heroR2Key ? mediaUrl(row.heroR2Key, row.heroWidths) : undefined,
+      heroBlurDataUrl: row.heroBlurDataUrl ?? undefined,
+    }));
+  } catch (err) {
+    console.warn("Failed to load active categories, using empty list:", err);
+    return [];
+  }
 }
 
 export type FeedVariant = {
@@ -770,12 +776,63 @@ export type PublicSettings = {
   bankReservationHours: number;
   refundWindowDays: number;
   themeAccentColor: string;
+  themePreset: string;
+  themeBackgroundColor: string;
+  themeTextColor: string;
+  themeSurfaceColor: string;
+  themeRadius: string;
   fontFamily: string;
+  bodyFontFamily: string;
   contactFontFamily: string;
 };
 
+/** Applies buffered settings when their 5-minute safety delay has passed, revalidating cache on change. */
+export async function applyDuePendingSettings(row?: typeof siteSettings.$inferSelect | null): Promise<typeof siteSettings.$inferSelect | null> {
+  let target = row;
+  if (!target) {
+    const [fetched] = await db.select().from(siteSettings).where(eq(siteSettings.id, "store")).limit(1);
+    target = fetched ?? null;
+  }
+  if (!target?.pendingApplyAt || !target.pendingChanges) {
+    return target ?? null;
+  }
+  const applyAtTime = new Date(target.pendingApplyAt).getTime();
+  if (applyAtTime > Date.now()) {
+    return target;
+  }
+  try {
+    const changes = JSON.parse(target.pendingChanges);
+    const [updated] = await db
+      .update(siteSettings)
+      .set({
+        ...changes,
+        pendingChanges: null,
+        pendingApplyAt: null,
+        previousSettings: null,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(siteSettings.id, "store"), eq(siteSettings.pendingApplyAt, target.pendingApplyAt)))
+      .returning();
+    if (updated) {
+      refreshStorefront(true);
+      return updated;
+    }
+  } catch (err) {
+    console.error("Failed to apply due pending settings:", err);
+  }
+  return target;
+}
+
 export const getPublicSettings = cache(async (): Promise<PublicSettings> => {
-  const [row] = await db.select().from(siteSettings).where(eq(siteSettings.id, "store")).limit(1);
+  let row: typeof siteSettings.$inferSelect | undefined;
+  try {
+    const rows = await db.select().from(siteSettings).where(eq(siteSettings.id, "store")).limit(1);
+    row = rows[0];
+    const updated = await applyDuePendingSettings(row);
+    if (updated) row = updated;
+  } catch (err) {
+    console.warn("Failed to fetch public settings from database, using defaults:", err);
+  }
   return {
     whatsappNumber: row?.whatsappNumber || process.env.WHATSAPP_DEFAULT_NUMBER || BRAND.contact.whatsappPhone,
     supportPhone: row?.supportPhone || BRAND.contact.phone,
@@ -802,7 +859,13 @@ export const getPublicSettings = cache(async (): Promise<PublicSettings> => {
     deliveryMode: row?.deliveryMode ?? "zones",
     flatDeliveryCharge: row?.flatDeliveryCharge ?? 250,
     themeAccentColor: row?.themeAccentColor || "#c5a059",
+    themePreset: row?.themePreset || "signature",
+    themeBackgroundColor: row?.themeBackgroundColor || "#ffffff",
+    themeTextColor: row?.themeTextColor || "#111111",
+    themeSurfaceColor: row?.themeSurfaceColor || "#faf9f6",
+    themeRadius: row?.themeRadius || "subtle",
     fontFamily: row?.fontFamily || "Cormorant Garamond",
+    bodyFontFamily: row?.bodyFontFamily || "Jost",
     contactFontFamily: row?.contactFontFamily || "Inter",
   };
 });

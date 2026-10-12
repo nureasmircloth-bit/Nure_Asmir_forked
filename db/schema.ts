@@ -494,8 +494,17 @@ export const siteSettings = pgTable("site_settings", {
   taxEnabled: boolean("tax_enabled").notNull().default(false),
   currency: text("currency").notNull().default("PKR"),
   themeAccentColor: text("theme_accent_color").notNull().default("#c5a059"),
+  themePreset: text("theme_preset").notNull().default("signature"),
+  themeBackgroundColor: text("theme_background_color").notNull().default("#ffffff"),
+  themeTextColor: text("theme_text_color").notNull().default("#111111"),
+  themeSurfaceColor: text("theme_surface_color").notNull().default("#faf9f6"),
+  themeRadius: text("theme_radius").notNull().default("subtle"),
   fontFamily: text("font_family").notNull().default("Cormorant Garamond"),
+  bodyFontFamily: text("body_font_family").notNull().default("Jost"),
   contactFontFamily: text("contact_font_family").notNull().default("Inter"),
+  pendingChanges: text("pending_changes"),
+  pendingApplyAt: timestamp("pending_apply_at", { withTimezone: true }),
+  previousSettings: text("previous_settings"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

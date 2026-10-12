@@ -106,7 +106,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   };
 
   return (
-    <html lang="en-PK" data-scroll-behavior="smooth" className={`${display.variable} ${sans.variable}`}>
+    <html lang="en-PK" data-scroll-behavior="smooth" suppressHydrationWarning className={`${display.variable} ${sans.variable}`}>
       <head>
         <script type="application/ld+json" nonce={nonce} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
         {settings.fontFamily && settings.fontFamily !== "Cormorant Garamond" && (
@@ -115,7 +115,13 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
             href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(settings.fontFamily.trim())}:wght@400;500;600;700&display=swap`}
           />
         )}
-        {settings.contactFontFamily && settings.contactFontFamily !== "system-ui" && (
+        {settings.bodyFontFamily && settings.bodyFontFamily !== "Jost" && settings.bodyFontFamily !== "system-ui" && (
+          <link
+            rel="stylesheet"
+            href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(settings.bodyFontFamily.trim())}:wght@300;400;500;600;700&display=swap`}
+          />
+        )}
+        {settings.contactFontFamily && settings.contactFontFamily !== "system-ui" && settings.contactFontFamily !== settings.fontFamily && settings.contactFontFamily !== settings.bodyFontFamily && (
           <link
             rel="stylesheet"
             href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(settings.contactFontFamily.trim())}:wght@400;500;600&display=swap`}
@@ -126,9 +132,27 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           dangerouslySetInnerHTML={{
             __html: `
               :root {
-                ${settings.themeAccentColor ? `--gold: ${settings.themeAccentColor}; --accent: ${settings.themeAccentColor};` : ""}
+                --paper: ${settings.themeBackgroundColor || "#ffffff"};
+                --ink: ${settings.themeTextColor || "#111111"};
+                --gold: ${settings.themeAccentColor || "#c5a059"};
+                --accent: ${settings.themeAccentColor || "#c5a059"};
+                --silk: ${settings.themeSurfaceColor || "#faf9f6"};
+                --ivory: ${settings.themeSurfaceColor || "#faf9f6"};
+                --line: color-mix(in srgb, ${settings.themeTextColor || "#111111"} 14%, transparent);
+                --muted: color-mix(in srgb, ${settings.themeTextColor || "#111111"} 55%, transparent);
+                --radius-theme: ${settings.themeRadius === "sharp" ? "0px" : settings.themeRadius === "rounded" ? "10px" : settings.themeRadius === "pill" ? "24px" : "4px"};
                 ${settings.fontFamily && settings.fontFamily !== "Cormorant Garamond" ? `--font-display: "${settings.fontFamily}", Georgia, serif; --display: "${settings.fontFamily}", Georgia, serif;` : ""}
+                ${settings.bodyFontFamily && settings.bodyFontFamily !== "Jost" ? `--font-sans: ${settings.bodyFontFamily === "system-ui" ? "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" : `"${settings.bodyFontFamily}", -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`}; --sans: ${settings.bodyFontFamily === "system-ui" ? "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" : `"${settings.bodyFontFamily}", -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`};` : ""}
                 ${settings.contactFontFamily ? `--contact-font: ${settings.contactFontFamily === "system-ui" ? "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" : `"${settings.contactFontFamily}", -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`};` : ""}
+              }
+              body {
+                background-color: var(--paper) !important;
+                color: var(--ink) !important;
+                font-family: var(--sans) !important;
+              }
+              .cart-page, .checkout-page, .track-page, .content-page, .story-page, .search-overlay, .fp, .size-guide {
+                background-color: var(--paper) !important;
+                color: var(--ink) !important;
               }
               .contact-page {
                 font-family: var(--contact-font, var(--sans));
@@ -142,7 +166,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           }}
         />
       </head>
-      <body>
+      <body suppressHydrationWarning>
         {children}
         <AnalyticsConsent metaPixelId={settings.metaPixelId} gaMeasurementId={settings.gaMeasurementId} nonce={nonce} />
       </body>

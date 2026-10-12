@@ -19,9 +19,9 @@ const Icons = {
     </svg>
   ),
   search: (
-    <svg width="25" height="25" viewBox="0 0 24 24" {...stroke} aria-hidden="true">
-      <circle cx="11" cy="11" r="7" />
-      <path d="M20 20l-3.5-3.5" />
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="11" cy="11" r="6.5" />
+      <path d="M15.8 15.8 20.5 20.5" />
     </svg>
   ),
   heart: (
@@ -59,7 +59,7 @@ export function MobileTabBar() {
 
   if (pathname.startsWith("/checkout")) return null;
   const on = (test: boolean) => (test ? { "aria-current": "page" as const } : {});
-  const count = (n: number) => (n > 0 ? <span className="tab-count">{n > 99 ? "99+" : n}</span> : null);
+  const count = (n: number) => (n > 0 ? <span className="tab-count" suppressHydrationWarning>{n > 99 ? "99+" : n}</span> : null);
 
   return (
     <nav className="tab-bar" aria-label="Quick links">
@@ -82,12 +82,12 @@ export function MobileTabBar() {
         </span>
         <span className="tab-search-label">Search</span>
       </button>
-      <Link href="/wishlist" {...on(pathname.startsWith("/wishlist"))} aria-label={`Saved, ${wishlist} items`}>
+      <Link href="/wishlist" {...on(pathname.startsWith("/wishlist"))} aria-label={`Saved, ${wishlist} items`} suppressHydrationWarning>
         {Icons.heart}
         <span>Saved</span>
         {count(wishlist)}
       </Link>
-      <Link href="/cart" {...on(pathname.startsWith("/cart"))} aria-label={`Bag, ${bag} items`}>
+      <Link href="/cart" {...on(pathname.startsWith("/cart"))} aria-label={`Bag, ${bag} items`} suppressHydrationWarning>
         {Icons.bag}
         <span>Bag</span>
         {count(bag)}

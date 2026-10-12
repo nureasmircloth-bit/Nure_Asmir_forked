@@ -15,6 +15,23 @@ export const metadata: Metadata = {
   alternates: { canonical: "/contact" },
 };
 
+function formatPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length === 12 && digits.startsWith("923")) {
+    return `+92 ${digits.slice(2, 5)} ${digits.slice(5)}`;
+  }
+  if (digits.length === 12 && digits.startsWith("9242")) {
+    return `+92 42 ${digits.slice(4)}`;
+  }
+  if (digits.length === 11 && digits.startsWith("03")) {
+    return `+92 ${digits.slice(1, 4)} ${digits.slice(4)}`;
+  }
+  if (digits.length === 11 && digits.startsWith("042")) {
+    return `+92 42 ${digits.slice(3)}`;
+  }
+  return phone;
+}
+
 export default async function ContactPage() {
   const [settings, locations] = await Promise.all([getPublicSettings(), getStoreLocations()]);
   const whatsapp = String(settings.whatsappNumber ?? "").replace(/\D/g, "");
@@ -37,74 +54,121 @@ export default async function ContactPage() {
           {locations.map((shop) => (
             <article key={shop.id}>
               <span>{locations.length > 1 ? shop.name : "Visit our shop"}</span>
-              <p>
-                {shop.address}
-                {shop.city ? `, ${shop.city}` : ""}
-              </p>
-              {shop.hours && <p>{shop.hours}</p>}
-              {shop.phone && <a href={`tel:${shop.phone.replace(/\s/g, "")}`}>{shop.phone}</a>}
-              {shop.latitude != null && shop.longitude != null && (
-                <a href={mapsLink(shop.latitude, shop.longitude)} target="_blank" rel="noreferrer noopener">
-                  Open in maps ↗︎
-                </a>
-              )}
+              <div className="contact-card-content">
+                <p>
+                  {shop.address}
+                  {shop.city ? `, ${shop.city}` : ""}
+                </p>
+                {shop.hours && <p style={{ color: "var(--muted)", fontSize: 13 }}>{shop.hours}</p>}
+                {shop.phone && (
+                  <a href={`tel:${shop.phone.replace(/\s/g, "")}`} className="contact-phone-link">
+                    {formatPhone(shop.phone)}
+                  </a>
+                )}
+                {shop.latitude != null && shop.longitude != null && (
+                  <a href={mapsLink(shop.latitude, shop.longitude)} target="_blank" rel="noreferrer noopener" className="contact-action-link">
+                    Open in maps ↗︎
+                  </a>
+                )}
+              </div>
             </article>
           ))}
           <article>
-            <span>WhatsApp Business</span>
-            {settings.whatsappChatUrl || whatsapp ? (
-              <a href={settings.whatsappChatUrl || `https://wa.me/${whatsapp}?text=${encodeURIComponent("Hello Nure Asmir, I would like some assistance.")}`} target="_blank" rel="noreferrer">
-                Start a conversation ↗︎
-              </a>
-            ) : (
-              <p>Coming soon.</p>
-            )}
+            <span>WhatsApp</span>
+            <div className="contact-card-content">
+              {settings.whatsappChatUrl || whatsapp ? (
+                <>
+                  {settings.whatsappNumber && (
+                    <a
+                      href={settings.whatsappChatUrl || `https://wa.me/${whatsapp}?text=${encodeURIComponent("Hello Nure Asmir, I would like some assistance.")}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="contact-phone-link"
+                    >
+                      {formatPhone(settings.whatsappNumber)}
+                    </a>
+                  )}
+                  <a
+                    href={settings.whatsappChatUrl || `https://wa.me/${whatsapp}?text=${encodeURIComponent("Hello Nure Asmir, I would like some assistance.")}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="contact-action-link"
+                  >
+                    Start a conversation ↗︎
+                  </a>
+                </>
+              ) : (
+                <p className="contact-muted-text">Coming soon.</p>
+              )}
+            </div>
+          </article>
+          <article>
+            <span>Direct Call</span>
+            <div className="contact-card-content">
+              {settings.supportPhone ? (
+                <a href={`tel:${settings.supportPhone.replace(/\s/g, "")}`} className="contact-phone-link">
+                  {formatPhone(settings.supportPhone)}
+                </a>
+              ) : (
+                <p className="contact-muted-text">Coming soon.</p>
+              )}
+            </div>
           </article>
           <article>
             <span>Email</span>
-            {settings.supportEmail ? <a href={`mailto:${settings.supportEmail}`}>{settings.supportEmail}</a> : <p>Coming soon.</p>}
-          </article>
-          <article>
-            <span>Direct Phone Call</span>
-            {settings.supportPhone ? (
-              <a href={`tel:${settings.supportPhone.replace(/\s/g, "")}`}>
-                {settings.supportPhone.replace(/\D/g, "") === "924236622241" ? "+92 42 36622241" : settings.supportPhone}
-              </a>
-            ) : <p>Coming soon.</p>}
+            <div className="contact-card-content">
+              {settings.supportEmail ? (
+                <a href={`mailto:${settings.supportEmail}`} className="contact-phone-link">
+                  {settings.supportEmail}
+                </a>
+              ) : (
+                <p className="contact-muted-text">Coming soon.</p>
+              )}
+            </div>
           </article>
           <article>
             <span>Instagram</span>
-            {settings.instagramUrl ? (
-              <a href={settings.instagramUrl} target="_blank" rel="noreferrer">
-                Visit Instagram ↗︎
-              </a>
-            ) : (
-              <p>Coming soon.</p>
-            )}
+            <div className="contact-card-content">
+              {settings.instagramUrl ? (
+                <a href={settings.instagramUrl} target="_blank" rel="noreferrer" className="contact-action-link">
+                  Visit Instagram ↗︎
+                </a>
+              ) : (
+                <p className="contact-muted-text">Coming soon.</p>
+              )}
+            </div>
           </article>
           <article>
             <span>Facebook</span>
-            {settings.facebookUrl ? (
-              <a href={settings.facebookUrl} target="_blank" rel="noreferrer">
-                Visit Facebook ↗︎
-              </a>
-            ) : (
-              <p>Coming soon.</p>
-            )}
+            <div className="contact-card-content">
+              {settings.facebookUrl ? (
+                <a href={settings.facebookUrl} target="_blank" rel="noreferrer" className="contact-action-link">
+                  Visit Facebook ↗︎
+                </a>
+              ) : (
+                <p className="contact-muted-text">Coming soon.</p>
+              )}
+            </div>
           </article>
           <article>
             <span>TikTok</span>
-            {settings.tiktokUrl ? (
-              <a href={settings.tiktokUrl} target="_blank" rel="noreferrer">
-                Visit TikTok ↗︎
-              </a>
-            ) : (
-              <p>Coming soon.</p>
-            )}
+            <div className="contact-card-content">
+              {settings.tiktokUrl ? (
+                <a href={settings.tiktokUrl} target="_blank" rel="noreferrer" className="contact-action-link">
+                  Visit TikTok ↗︎
+                </a>
+              ) : (
+                <p className="contact-muted-text">Coming soon.</p>
+              )}
+            </div>
           </article>
           <article>
-            <span>Existing order</span>
-            <Link href="/track-order">Track an order →︎</Link>
+            <span>Orders</span>
+            <div className="contact-card-content">
+              <Link href="/track-order" className="contact-action-link">
+                Track an order →︎
+              </Link>
+            </div>
           </article>
         </aside>
       </section>

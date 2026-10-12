@@ -23,8 +23,13 @@ export type PublicLocation = { id: string; name: string; address: string; city: 
 
 /** Shops shown on the website: active ones, main shop first. */
 export const getStoreLocations = cache(async (): Promise<PublicLocation[]> => {
-  const rows = await db.select().from(storeLocations).where(eq(storeLocations.active, true)).orderBy(asc(storeLocations.sortOrder), asc(storeLocations.createdAt));
-  return rows
-    .map((row) => ({ id: row.id, name: row.name, address: row.address, city: row.city, phone: row.phone, hours: row.hours, latitude: row.latitude, longitude: row.longitude, isMain: row.isMain }))
-    .sort((a, b) => Number(b.isMain) - Number(a.isMain));
+  try {
+    const rows = await db.select().from(storeLocations).where(eq(storeLocations.active, true)).orderBy(asc(storeLocations.sortOrder), asc(storeLocations.createdAt));
+    return rows
+      .map((row) => ({ id: row.id, name: row.name, address: row.address, city: row.city, phone: row.phone, hours: row.hours, latitude: row.latitude, longitude: row.longitude, isMain: row.isMain }))
+      .sort((a, b) => Number(b.isMain) - Number(a.isMain));
+  } catch (err) {
+    console.warn("Failed to fetch store locations, using empty list:", err);
+    return [];
+  }
 });

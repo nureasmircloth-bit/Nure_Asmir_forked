@@ -5,14 +5,33 @@ import { siteSettings } from "@/db/schema";
 import { BRAND } from "@/lib/brand";
 import { pushConfigured } from "@/lib/push/fcm";
 import { isTcsConfigured } from "@/lib/tcs";
+import { applyDuePendingSettings } from "@/lib/commerce";
 import { PageHeader } from "../../_ui/ui";
 import { SettingsForm, type SettingsValues, type SystemStatus } from "./settings-form";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Settings" };
 
-export default async function SettingsPage() {
-  const [row] = await db.select().from(siteSettings).where(eq(siteSettings.id, "store")).limit(1);
+async function loadSettingsData() {
+  let [row] = await db.select().from(siteSettings).where(eq(siteSettings.id, "store")).limit(1);
+  const applied = await applyDuePendingSettings(row);
+  if (applied) row = applied;
+
+  let initialPending: { changes: Partial<SettingsValues>; applyAt: string; remainingSeconds: number } | null = null;
+  if (row?.pendingApplyAt && row.pendingChanges) {
+    const applyAtTime = new Date(row.pendingApplyAt).getTime();
+    const now = Date.now();
+    if (applyAtTime > now) {
+      try {
+        initialPending = {
+          changes: JSON.parse(row.pendingChanges),
+          applyAt: new Date(row.pendingApplyAt).toISOString(),
+          remainingSeconds: Math.max(0, Math.ceil((applyAtTime - now) / 1000)),
+        };
+      } catch {}
+    }
+  }
+
   const values: SettingsValues = {
     brandName: row?.brandName ?? BRAND.name,
     supportPhone: row?.supportPhone || BRAND.contact.phone,
@@ -47,9 +66,16 @@ export default async function SettingsPage() {
     metaPixelId: row?.metaPixelId ?? "",
     gaMeasurementId: row?.gaMeasurementId ?? "",
     themeAccentColor: row?.themeAccentColor || "#c5a059",
+    themePreset: row?.themePreset || "signature",
+    themeBackgroundColor: row?.themeBackgroundColor || "#ffffff",
+    themeTextColor: row?.themeTextColor || "#111111",
+    themeSurfaceColor: row?.themeSurfaceColor || "#faf9f6",
+    themeRadius: row?.themeRadius || "subtle",
     fontFamily: row?.fontFamily || "Cormorant Garamond",
+    bodyFontFamily: row?.bodyFontFamily || "Jost",
     contactFontFamily: row?.contactFontFamily || "Inter",
   };
+
   const status: SystemStatus = {
     tcs: isTcsConfigured(),
     tcsLive: process.env.TCS_ENV === "production",
@@ -60,10 +86,17 @@ export default async function SettingsPage() {
     writer: groqKeys().length > 0,
     spamShield: Boolean(process.env.TURNSTILE_SECRET_KEY),
   };
+
+  return { values, initialPending, status };
+}
+
+export default async function SettingsPage() {
+  const { values, initialPending, status } = await loadSettingsData();
+
   return (
     <>
       <PageHeader title="Settings" intro="Your shop details, delivery, payments and connections. Change what you need and press Save at the bottom." />
-      <SettingsForm initial={values} status={status} />
+      <SettingsForm initial={values} status={status} initialPending={initialPending} />
     </>
   );
 }

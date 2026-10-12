@@ -71,6 +71,29 @@ export const LABS: Lab[] = [
       { text: { en: "Write an answer of at least a full sentence, and keep it switched on.", ur: "Kam az kam poori ek jumle ka jawab likhein aur isay on rakhein." }, href: "/admin/faqs" },
     ],
   },
+  {
+    id: "bulk-orders",
+    title: { en: "Place orders in bulk with Excel", ur: "Excel ke zariye aik sath orders place karein" },
+    goal: { en: "Download the bulk order Excel template, fill in customer orders, and place them with live stock reservation.", ur: "Bulk order Excel template download karein, customer orders bharein, aur live stock reservation ke sath place karein." },
+    minutes: 7,
+    steps: [
+      { text: { en: "Open Orders and click “Bulk orders” (or use Advanced tools → Import with Excel).", ur: "Orders kholein aur “Bulk orders” dabayein (ya Advanced tools → Import with Excel)." }, href: "/admin/orders/bulk" },
+      { text: { en: "Download the Excel template with active delivery zones and product SKUs.", ur: "Excel template download karein jis mein active delivery zones aur product SKUs hon." }, href: "/admin/orders/bulk" },
+      { text: { en: "Upload the completed spreadsheet, review the verified stock preview, and confirm order placement.", ur: "Mukammal spreadsheet upload karein, verified stock preview check karein, aur order placement confirm karein." }, href: "/admin/orders/bulk" },
+    ],
+  },
+  {
+    id: "settings-buffer",
+    title: { en: "Test the 5-minute settings safety buffer", ur: "Settings ka 5 minute safety buffer check karein" },
+    goal: { en: "Update a store setting and see the 5-minute safety countdown with instant 1-click revert.", ur: "Dukaan ki koi setting tabdeel karein aur 5-minute safety countdown aur 1-click revert dekhein." },
+    minutes: 5,
+    steps: [
+      { text: { en: "Open Settings and make a small change (like adjusting free delivery threshold or contact numbers).", ur: "Settings kholein aur koi choti tabdeeli karein (maslan free delivery threshold ya contact number)." }, href: "/admin/settings" },
+      { text: { en: "Save settings to start the 5-minute safety buffer countdown banner.", ur: "Settings save karein taake 5-minute safety buffer countdown banner shuru ho." }, href: "/admin/settings" },
+      { text: { en: "Use “Revert changes” to roll back instantly, or “Apply immediately” to push changes live.", ur: "“Revert changes” dabayein foran rollback ke liye, ya “Apply immediately” dabayein live karne ke liye." }, href: "/admin/settings" },
+    ],
+  },
 ];
 
 export const labById = (id: string): Lab | undefined => LABS.find((lab) => lab.id === id);
+

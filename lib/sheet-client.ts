@@ -5,6 +5,7 @@
 // owner opens the product screens (a quiet prefetch) or presses a button. That keeps the admin fast to open and the server code small.
 
 import { parseCsv, SHEET_COLUMNS } from "./product-sheet";
+import { ORDER_SHEET_COLUMNS } from "./order-sheet";
 import { EXCELJS_URL } from "./vendor";
 
 type ExcelJSLike = {
@@ -179,6 +180,85 @@ export async function downloadStockSheet(rows: StockExportRow[]) {
   saveFile(await wb.xlsx.writeBuffer(), `Nure-Asmir-stock-${new Date().toISOString().slice(0, 10)}.xlsx`, XLSX_TYPE);
 }
 
+/** The order placement sheet: instructions, fill-in sheet with sample rows and dropdowns, and live store reference data. */
+export async function downloadOrderTemplate(options: {
+  zones: Array<{ id: string; name: string; deliveryCharge: number }>;
+  variants: Array<{ sku: string; productName: string; variantName: string; price: number; available: number }>;
+}) {
+  const ExcelJS = await loadExcel();
+  const wb = new ExcelJS.Workbook();
+
+  // 1. Instructions
+  const guide = wb.addWorksheet("1 - How to fill");
+  guide.columns = [{ width: 4 }, { width: 100 }];
+  const lines: Array<[string, boolean?]> = [
+    ["How to place orders in bulk with Excel", true],
+    ["1.  Open the sheet called “2 - Orders”.", false],
+    ["2.  Type ONE ROW FOR EACH ITEM. If an order has multiple items, use the same Order # (e.g. 1, 1) or repeat the customer details.", false],
+    ["3.  Columns with a * are required: Customer Name, Phone, City, Province, Address, Delivery Zone, Payment Method, Product SKU, and Quantity.", false],
+    ["4.  Delivery Zone: Pick from your store's active zones (see sheet “3 - Reference Data”).", false],
+    ["5.  Payment Method: Type “cod” (Cash on Delivery) or “bank_deposit”.", false],
+    ["6.  Payment Status: “pending” (default) or “paid” (if customer has already transferred to your bank account).", false],
+    ["7.  Product SKU: Use the exact SKU codes listed in “3 - Reference Data”. Check available stock before placing.", false],
+    ["8.  Delivery Charge: Leave empty to automatically calculate using your store's shipping rules, or enter PKR amount.", false],
+    ["9.  Upload: Save this file and upload it in Admin → Orders → Bulk orders.", false],
+    ["", false],
+    ["Using Google Sheets? Open this file in Google Sheets (File → Import), fill it in, then File → Download → Microsoft Excel (.xlsx).", false],
+  ];
+  lines.forEach(([text, bold], index) => {
+    const cell = guide.getCell(`B${index + 1}`);
+    cell.value = text;
+    cell.alignment = { wrapText: true, vertical: "top" };
+    cell.font = bold ? { bold: true, size: 16, color: { argb: GREEN } } : { size: 12 };
+  });
+
+  // 2. Orders Sheet
+  const ws = wb.addWorksheet("2 - Orders");
+  ws.columns = ORDER_SHEET_COLUMNS.map((col) => ({ width: col.width }));
+  ORDER_SHEET_COLUMNS.forEach((col, index) => {
+    const cell = ws.getRow(1).getCell(index + 1);
+    cell.value = col.label;
+    cell.note = col.help;
+  });
+  styleHeader(ws, ORDER_SHEET_COLUMNS.length);
+
+  const primaryZone = options.zones[0]?.name ?? "Lahore";
+  const sku1 = options.variants[0]?.sku ?? "SKU-001";
+  const sku2 = options.variants[1]?.sku ?? "SKU-002";
+
+  const SAMPLE_ORDERS: unknown[][] = [
+    [1, "Ayesha Khan", "03001234567", "ayesha@example.com", "Lahore", "Punjab", "House 12, Street 4, DHA Phase 5", primaryZone, "cod", "pending", "", "", sku1, 1, "Call before delivery"],
+    [2, "Bilal Ahmed", "03331234567", "", "Karachi", "Sindh", "Flat 7, Block B, Clifton", primaryZone, "bank_deposit", "paid", 0, 100, sku1, 1, "Fragile packing"],
+    [2, "Bilal Ahmed", "03331234567", "", "Karachi", "Sindh", "Flat 7, Block B, Clifton", primaryZone, "bank_deposit", "paid", 0, 100, sku2, 2, ""],
+  ];
+  SAMPLE_ORDERS.forEach((row) => ws.addRow(row));
+
+  // 3. Reference Data
+  const ref = wb.addWorksheet("3 - Reference Data");
+  ref.columns = [{ width: 24 }, { width: 18 }, { width: 30 }, { width: 16 }, { width: 18 }, { width: 12 }, { width: 12 }];
+  ref.getRow(1).values = ["Allowed Zones", "Provinces", "Sellable Product", "Variant / Size", "Product SKU", "Price (PKR)", "In Stock"];
+  styleHeader(ref, 7);
+
+  const PROVINCES = ["Punjab", "Sindh", "Khyber Pakhtunkhwa", "Balochistan", "Islamabad Capital Territory", "Gilgit-Baltistan", "Azad Jammu and Kashmir"];
+  const maxRows = Math.max(options.zones.length, PROVINCES.length, options.variants.length);
+  for (let i = 0; i < maxRows; i++) {
+    const z = options.zones[i];
+    const p = PROVINCES[i];
+    const v = options.variants[i];
+    ref.addRow([
+      z ? z.name : "",
+      p ?? "",
+      v ? v.productName : "",
+      v ? v.variantName : "",
+      v ? v.sku : "",
+      v ? v.price : "",
+      v ? v.available : "",
+    ]);
+  }
+
+  saveFile(await wb.xlsx.writeBuffer(), "Nure-Asmir-orders-bulk-template.xlsx", XLSX_TYPE);
+}
+
 function cellText(value: unknown): unknown {
   if (value && typeof value === "object") {
     const v = value as { text?: string; richText?: Array<{ text: string }>; result?: unknown; hyperlink?: string };
@@ -190,14 +270,16 @@ function cellText(value: unknown): unknown {
   return value;
 }
 
-/** Reads the first sheet that looks like a product/stock sheet, from an .xlsx or .csv file. */
+/** Reads the first sheet that looks like a product/stock/orders sheet, from an .xlsx or .csv file. */
 export async function readSheetFile(file: File): Promise<unknown[][]> {
   if (/\.csv$/i.test(file.name) || file.type === "text/csv") return parseCsv(await file.text());
   if (!/\.xlsx$/i.test(file.name)) throw new Error("Please choose an Excel file (.xlsx) or a .csv file. Old .xls files: open them in Excel and use Save As → Excel Workbook.");
   const ExcelJS = await loadExcel();
   const wb = new ExcelJS.Workbook();
-  await wb.xlsx.load(await file.arrayBuffer());
-  const wanted = wb.worksheets.find((sheet) => /your products|products|stock/i.test(String((sheet as unknown as { name?: string }).name ?? ""))) ?? wb.worksheets.find((sheet) => (sheet as unknown as { name?: string }).name !== "Lists") ?? wb.worksheets[0];
+  const isInstruction = (name: string) => /instructions|how to fill|lists|reference|guide|readme/i.test(name);
+  const eligible = wb.worksheets.filter((sheet) => !isInstruction(String((sheet as unknown as { name?: string }).name ?? "")));
+  const pool = eligible.length > 0 ? eligible : wb.worksheets;
+  const wanted = pool.find((sheet) => /your products|products|stock|orders|order/i.test(String((sheet as unknown as { name?: string }).name ?? ""))) ?? pool[0] ?? wb.worksheets[0];
   const table: unknown[][] = [];
   wanted.eachRow({ includeEmpty: false }, (row, index) => {
     const values = (row.values as unknown[]).slice(1).map(cellText);
@@ -206,3 +288,4 @@ export async function readSheetFile(file: File): Promise<unknown[][]> {
   for (let i = 0; i < table.length; i++) table[i] ??= [];
   return table;
 }
+
