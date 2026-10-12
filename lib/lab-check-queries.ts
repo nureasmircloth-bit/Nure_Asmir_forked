@@ -43,7 +43,7 @@ export const LAB_CHECKS: Record<string, string[]> = {
   "bulk-orders": [
     `select exists (select 1 from delivery_zones where active = true) as ok`,
     `select exists (select 1 from orders o where ${madeByTrainee("orders", "o")}) as ok`,
-    `select count(*) >= 2 from orders o where ${madeByTrainee("orders", "o")} and o.order_status in ('confirmed', 'processing', 'packed', 'shipped') as ok`,
+    `select exists (select 1 from orders o where ${madeByTrainee("orders", "o")} and o.order_status in ('confirmed', 'processing', 'packed', 'shipped') offset 1) as ok`,
   ],
   "settings-buffer": [
     `select exists (select 1 from site_settings s where s.id = 'store') as ok`,

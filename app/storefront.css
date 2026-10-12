@@ -328,12 +328,16 @@
   .filter-tabs button { padding: 14px 0; }
   .filter-tabs button.active::after { bottom: 0; }
   .shop-controls { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 14px 0 12px; border-bottom: 1px solid var(--line); gap: 14px; }
-  .filter-btn { display: inline-flex; align-items: center; gap: 8px; height: 38px; min-height: 38px; padding: 0 16px; border: 1px solid var(--line); border-radius: 999px; background: var(--paper, #fff); color: var(--ink); font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; box-shadow: 0 1px 4px rgba(0,0,0,0.04); cursor: pointer; transition: all .15s ease; }
-  .filter-btn:hover, .filter-btn:active { border-color: var(--ink); background: var(--ink); color: #fff; }
+  .filter-btn { display: inline-flex; align-items: center; gap: 8px; height: 44px; min-height: 44px; padding: 0 18px; border: 1px solid var(--line); border-radius: 999px; background: var(--paper, #fff); color: var(--ink); font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; box-shadow: 0 1px 4px rgba(0,0,0,0.04); cursor: pointer; transition: all .15s ease; }
+  .filter-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  @media (hover: hover) {
+    .filter-btn:hover { border-color: var(--ink); background: var(--ink); color: #fff; }
+  }
+  .filter-btn:active { border-color: var(--ink); background: var(--ink); color: #fff; }
   .sort-label { display: flex; align-items: center; }
   .sort-label > span { display: none; }
   .shop-toolbar .ts { min-width: 155px; }
-  .shop-toolbar .ts-trigger { height: 38px; min-height: 38px; border-radius: 999px; padding: 0 14px; border: 1px solid var(--line); background: var(--paper, #fff); box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+  .shop-toolbar .ts-trigger { height: 44px; min-height: 44px; border-radius: 999px; padding: 0 16px; border: 1px solid var(--line); background: var(--paper, #fff); box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
   .cart-toast { left: 12px; right: 12px; bottom: 70px; width: auto; }
   .float-whatsapp { width: 46px; height: 46px; }
   .edge-left, .edge-right { bottom: 12px; --edge-gap: 12px; }
@@ -364,11 +368,11 @@
 .contact-page h1 { font: 500 clamp(32px, 4.4vw, 56px)/1.05 var(--display); }
 .contact-card-content { display: flex; flex-direction: column; gap: 6px; }
 .contact-card-content p { margin: 0; font-size: 15px; line-height: 1.5; color: var(--ink); }
-.contact-phone-link { font-size: 16px !important; font-weight: 500; font-family: var(--sans) !important; color: var(--ink); text-decoration: none; letter-spacing: .02em; }
+.contact-phone-link { font-size: 16px; font-weight: 500; font-family: var(--sans); color: var(--ink); text-decoration: none; letter-spacing: .02em; }
 .contact-phone-link:hover { color: var(--gold); text-decoration: underline; }
-.contact-action-link { display: inline-flex; align-items: center; gap: 4px; font-size: 14px !important; font-family: var(--sans) !important; font-weight: 500; color: var(--ink); text-decoration: none; margin-top: 4px; }
+.contact-action-link { display: inline-flex; align-items: center; gap: 4px; font-size: 14px; font-family: var(--sans); font-weight: 500; color: var(--ink); text-decoration: none; margin-top: 4px; }
 .contact-action-link:hover { color: var(--gold); text-decoration: underline; }
-.contact-muted-text { color: var(--muted) !important; font-size: 14px; margin: 0; }
+.contact-muted-text { color: var(--muted); font-size: 14px; margin: 0; }
 .cart-empty h2 { font: 500 clamp(26px, 3vw, 36px)/1.1 var(--display); }
 @media (max-width: 900px) {
   .story-page { grid-template-columns: 1fr; }
@@ -652,7 +656,7 @@
   .tab-search-label { font-size: 10px; font-weight: 500; color: #6b6b6b; letter-spacing: .04em; line-height: 1; }
   .tab-count { position: absolute; top: 6px; left: calc(50% + 6px); min-width: 18px; height: 18px; padding: 0 5px; display: grid; place-items: center; border-radius: 999px; background: #b3261e; color: #fff; font-size: 11px; font-weight: 600; line-height: 1; }
   /* keep content, widgets and messages clear of the bar */
-  body:has(.tab-bar) { padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
+  body:has(.tab-bar) { padding-bottom: calc(74px + env(safe-area-inset-bottom)); }
   html { scroll-padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
   .edge-left, .edge-right { bottom: calc(72px + env(safe-area-inset-bottom)); }
   .cart-toast { bottom: calc(136px + env(safe-area-inset-bottom)); }

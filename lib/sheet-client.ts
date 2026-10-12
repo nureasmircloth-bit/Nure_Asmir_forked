@@ -276,8 +276,10 @@ export async function readSheetFile(file: File): Promise<unknown[][]> {
   if (!/\.xlsx$/i.test(file.name)) throw new Error("Please choose an Excel file (.xlsx) or a .csv file. Old .xls files: open them in Excel and use Save As → Excel Workbook.");
   const ExcelJS = await loadExcel();
   const wb = new ExcelJS.Workbook();
-  await wb.xlsx.load(await file.arrayBuffer());
-  const wanted = wb.worksheets.find((sheet) => /your products|products|stock|orders|order/i.test(String((sheet as unknown as { name?: string }).name ?? ""))) ?? wb.worksheets.find((sheet) => !/instructions|how to fill|lists|reference/i.test(String((sheet as unknown as { name?: string }).name ?? ""))) ?? wb.worksheets[0];
+  const isInstruction = (name: string) => /instructions|how to fill|lists|reference|guide|readme/i.test(name);
+  const eligible = wb.worksheets.filter((sheet) => !isInstruction(String((sheet as unknown as { name?: string }).name ?? "")));
+  const pool = eligible.length > 0 ? eligible : wb.worksheets;
+  const wanted = pool.find((sheet) => /your products|products|stock|orders|order/i.test(String((sheet as unknown as { name?: string }).name ?? ""))) ?? pool[0] ?? wb.worksheets[0];
   const table: unknown[][] = [];
   wanted.eachRow({ includeEmpty: false }, (row, index) => {
     const values = (row.values as unknown[]).slice(1).map(cellText);

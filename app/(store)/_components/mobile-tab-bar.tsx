@@ -59,7 +59,7 @@ export function MobileTabBar() {
 
   if (pathname.startsWith("/checkout")) return null;
   const on = (test: boolean) => (test ? { "aria-current": "page" as const } : {});
-  const count = (n: number) => (n > 0 ? <span className="tab-count">{n > 99 ? "99+" : n}</span> : null);
+  const count = (n: number) => (n > 0 ? <span className="tab-count" suppressHydrationWarning>{n > 99 ? "99+" : n}</span> : null);
 
   return (
     <nav className="tab-bar" aria-label="Quick links">
@@ -82,12 +82,12 @@ export function MobileTabBar() {
         </span>
         <span className="tab-search-label">Search</span>
       </button>
-      <Link href="/wishlist" {...on(pathname.startsWith("/wishlist"))} aria-label={`Saved, ${wishlist} items`}>
+      <Link href="/wishlist" {...on(pathname.startsWith("/wishlist"))} aria-label={`Saved, ${wishlist} items`} suppressHydrationWarning>
         {Icons.heart}
         <span>Saved</span>
         {count(wishlist)}
       </Link>
-      <Link href="/cart" {...on(pathname.startsWith("/cart"))} aria-label={`Bag, ${bag} items`}>
+      <Link href="/cart" {...on(pathname.startsWith("/cart"))} aria-label={`Bag, ${bag} items`} suppressHydrationWarning>
         {Icons.bag}
         <span>Bag</span>
         {count(bag)}

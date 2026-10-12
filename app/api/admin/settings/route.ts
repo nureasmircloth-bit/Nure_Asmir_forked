@@ -1,11 +1,12 @@
 import { parseLines } from "@/lib/shop-rules";
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { siteSettings } from "@/db/schema";
 import { getAdminUser } from "@/lib/auth/admin-auth";
 import { cleanPhone } from "@/lib/slug";
 import { auditLogEntry } from "@/lib/admin/audit";
+import { applyDuePendingSettings } from "@/lib/commerce";
 
 export const dynamic = "force-dynamic";
 
@@ -80,30 +81,14 @@ export async function GET() {
   if (!admin) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   let [row] = await db.select().from(siteSettings).where(eq(siteSettings.id, "store")).limit(1);
-  let pending: { changes: Record<string, unknown>; applyAt: string; remainingSeconds: number } | null = null;
+  const updated = await applyDuePendingSettings(row);
+  if (updated) row = updated;
 
+  let pending: { changes: Record<string, unknown>; applyAt: string; remainingSeconds: number } | null = null;
   if (row?.pendingApplyAt && row.pendingChanges) {
     const applyAtTime = new Date(row.pendingApplyAt).getTime();
     const now = Date.now();
-    if (applyAtTime <= now) {
-      try {
-        const changes = JSON.parse(row.pendingChanges);
-        const [updated] = await db
-          .update(siteSettings)
-          .set({
-            ...changes,
-            pendingChanges: null,
-            pendingApplyAt: null,
-            previousSettings: null,
-            updatedAt: new Date(),
-          })
-          .where(eq(siteSettings.id, "store"))
-          .returning();
-        if (updated) row = updated;
-      } catch {
-        // ignore parse error
-      }
-    } else {
+    if (applyAtTime > now) {
       try {
         pending = {
           changes: JSON.parse(row.pendingChanges),
@@ -128,7 +113,7 @@ export async function PATCH(request: Request) {
   // Action 1: Revert pending changes
   if (raw?.action === "revert") {
     const [row] = await db.select().from(siteSettings).where(eq(siteSettings.id, "store")).limit(1);
-    if (!row?.pendingChanges) {
+    if (!row?.pendingChanges || !row.pendingApplyAt) {
       return Response.json({ message: "No pending changes to revert.", settings: row ?? null, pending: null });
     }
     const [updated] = await db
@@ -139,8 +124,11 @@ export async function PATCH(request: Request) {
         previousSettings: null,
         updatedAt: new Date(),
       })
-      .where(eq(siteSettings.id, "store"))
+      .where(and(eq(siteSettings.id, "store"), eq(siteSettings.pendingApplyAt, row.pendingApplyAt)))
       .returning();
+    if (!updated) {
+      return Response.json({ error: "Pending settings changed concurrently." }, { status: 409 });
+    }
     await auditLogEntry({ actorEmail: admin.email, action: "settings.revert", entityType: "site-settings", entityId: "store", detail: { reverted: true } });
     return Response.json({ settings: updated, pending: null, reverted: true });
   }
@@ -148,7 +136,7 @@ export async function PATCH(request: Request) {
   // Action 2: Apply pending changes immediately
   if (raw?.action === "apply-now") {
     const [row] = await db.select().from(siteSettings).where(eq(siteSettings.id, "store")).limit(1);
-    if (!row?.pendingChanges) {
+    if (!row?.pendingChanges || !row.pendingApplyAt) {
       return Response.json({ message: "No pending changes to apply.", settings: row ?? null, pending: null });
     }
     const changes = JSON.parse(row.pendingChanges);
@@ -161,8 +149,11 @@ export async function PATCH(request: Request) {
         previousSettings: null,
         updatedAt: new Date(),
       })
-      .where(eq(siteSettings.id, "store"))
+      .where(and(eq(siteSettings.id, "store"), eq(siteSettings.pendingApplyAt, row.pendingApplyAt)))
       .returning();
+    if (!updated) {
+      return Response.json({ error: "Pending settings changed concurrently." }, { status: 409 });
+    }
     await auditLogEntry({ actorEmail: admin.email, action: "settings.apply-immediate", entityType: "site-settings", entityId: "store", detail: changes });
     return Response.json({ settings: updated, pending: null, applied: true });
   }
@@ -242,7 +233,14 @@ export async function PATCH(request: Request) {
   const bufferMs = 5 * 60 * 1000;
   const applyAt = new Date(Date.now() + bufferMs);
   const pendingData = JSON.stringify(values);
-  const previousData = currentRow ? JSON.stringify(currentRow) : null;
+  let previousData: string | null = null;
+  if (currentRow) {
+    const cleanCurrent = { ...currentRow };
+    delete (cleanCurrent as { previousSettings?: string | null }).previousSettings;
+    delete (cleanCurrent as { pendingChanges?: string | null }).pendingChanges;
+    delete (cleanCurrent as { pendingApplyAt?: Date | null }).pendingApplyAt;
+    previousData = JSON.stringify(cleanCurrent);
+  }
 
   const [row] = await db
     .insert(siteSettings)

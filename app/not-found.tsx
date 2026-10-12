@@ -23,7 +23,7 @@ export default function NotFound() {
               minHeight: 48,
               padding: "0 28px",
               background: "var(--ink, #111111)",
-              color: "#ffffff",
+              color: "var(--paper, #ffffff)",
               fontSize: 12,
               fontWeight: 600,
               letterSpacing: ".12em",

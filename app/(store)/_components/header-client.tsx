@@ -135,15 +135,15 @@ export function HeaderClient({
           <Image src="/brand/wordmark-v2.png" alt="Nure Asmir" width={969} height={155} priority unoptimized />
         </Link>
         <div className="hdr-side hdr-right">
-          <Link href="/wishlist" className="icon-btn" aria-label={`Wishlist, ${wishlistCount} saved`}>
+          <Link href="/wishlist" className="icon-btn" aria-label={`Wishlist, ${wishlistCount} saved`} suppressHydrationWarning>
             {Icon.heart}
-            <span className="cart-count" data-empty={wishlistCount === 0}>
+            <span className="cart-count" data-empty={wishlistCount === 0} suppressHydrationWarning>
               {wishlistCount}
             </span>
           </Link>
-          <Link href="/cart" className={`icon-btn${bump ? " is-bumped" : ""}`} aria-label={`Bag, ${bagCount} items`}>
+          <Link href="/cart" className={`icon-btn${bump ? " is-bumped" : ""}`} aria-label={`Bag, ${bagCount} items`} suppressHydrationWarning>
             {Icon.bag}
-            <span className="cart-count" data-empty={bagCount === 0}>
+            <span className="cart-count" data-empty={bagCount === 0} suppressHydrationWarning>
               {bagCount}
             </span>
           </Link>

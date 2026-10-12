@@ -13,9 +13,9 @@ const securityHeaders = [
 
 // Identifies this build to the service worker (/sw.js?v=…) so every deploy swaps cached pages/chunks.
 const BUILD_ID = (
+  process.env.VERCEL_DEPLOYMENT_ID ||
   process.env.VERCEL_GIT_COMMIT_SHA ||
   process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ||
-  process.env.VERCEL_DEPLOYMENT_ID ||
   process.env.GITHUB_SHA ||
   process.env.CF_PAGES_COMMIT_SHA ||
   Date.now().toString(36)

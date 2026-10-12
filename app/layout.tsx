@@ -106,7 +106,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   };
 
   return (
-    <html lang="en-PK" data-scroll-behavior="smooth" className={`${display.variable} ${sans.variable}`}>
+    <html lang="en-PK" data-scroll-behavior="smooth" suppressHydrationWarning className={`${display.variable} ${sans.variable}`}>
       <head>
         <script type="application/ld+json" nonce={nonce} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
         {settings.fontFamily && settings.fontFamily !== "Cormorant Garamond" && (
@@ -166,7 +166,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           }}
         />
       </head>
-      <body>
+      <body suppressHydrationWarning>
         {children}
         <AnalyticsConsent metaPixelId={settings.metaPixelId} gaMeasurementId={settings.gaMeasurementId} nonce={nonce} />
       </body>

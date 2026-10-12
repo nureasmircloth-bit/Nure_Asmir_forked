@@ -6,6 +6,7 @@ import { BRAND } from "@/lib/brand";
 import { mediaUrl } from "@/lib/media-url";
 import { applySales, getActiveSales, getActiveSalesChecked } from "@/lib/sales";
 import { campaignSlides, categories, collections, productCollections, productImages, products, productVariants, siteSettings } from "@/db/schema";
+import { refreshStorefront } from "@/lib/storefront-cache";
 
 export type CatalogVariant = {
   id: string;
@@ -780,25 +781,47 @@ export type PublicSettings = {
   contactFontFamily: string;
 };
 
+/** Applies buffered settings when their 5-minute safety delay has passed, revalidating cache on change. */
+export async function applyDuePendingSettings(row?: typeof siteSettings.$inferSelect | null): Promise<typeof siteSettings.$inferSelect | null> {
+  let target = row;
+  if (!target) {
+    const [fetched] = await db.select().from(siteSettings).where(eq(siteSettings.id, "store")).limit(1);
+    target = fetched ?? null;
+  }
+  if (!target?.pendingApplyAt || !target.pendingChanges) {
+    return target ?? null;
+  }
+  const applyAtTime = new Date(target.pendingApplyAt).getTime();
+  if (applyAtTime > Date.now()) {
+    return target;
+  }
+  try {
+    const changes = JSON.parse(target.pendingChanges);
+    const [updated] = await db
+      .update(siteSettings)
+      .set({
+        ...changes,
+        pendingChanges: null,
+        pendingApplyAt: null,
+        previousSettings: null,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(siteSettings.id, "store"), eq(siteSettings.pendingApplyAt, target.pendingApplyAt)))
+      .returning();
+    if (updated) {
+      refreshStorefront(true);
+      return updated;
+    }
+  } catch (err) {
+    console.error("Failed to apply due pending settings:", err);
+  }
+  return target;
+}
+
 export const getPublicSettings = cache(async (): Promise<PublicSettings> => {
   let [row] = await db.select().from(siteSettings).where(eq(siteSettings.id, "store")).limit(1);
-  if (row?.pendingApplyAt && new Date(row.pendingApplyAt).getTime() <= Date.now() && row.pendingChanges) {
-    try {
-      const changes = JSON.parse(row.pendingChanges);
-      const [updated] = await db
-        .update(siteSettings)
-        .set({
-          ...changes,
-          pendingChanges: null,
-          pendingApplyAt: null,
-          previousSettings: null,
-          updatedAt: new Date(),
-        })
-        .where(eq(siteSettings.id, "store"))
-        .returning();
-      if (updated) row = updated;
-    } catch {}
-  }
+  const updated = await applyDuePendingSettings(row);
+  if (updated) row = updated;
   return {
     whatsappNumber: row?.whatsappNumber || process.env.WHATSAPP_DEFAULT_NUMBER || BRAND.contact.whatsappPhone,
     supportPhone: row?.supportPhone || BRAND.contact.phone,

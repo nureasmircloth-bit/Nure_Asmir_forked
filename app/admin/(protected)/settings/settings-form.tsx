@@ -96,21 +96,20 @@ export function SettingsForm({ initial, status, initialPending }: { initial: Set
   const [countdown, setCountdown] = useState<number>(initialPending?.remainingSeconds ?? 0);
 
   useEffect(() => {
-    if (!pending || countdown <= 0) return;
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          setPending(null);
-          toast("Buffered settings changes have taken effect on your live storefront.", "good");
-          router.refresh();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    if (!pending) return;
+    const updateCountdown = () => {
+      const remaining = Math.max(0, Math.ceil((new Date(pending.applyAt).getTime() - Date.now()) / 1000));
+      setCountdown(remaining);
+      if (remaining <= 0) {
+        setPending(null);
+        toast("Buffered settings changes have taken effect on your live storefront.", "good");
+        router.refresh();
+      }
+    };
+    updateCountdown();
+    const timer = setInterval(updateCountdown, 1000);
     return () => clearInterval(timer);
-  }, [pending, countdown, router, toast]);
+  }, [pending, router, toast]);
 
   const set = (key: keyof SettingsValues) => (event: { target: { value: string } }) => {
     setForm((current) => ({ ...current, [key]: typeof initial[key] === "number" ? Number(event.target.value.replace(/\D/g, "")) : event.target.value }));

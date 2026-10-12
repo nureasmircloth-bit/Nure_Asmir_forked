@@ -217,7 +217,6 @@ export function BulkOrderPlacer() {
                   <Icon name="download" size={16} />
                   {downloading.pending ? "Generating Excel…" : "Download Excel template (.xlsx)"}
                 </button>
-                {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
                 <a className="a-btn a-btn-quiet" href="/api/admin/orders/place/template" download="order_place_template.json">
                   JSON template
                 </a>

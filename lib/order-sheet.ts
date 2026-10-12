@@ -87,10 +87,21 @@ export function parseOrderTable(table: unknown[][]): ParsedOrderSheet {
   const colIndexMap: Record<string, number> = {};
 
   ORDER_SHEET_COLUMNS.forEach((col) => {
-    const foundIdx = headerRow.findIndex((cell) => {
+    // 1st pass: exact normalized match
+    let foundIdx = headerRow.findIndex((cell) => {
       const n = norm(cell);
-      return col.aliases.some((alias) => n === norm(alias) || n.includes(norm(alias)));
+      return col.aliases.some((alias) => n === norm(alias));
     });
+    // 2nd pass: unambiguous substring match if no exact match (min length 4)
+    if (foundIdx === -1) {
+      foundIdx = headerRow.findIndex((cell) => {
+        const n = norm(cell);
+        return col.aliases.some((alias) => {
+          const na = norm(alias);
+          return na.length >= 4 && n.includes(na);
+        });
+      });
+    }
     if (foundIdx !== -1) {
       colIndexMap[col.key] = foundIdx;
     }
@@ -139,6 +150,7 @@ export function parseOrderTable(table: unknown[][]): ParsedOrderSheet {
   };
 
   const orders: DraftOrder[] = [];
+  const ordersByGroup = new Map<string, DraftOrder>();
   let currentOrder: DraftOrder | null = null;
   let autoGroupCounter = 1;
 
@@ -160,14 +172,33 @@ export function parseOrderTable(table: unknown[][]): ParsedOrderSheet {
       continue;
     }
 
-    const quantity = qtyVal && qtyVal > 0 ? qtyVal : 1;
+    if (qtyVal === null || qtyVal <= 0 || !Number.isInteger(qtyVal)) {
+      problems.push({ row: rowNum, message: "Quantity must be an entered positive whole number (e.g. 1, 2, 3)." });
+      continue;
+    }
+    const quantity = qtyVal;
 
-    // Check if this row belongs to the current order or starts a new order
+    // Check if this row belongs to an existing group across all previous rows
+    if (groupVal && ordersByGroup.has(groupVal)) {
+      const existing = ordersByGroup.get(groupVal)!;
+      if (name && existing.input.customerName && norm(name) !== norm(existing.input.customerName)) {
+        problems.push({ row: rowNum, message: `Conflicting customer name for Order #${groupVal}: "${name}" does not match existing "${existing.input.customerName}".` });
+        continue;
+      }
+      if (phone && existing.input.customerPhone && norm(phone) !== norm(existing.input.customerPhone)) {
+        problems.push({ row: rowNum, message: `Conflicting customer phone for Order #${groupVal}: "${phone}" does not match existing "${existing.input.customerPhone}".` });
+        continue;
+      }
+      existing.input.items.push({ sku, quantity });
+      currentOrder = existing;
+      continue;
+    }
+
+    // Check if this row belongs to current order without group key
     const isContinuationOfCurrent =
       Boolean(currentOrder) &&
-      ((groupVal && groupVal === currentOrder?.groupKey) ||
-        (!groupVal && !name && !phone && currentOrder) ||
-        (!groupVal && name === currentOrder?.input.customerName && phone === currentOrder?.input.customerPhone));
+      !groupVal &&
+      ((!name && !phone) || (name === currentOrder?.input.customerName && phone === currentOrder?.input.customerPhone));
 
     if (isContinuationOfCurrent && currentOrder) {
       currentOrder.input.items.push({ sku, quantity });
@@ -184,10 +215,25 @@ export function parseOrderTable(table: unknown[][]): ParsedOrderSheet {
     if (!address) problems.push({ row: rowNum, message: "Missing Address." });
 
     const zone = getCell(row, "zone");
-    const rawMethod = getCell(row, "paymentMethod").toLowerCase();
-    const paymentMethod: "cod" | "bank_deposit" = rawMethod.includes("bank") || rawMethod.includes("deposit") || rawMethod.includes("transfer") ? "bank_deposit" : "cod";
-    const rawStatus = getCell(row, "paymentStatus").toLowerCase();
-    const paymentStatus: "pending" | "paid" | undefined = rawStatus.includes("paid") || rawStatus.includes("received") ? "paid" : "pending";
+    const rawMethod = getCell(row, "paymentMethod").toLowerCase().trim();
+    let paymentMethod: "cod" | "bank_deposit" = "cod";
+    if (!rawMethod || rawMethod === "cod" || rawMethod.includes("cash on delivery")) {
+      paymentMethod = "cod";
+    } else if (rawMethod.includes("bank") || rawMethod.includes("deposit") || rawMethod.includes("transfer") || rawMethod === "ibft") {
+      paymentMethod = "bank_deposit";
+    } else {
+      problems.push({ row: rowNum, message: `Unrecognized payment method "${rawMethod}". Use "cod" or "bank_deposit".` });
+    }
+
+    const rawStatus = getCell(row, "paymentStatus").toLowerCase().trim();
+    let paymentStatus: "pending" | "paid" = "pending";
+    if (!rawStatus || rawStatus === "pending" || rawStatus === "unpaid") {
+      paymentStatus = "pending";
+    } else if (rawStatus === "paid" || rawStatus === "received") {
+      paymentStatus = "paid";
+    } else {
+      problems.push({ row: rowNum, message: `Unrecognized payment status "${rawStatus}". Use "pending" or "paid".` });
+    }
 
     const deliveryCharge = getNumber(row, "deliveryCharge");
     const discount = getNumber(row, "discount");
@@ -217,6 +263,7 @@ export function parseOrderTable(table: unknown[][]): ParsedOrderSheet {
     };
 
     orders.push(newOrder);
+    if (groupVal) ordersByGroup.set(groupVal, newOrder);
     currentOrder = newOrder;
   }
 

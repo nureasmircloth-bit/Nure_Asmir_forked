@@ -218,6 +218,20 @@
       "when": 1791696227245,
       "tag": "0030_db_tuning",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1791788400000,
+      "tag": "0031_settings_buffer",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1791802800000,
+      "tag": "0032_storefront_theme_presets",
+      "breakpoints": true
     }
   ]
 }
