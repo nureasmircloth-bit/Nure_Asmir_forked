@@ -71,9 +71,16 @@ export function MobileTabBar() {
         {Icons.shop}
         <span>Shop</span>
       </Link>
-      <button type="button" onClick={() => window.dispatchEvent(new Event("na-open-search"))}>
-        {Icons.search}
-        <span>Search</span>
+      <button
+        type="button"
+        className="tab-search-btn"
+        onClick={() => window.dispatchEvent(new Event("na-open-search"))}
+        aria-label="Search all products"
+      >
+        <span className="tab-search-bubble" aria-hidden="true">
+          {Icons.search}
+        </span>
+        <span className="tab-search-label">Search</span>
       </button>
       <Link href="/wishlist" {...on(pathname.startsWith("/wishlist"))} aria-label={`Saved, ${wishlist} items`}>
         {Icons.heart}

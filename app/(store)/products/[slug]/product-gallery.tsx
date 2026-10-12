@@ -8,6 +8,7 @@ import type { CatalogImage } from "@/lib/commerce";
 import { Portal } from "../../_components/portal";
 import { cdnSrcForWidth, isCdnUrl } from "@/lib/media-url";
 import { track as trackEvent } from "@/lib/analytics";
+import { saveDataMode, waitUntil } from "@/lib/wait-until";
 
 /** The sharpest version of a photo (for zooming); an address that is not one of ours is used as it is. */
 const sharpest = (url: string) => (isCdnUrl(url) ? cdnSrcForWidth(url, 1600) : url);
@@ -69,17 +70,37 @@ export function ProductGallery({ name, images, fallback }: { name: string; image
 
   // Only the photo on show and its neighbours are loaded, so a phone does not download the whole set up front.
   const [seen, setSeen] = useState<ReadonlySet<number>>(new Set([0, 1]));
-  const show = useCallback((to: number) => {
-    setDirection(to >= index ? 1 : -1);
+  const loaded = useRef<Set<number>>(new Set([0])); // which photos have really arrived (the first is already on the page)
+  const [waiting, setWaiting] = useState(false); // an arrow or thumbnail was tapped and its photo is still arriving: the arrows pulse
+  const currentRequest = useRef(0);
+  // Slides to a photo once it has arrived (at most ~1 s of waiting): sliding to a photo that is still downloading shows an empty frame.
+  const show = useCallback(async (to: number, moveDirection?: 1 | -1) => {
+    const id = ++currentRequest.current;
+    setSeen((before) => {
+      const next = new Set(before);
+      next.add(to);
+      if (!saveDataMode()) {
+        if (to > 0) next.add(to - 1);
+        if (to + 1 < gallery.length) next.add(to + 1);
+      }
+      return next;
+    });
+    const needsWait = !loaded.current.has(to);
+    setWaiting(needsWait);
+    if (needsWait) {
+      await waitUntil(() => loaded.current.has(to), 2500);
+      if (currentRequest.current !== id) return;
+      setWaiting(false);
+    }
+    if (currentRequest.current !== id) return;
+    setDirection(moveDirection ?? (to >= index ? 1 : -1));
     setActive(to);
     trackEvent("gallery_photo_changed", { to: to + 1 });
-    setSeen((before) => new Set([...before, to - 1, to, to + 1]));
-  }, [index]);
+  }, [index, gallery.length]);
   const go = useCallback((next: number) => show(Math.max(0, Math.min(last, next))), [show, last]);
   /** Used by the full-size viewer, where the photos wrap round. */
   const stepLoop = useCallback((delta: number) => {
-    show((index + delta + gallery.length) % gallery.length);
-    setDirection(delta > 0 ? 1 : -1);
+    show((index + delta + gallery.length) % gallery.length, delta > 0 ? 1 : -1);
   }, [show, index, gallery.length]);
 
   const drag = useSlideDrag(track, gallery.length, index, go);
@@ -140,6 +161,18 @@ export function ProductGallery({ name, images, fallback }: { name: string; image
                   alt={image.altText}
                   fill
                   priority={position === 0}
+                  loading={position === 0 ? undefined : "eager"}
+                  className={position === 0 ? undefined : "slide-late"}
+                  ref={(element) => {
+                    if (position > 0 && element?.complete && element.naturalWidth) {
+                      element.dataset.ready = "1";
+                      loaded.current.add(position);
+                    }
+                  }}
+                  onLoad={(event) => {
+                    event.currentTarget.dataset.ready = "1";
+                    loaded.current.add(position);
+                  }}
                   sizes="(max-width: 900px) 100vw, 52vw"
                   {...(image.blurDataUrl ? { placeholder: "blur" as const, blurDataURL: image.blurDataUrl } : {})}
                 />
@@ -153,10 +186,10 @@ export function ProductGallery({ name, images, fallback }: { name: string; image
             <span>
               {String(index + 1).padStart(2, "0")} / {String(gallery.length).padStart(2, "0")}
             </span>
-            <button type="button" className="slide-arrow prev" aria-label="Previous photo" disabled={index === 0} onClick={(event) => { event.stopPropagation(); go(index - 1); }}>
+            <button type="button" className="slide-arrow prev" aria-label="Previous photo" disabled={index === 0} data-busy={waiting || undefined} onClick={(event) => { event.stopPropagation(); go(index - 1); }}>
               <Chevron left />
             </button>
-            <button type="button" className="slide-arrow next" aria-label="Next photo" disabled={index === last} onClick={(event) => { event.stopPropagation(); go(index + 1); }}>
+            <button type="button" className="slide-arrow next" aria-label="Next photo" disabled={index === last} data-busy={waiting || undefined} onClick={(event) => { event.stopPropagation(); go(index + 1); }}>
               <Chevron />
             </button>
             <div className="slide-dots" aria-hidden="true">

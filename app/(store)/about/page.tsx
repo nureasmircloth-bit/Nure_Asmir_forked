@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import { StoryBody } from "@/components/story-body";
 import { DEFAULT_ABOUT_BODY, DEFAULT_ABOUT_HEADING } from "@/lib/about-content";
 import { getPublicSettings } from "@/lib/commerce";
@@ -18,6 +17,8 @@ export const metadata: Metadata = {
 export default async function AboutPage() {
   const [images, settings] = await Promise.all([getSiteImages(), getPublicSettings()]);
   const photo = images.about_hero;
+  const photoMobile = images.about_hero_mobile;
+  const fallbackUrl = "/cdn/products/seed-noir-kameez-shalwar-with-waistcoat-1-w960.webp";
   const heading = settings.aboutHeading.trim() || DEFAULT_ABOUT_HEADING;
   const body = settings.aboutBody.trim() || DEFAULT_ABOUT_BODY;
   return (
@@ -25,7 +26,17 @@ export default async function AboutPage() {
       <div className="crumb-bar"><Breadcrumbs trail={[{ name: "Our story" }]} path="/about" pageType="AboutPage" /></div>
       <section className="story-page">
         <div className="story-image">
-          <Image src={photo?.url ?? "/og.jpg"} alt={photo?.alt || "Nure Asmir men's wear"} fill priority sizes="50vw" {...(photo?.blurDataUrl ? { placeholder: "blur" as const, blurDataURL: photo.blurDataUrl } : {})} />
+          <picture style={{ width: "100%", height: "100%", display: "block", position: "relative" }}>
+            {photoMobile?.url ? (
+              <source media="(max-width: 640px)" srcSet={photoMobile.url} />
+            ) : null}
+            <img
+              src={photo?.url ?? fallbackUrl}
+              alt={photo?.alt || photoMobile?.alt || "Nure Asmir men's wear"}
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              loading="eager"
+            />
+          </picture>
         </div>
         <article>
           <p className="eyebrow">Our story</p>

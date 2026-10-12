@@ -57,7 +57,7 @@ async function cf(method: string, path: string, body?: unknown): Promise<unknown
   const json = (await response.json()) as { success: boolean; errors?: Array<{ code: number; message: string }>; result?: unknown };
   if (!json.success) {
     console.error(`  ✗ ${response.status}`, JSON.stringify(json.errors));
-    return null;
+    throw new Error(`Cloudflare API request failed: ${method} ${path} (${response.status}): ${JSON.stringify(json.errors)}`);
   }
   console.log("  ✓");
   return json.result ?? null;
@@ -70,7 +70,10 @@ const replaceExisting = process.argv.includes("--replace-existing");
 async function existingRules(name: string): Promise<number> {
   if (!token) return 0;
   const response = await fetch(`${API}/zones/${zone}/rulesets/phases/${name}/entrypoint`, { headers: { Authorization: `Bearer ${token}` } });
-  if (!response.ok) return 0; // 404 = no ruleset yet
+  if (response.status === 404) return 0; // no ruleset yet
+  if (!response.ok) {
+    throw new Error(`Cloudflare API request failed while reading phase ${name} (${response.status})`);
+  }
   const json = (await response.json()) as { result?: { rules?: Array<{ description?: string }> } };
   const rules = json.result?.rules ?? [];
   if (rules.length) console.log(`  ! phase ${name} already has ${rules.length} rule(s): ${rules.map((r) => r.description ?? "(unnamed)").join("; ")}`);
@@ -99,15 +102,16 @@ async function main() {
   await setting("security_header", {
     strict_transport_security: { enabled: true, max_age: 63072000, include_subdomains: false, preload: false, nosniff: true },
   });
-  await setting("http3", "on");
+  await setting("http3", "off");
   await setting("brotli", "on");
-  await setting("early_hints", "on");
-  await setting("ipv6", "on");
+  await setting("early_hints", "off");
+  await setting("ipv6", "off");
 
-  // 2. Bots / browser checks
-  await cf("PUT", `/zones/${zone}/bot_management`, { fight_mode: true });
-  await setting("browser_check", "on");
-  await setting("security_level", "medium");
+  // 2. Bots / browser checks — kept off/low on the public storefront to prevent challenging
+  // real customers on shared residential CGNAT IPs or mobile in-app webviews (Instagram, WhatsApp).
+  await cf("PUT", `/zones/${zone}/bot_management`, { fight_mode: false });
+  await setting("browser_check", "off");
+  await setting("security_level", "essentially_off");
   await setting("challenge_ttl", 1800);
 
   // 3. Custom WAF rules

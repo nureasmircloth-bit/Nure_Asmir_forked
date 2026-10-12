@@ -92,7 +92,7 @@ export default async function PicturesPage() {
       <h2 style={{ fontSize: 18, margin: "24px 0 12px" }}>Other pictures</h2>
       <div className="a-grid a-grid-2">
         {SITE_IMAGE_SLOTS.map((slot) => (
-          <SiteImageSlot key={slot.slot} slot={slot.slot} label={slot.label} help={slot.help} size={slot.size} aspect={slot.aspect} fallback={slot.fallback} current={overrides[slot.slot] ? { url: overrides[slot.slot].url, version: overrides[slot.slot].updatedAt } : null} />
+          <SiteImageSlot key={slot.slot} slot={slot.slot} label={slot.label} help={slot.help} size={slot.size} aspect={slot.aspect} fallback={slot.fallback} isMobile={slot.isMobile} current={overrides[slot.slot] ? { url: overrides[slot.slot].url, version: overrides[slot.slot].updatedAt } : null} />
         ))}
       </div>
     </>

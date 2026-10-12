@@ -15,6 +15,7 @@ const updateSchema = z.object({
   name: z.string().min(1).optional(),
   slug: z.string().optional(),
   description: z.string().optional(),
+  subcategories: z.string().optional(),
   status: z.enum(["active", "inactive"]).optional(),
   sortOrder: z.coerce.number().int().optional(),
 });
@@ -38,6 +39,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         ...(data.name !== undefined ? { name: data.name } : {}),
         ...(nextSlug !== undefined ? { slug: nextSlug } : {}),
         ...(data.description !== undefined ? { description: data.description || null } : {}),
+        ...(data.subcategories !== undefined ? { subcategories: data.subcategories || null } : {}),
         ...(data.status !== undefined ? { status: data.status } : {}),
         ...(data.sortOrder !== undefined ? { sortOrder: data.sortOrder } : {}),
         updatedAt: new Date(),

@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { isOrderTab, listOrders, orderTabCounts, ORDER_TABS } from "@/lib/admin/orders-query";
-import { HelpBox } from "../../_ui/client";
 import { Icon } from "../../_ui/icons";
 import { EmptyState, PageHeader, Pager, Tabs } from "../../_ui/ui";
 import { OrdersTable } from "./orders-table";
+
+import { OrdersAdvancedTools } from "./orders-advanced-tools";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Orders" };
@@ -24,32 +25,14 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
         title="Orders"
         intro="Every order from your website, from the moment it arrives until it reaches the customer."
         actions={
-          <>
-            {/* a file download, not a page: a plain link is right */}
-            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-            <a className="a-btn" href="/api/admin/orders/export?days=30" title="Download the last 30 days of orders as a spreadsheet (opens in Excel or Google Sheets)">
-              <Icon name="download" /> Download as spreadsheet
-            </a>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <OrdersAdvancedTools />
             <Link className="a-btn a-btn-primary" href="/admin/orders/new">
               <Icon name="plus" /> New order
             </Link>
-          </>
+          </div>
         }
       />
-
-      <HelpBox id="orders">
-        <ol>
-          <li>
-            <strong>Needs you</strong> shows new orders. Call or WhatsApp the customer, then press <strong>Confirm</strong>.
-          </li>
-          <li>
-            <strong>To pack &amp; send</strong> shows confirmed orders. Pack them, then press <strong>Book TCS</strong> to get a tracking number. Tick several orders to book them all at once.
-          </li>
-          <li>
-            Once TCS collects a parcel it moves to <strong>With TCS</strong>. From then on the order <strong>cannot be cancelled</strong>. Until then you can cancel it any time.
-          </li>
-        </ol>
-      </HelpBox>
 
       <Tabs
         items={ORDER_TABS.map((item) => ({

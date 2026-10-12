@@ -41,12 +41,7 @@ jobs:
       - name: Unit tests
         run: npx playwright test --project=unit
 
-      # Static generation reads the catalogue, so the production builds need a database. Forks and
-      # fresh repos without the secret skip them instead of failing.
-      - name: Production build – storefront
+      # Production build – verifies Next.js compilation, type-checking and static generation
+      - name: Production build – Next.js (Vercel)
         if: ${{ env.DATABASE_URL != '' }}
-        run: npm run cf:build:store
-
-      - name: Production build – admin
-        if: ${{ env.DATABASE_URL != '' }}
-        run: npm run cf:build:admin
+        run: npm run build

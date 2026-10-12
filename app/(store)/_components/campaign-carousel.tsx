@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CampaignSlide } from "@/lib/commerce";
 import { buildSrcSet } from "@/lib/images";
 import { cdnSrcForWidth, isCdnUrl } from "@/lib/media-url";
@@ -26,6 +26,8 @@ export function CampaignCarousel({ slides }: { slides: CampaignSlide[] }) {
   const items = slides.length ? slides : [fallback];
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
+  const touchStart = useRef<{ x: number; y: number; time: number } | null>(null);
+  const quietUntil = useRef(0);
 
   useEffect(() => {
     if (items.length < 2 || paused) return;
@@ -35,6 +37,43 @@ export function CampaignCarousel({ slides }: { slides: CampaignSlide[] }) {
 
   const go = (delta: number) => setActive((index) => (index + delta + items.length) % items.length);
 
+  const onTouchStart = (event: React.TouchEvent) => {
+    if (items.length < 2) return;
+    if (event.touches.length !== 1) {
+      touchStart.current = null;
+      return;
+    }
+    setPaused(true);
+    const touch = event.touches[0];
+    touchStart.current = { x: touch.clientX, y: touch.clientY, time: performance.now() };
+  };
+
+  const onTouchEnd = (event: React.TouchEvent) => {
+    setPaused(false);
+    const start = touchStart.current;
+    touchStart.current = null;
+    if (!start) return;
+
+    const touch = event.changedTouches[0];
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    const dt = performance.now() - start.time;
+
+    const isHorizontal = Math.abs(dx) > Math.abs(dy) * 1.25;
+    const isFlick = dt < 350 && Math.abs(dx) > 30;
+    const isDrag = Math.abs(dx) > 60;
+
+    if (isHorizontal && (isFlick || isDrag)) {
+      quietUntil.current = performance.now() + 350;
+      go(dx < 0 ? 1 : -1);
+    }
+  };
+
+  const onTouchCancel = () => {
+    touchStart.current = null;
+    setPaused(false);
+  };
+
   return (
     <section
       className="banner"
@@ -42,6 +81,15 @@ export function CampaignCarousel({ slides }: { slides: CampaignSlide[] }) {
       aria-label="Featured campaigns"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+      onTouchCancel={onTouchCancel}
+      onClickCapture={(event) => {
+        if (performance.now() < quietUntil.current) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }}
     >
       <div className="banner-track">
         {items.map((item, index) => {

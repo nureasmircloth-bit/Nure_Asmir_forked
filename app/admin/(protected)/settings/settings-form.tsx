@@ -43,6 +43,9 @@ export type SettingsValues = {
   bingSiteVerification: string;
   metaPixelId: string;
   gaMeasurementId: string;
+  themeAccentColor: string;
+  fontFamily: string;
+  contactFontFamily: string;
 };
 export type SystemStatus = { tcs: boolean; tcsLive: boolean; push: boolean; search: boolean; email: boolean; whatsapp: boolean; writer: boolean; spamShield: boolean };
 
@@ -153,13 +156,139 @@ export function SettingsForm({ initial, status }: { initial: SettingsValues; sta
 
       <Section id="contact" title="Your shop and how customers reach you" intro="These appear in the footer, on the Contact page and in emails.">
         {text("brandName", "Shop name")}
-        {text("supportPhone", "Phone number", { placeholder: "+92 311 6111963", hint: "Customers can tap this number to call you." })}
+        {text("supportPhone", "Phone number (Direct calling)", { placeholder: "+92 42 36622241", hint: "Official support phone shown on Contact page and footer. (Default: +92 42 36622241)" })}
         {text("whatsappNumber", "WhatsApp number", { hint: "The number for the green WhatsApp button on your website.", placeholder: "+92 311 6111963" })}
         {text("whatsappChatUrl", "WhatsApp chat link (optional)", { hint: "A link that opens a chat with you, like wa.me/message/… from WhatsApp Business. If empty, we use your WhatsApp number.", placeholder: "https://wa.me/message/…" })}
         {text("supportEmail", "Email address", { type: "email", placeholder: "hello@nureasmir.com" })}
         {text("instagramUrl", "Instagram page", { placeholder: "https://www.instagram.com/yourname" })}
         {text("facebookUrl", "Facebook page", { placeholder: "https://www.facebook.com/yourpage" })}
         {text("tiktokUrl", "TikTok page", { placeholder: "https://www.tiktok.com/@yourname" })}
+      </Section>
+
+      <Section id="appearance" title="Storefront theme & typography" intro="Personalize your brand accent colour and typography. Updates are immediately reflected across the website.">
+        <div className="a-field wide">
+          <label htmlFor="s-themeAccentColor">
+            Theme accent colour <Hint text="The signature highlight colour used for buttons, badges, sale tags and active tabs." />
+          </label>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, marginTop: 4 }}>
+            {[
+              { name: "Nure Gold (Signature)", color: "#c5a059" },
+              { name: "Royal Emerald", color: "#1b4332" },
+              { name: "Regal Navy", color: "#1a2b49" },
+              { name: "Classic Noir", color: "#18181b" },
+              { name: "Burgundy", color: "#6b1d2f" },
+            ].map((preset) => (
+              <button
+                key={preset.color}
+                type="button"
+                onClick={() => setValue("themeAccentColor", preset.color)}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "6px 12px",
+                  borderRadius: 20,
+                  border: form.themeAccentColor.toLowerCase() === preset.color.toLowerCase() ? "2px solid var(--ink)" : "1px solid var(--line)",
+                  background: form.themeAccentColor.toLowerCase() === preset.color.toLowerCase() ? "var(--sunk)" : "var(--bg)",
+                  cursor: "pointer",
+                  fontSize: 12,
+                  fontWeight: form.themeAccentColor.toLowerCase() === preset.color.toLowerCase() ? 600 : 400,
+                }}
+              >
+                <span style={{ width: 14, height: 14, borderRadius: "50%", background: preset.color, display: "inline-block", border: "1px solid rgba(0,0,0,0.15)" }} />
+                {preset.name}
+              </button>
+            ))}
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginLeft: "auto" }}>
+              <input
+                type="color"
+                value={form.themeAccentColor.startsWith("#") ? form.themeAccentColor : "#c5a059"}
+                onChange={(e) => setValue("themeAccentColor", e.target.value)}
+                style={{ width: 34, height: 34, padding: 0, border: "1px solid var(--line)", borderRadius: 8, cursor: "pointer", background: "transparent" }}
+                title="Custom color picker"
+              />
+              <input
+                id="s-themeAccentColor"
+                type="text"
+                value={form.themeAccentColor}
+                onChange={set("themeAccentColor")}
+                placeholder="#c5a059"
+                style={{ width: 100, fontSize: 13, textTransform: "lowercase", fontFamily: "monospace" }}
+              />
+            </div>
+          </div>
+          <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 12, color: "var(--ink-light)" }}>Accent button preview:</span>
+            <span style={{ background: form.themeAccentColor, color: "#fff", padding: "4px 14px", borderRadius: 20, fontSize: 11, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase" }}>
+              Shop New Arrivals
+            </span>
+          </div>
+        </div>
+
+        <div className="a-field">
+          <label htmlFor="s-fontFamily">
+            Brand display font (Headings) <Hint text="Used for large brand titles, category headings and luxury quotes. Select a preset or type any Google Font." />
+          </label>
+          <select
+            id="s-fontFamily"
+            value={["Cormorant Garamond", "Playfair Display", "Inter", "Outfit", "Plus Jakarta Sans", "Montserrat", "Cinzel", "Prata"].includes(form.fontFamily) ? form.fontFamily : "custom"}
+            onChange={(e) => {
+              if (e.target.value !== "custom") {
+                setValue("fontFamily", e.target.value);
+              }
+            }}
+          >
+            <option value="Cormorant Garamond">Cormorant Garamond (Classic Luxury Serif — Default)</option>
+            <option value="Playfair Display">Playfair Display (High-Fashion Editorial)</option>
+            <option value="Inter">Inter (Ultra-Clean Modern Sans)</option>
+            <option value="Outfit">Outfit (Minimalist Geometric Sans)</option>
+            <option value="Plus Jakarta Sans">Plus Jakarta Sans (Contemporary Premium Sans)</option>
+            <option value="Montserrat">Montserrat (Clean Architectural Sans)</option>
+            <option value="Cinzel">Cinzel (Royal Roman Serif)</option>
+            <option value="Prata">Prata (Refined Didone Serif)</option>
+            <option value="custom">Custom Google Font…</option>
+          </select>
+          {!["Cormorant Garamond", "Playfair Display", "Inter", "Outfit", "Plus Jakarta Sans", "Montserrat", "Cinzel", "Prata"].includes(form.fontFamily) && (
+            <input
+              type="text"
+              value={form.fontFamily}
+              onChange={set("fontFamily")}
+              placeholder="e.g. Bodoni Moda, Lora, Marcellus"
+              style={{ marginTop: 8 }}
+            />
+          )}
+          <span className="a-help">Custom fonts automatically load from Google Fonts servers.</span>
+        </div>
+
+        <div className="a-field">
+          <label htmlFor="s-contactFontFamily">
+            Contact page font <Hint text="Typography used for customer care information and contact details." />
+          </label>
+          <select
+            id="s-contactFontFamily"
+            value={form.contactFontFamily}
+            onChange={(e) => setValue("contactFontFamily", e.target.value)}
+          >
+            <option value="Inter">Inter (Simple & ultra-crisp sans-serif — Recommended)</option>
+            <option value="Outfit">Outfit (Clean, modern geometry)</option>
+            <option value="system-ui">System native (Fastest, matches device font)</option>
+            <option value="Cormorant Garamond">Cormorant Garamond (Match luxury serif)</option>
+          </select>
+          <span className="a-help">Simple, clean sans-serif ensures phone numbers and addresses are crystal clear.</span>
+        </div>
+
+        {form.fontFamily && (
+          <div className="wide" style={{ border: "1px solid var(--line)", borderRadius: 10, padding: 14, background: "var(--sunk)" }}>
+            <p style={{ margin: "0 0 6px", fontSize: 11, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--ink-light)" }}>Live font preview:</p>
+            <link rel="stylesheet" href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(form.fontFamily)}:wght@400;500;600;700&display=swap`} />
+            <h3 style={{ fontFamily: `"${form.fontFamily}", Georgia, serif`, fontSize: 24, margin: "4px 0", fontWeight: 500, color: "var(--ink)" }}>
+              Tradition in a Modern Form — Nure Asmir
+            </h3>
+            <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--ink-light)" }}>
+              The quick brown fox jumps over the lazy dog. 0123456789
+            </p>
+          </div>
+        )}
       </Section>
 
       <Section id="tcs" title="TCS delivery" intro="Where TCS collects parcels from. The TCS account login is stored safely on the server — see the note below.">
@@ -233,9 +362,9 @@ export function SettingsForm({ initial, status }: { initial: SettingsValues; sta
         {form.announcementMode !== "off" && (
           <fieldset className="wide" style={{ border: 0, margin: 0, padding: 0, display: "grid", gap: 10 }}>
             <legend style={{ fontWeight: 600, marginBottom: 6 }}>How the lines move</legend>
-            {choice("announcementStyle", "rotate", "One line at a time", "Each line slides in after a few seconds, then the next one. The way it works today.")}
-            {choice("announcementStyle", "scroll-left", "Scrolling, towards the left", "All lines glide across in one loop, like a news ticker. Touching it pauses it.")}
-            {choice("announcementStyle", "scroll-right", "Scrolling, towards the right", "The same loop, moving the other way.")}
+            {choice("announcementStyle", "rotate", "One line at a time (Recommended)", "Calm luxury fade & slide. Stays stationary for 4.5 seconds for effortless reading.")}
+            {choice("announcementStyle", "scroll-left", "Slide from right", "Smooth luxury carousel entering from the right, pausing 4.5 seconds on each line.")}
+            {choice("announcementStyle", "scroll-right", "Slide from left", "Smooth luxury carousel entering from the left, pausing 4.5 seconds on each line.")}
           </fieldset>
         )}
         <div className="wide">
@@ -328,27 +457,40 @@ export function SettingsForm({ initial, status }: { initial: SettingsValues; sta
   );
 }
 
-/** The real top bar, drawn twice: in a phone-sized frame and in a computer-sized frame, moving exactly as it will on the website. */
 function TopBarPreview({ messages, style }: { messages: string[]; style: "rotate" | "scroll-left" | "scroll-right" }) {
-  const frame = (label: string, width: number | string) => (
-    <div>
-      <p className="a-help" style={{ margin: "0 0 6px" }}>{label}</p>
-      <div className="a-device" style={{ width, maxWidth: "100%" }}>
+  const frame = (label: string, width: number | string, isPhone?: boolean) => (
+    <div style={{ minWidth: 0 }}>
+      <p className="a-help" style={{ margin: "0 0 6px", fontWeight: 600 }}>{label}</p>
+      <div
+        className="a-device"
+        style={{
+          width,
+          maxWidth: "100%",
+          margin: isPhone ? "0 auto" : undefined,
+          borderRadius: isPhone ? 28 : 12,
+          border: isPhone ? "6px solid #1f2937" : "1px solid var(--line-strong)",
+          boxShadow: isPhone ? "0 12px 30px rgba(0,0,0,0.15)" : "0 4px 16px rgba(0,0,0,0.06)",
+        }}
+      >
         <AnnouncementBar key={`${style}-${messages.join("|")}`} messages={messages} style={style} />
-        <div className="a-device-header">
-          <span />
-          <strong>NURE ASMIR</strong>
-          <span />
+        <div className="a-device-header" style={{ height: isPhone ? 48 : 56, padding: "0 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: 13, letterSpacing: "0.05em", color: "#666" }}>☰</span>
+          <strong style={{ letterSpacing: ".15em", fontSize: isPhone ? 12 : 14 }}>NURE ASMIR</strong>
+          <span style={{ fontSize: 13, letterSpacing: "0.05em", color: "#666" }}>🛒 (0)</span>
         </div>
-        <div className="a-device-body" />
+        <div className="a-device-body" style={{ height: isPhone ? 90 : 80, display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(180deg, #f5f5f4 0%, #e7e5e4 100%)", color: "#78716c", fontSize: 11, letterSpacing: ".08em", textTransform: "uppercase" }}>
+          Storefront Hero Viewport
+        </div>
       </div>
     </div>
   );
   return (
-    <div className="a-device-row">
-      {frame("On a phone", 375)}
-      {frame("On a computer", "100%")}
-      <p className="a-help">This is the same top bar your shoppers get. Press Save settings to put it on your website.</p>
+    <div className="a-device-row" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20 }}>
+      {frame("📱 Phone screen", 340, true)}
+      {frame("🖥️ Desktop screen", "100%", false)}
+      <p className="a-help" style={{ gridColumn: "1 / -1", margin: 0 }}>
+        This is an exact, live simulation of what shoppers see at the top of your site. Each line stays completely still for 4.5 seconds for effortless reading before gently transitioning.
+      </p>
     </div>
   );
 }

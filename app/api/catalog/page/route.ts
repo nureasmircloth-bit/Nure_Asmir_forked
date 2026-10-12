@@ -13,10 +13,15 @@ const SORTS = new Set(["newest", "low", "high"]);
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
   const cat = (params.get("cat") ?? "").trim();
+  const q = (params.get("q") ?? "").trim().slice(0, 100);
   const sortParam = params.get("sort") ?? "newest";
   const page = Math.min(MAX_PAGE, Math.max(1, Number(params.get("page")) || 1));
 
-  const scope: CatalogQuery = { categorySlug: /^[a-z0-9-]{1,80}$/.test(cat) && cat !== "all" ? cat : undefined, filters: parseFilters(params) };
+  const scope: CatalogQuery = {
+    categorySlug: /^[a-z0-9-]{1,80}$/.test(cat) && cat !== "all" ? cat : undefined,
+    search: q || undefined,
+    filters: parseFilters(params),
+  };
   const sort = (SORTS.has(sortParam) ? sortParam : "newest") as CatalogQuery["sort"];
 
   const [items, total] = await Promise.all([

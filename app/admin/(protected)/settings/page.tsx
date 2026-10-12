@@ -16,7 +16,7 @@ export default async function SettingsPage() {
   const values: SettingsValues = {
     brandName: row?.brandName ?? BRAND.name,
     supportPhone: row?.supportPhone || BRAND.contact.phone,
-    whatsappNumber: row?.whatsappNumber || BRAND.contact.phone,
+    whatsappNumber: row?.whatsappNumber || BRAND.contact.whatsappPhone || "+923116111963",
     whatsappChatUrl: row?.whatsappChatUrl || BRAND.contact.whatsappChatUrl,
     supportEmail: row?.supportEmail ?? "",
     instagramUrl: row?.instagramUrl || BRAND.contact.instagramUrl,
@@ -46,6 +46,9 @@ export default async function SettingsPage() {
     bingSiteVerification: row?.bingSiteVerification ?? "",
     metaPixelId: row?.metaPixelId ?? "",
     gaMeasurementId: row?.gaMeasurementId ?? "",
+    themeAccentColor: row?.themeAccentColor || "#c5a059",
+    fontFamily: row?.fontFamily || "Cormorant Garamond",
+    contactFontFamily: row?.contactFontFamily || "Inter",
   };
   const status: SystemStatus = {
     tcs: isTcsConfigured(),

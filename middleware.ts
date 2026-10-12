@@ -14,7 +14,7 @@ const allowInsecure = isDev || process.env.ALLOW_INSECURE_HTTP === "1";
  * compatibility without weakening CSP for everyone else. See lib/nonce.ts for why the nonce itself
  * is a fixed secret rather than freshly generated per request.
  */
-function buildCsp(nonce: string): string {
+function buildCsp(): string {
   return [
     "default-src 'self'",
     // blob: is required for the admin campaign-image cropper, which previews the picked file
@@ -27,12 +27,12 @@ function buildCsp(nonce: string): string {
     // apis.google.com/gstatic.com are Google's Customer Reviews opt-in widget on the order
     // confirmation page (checkout/page.tsx) — it loads platform.js from apis.google.com, which in
     // turn pulls supporting resources from gstatic.com.
-    `script-src 'self' 'nonce-${nonce}' 'unsafe-inline' ${isDev ? "'unsafe-eval'" : ""} https://www.googletagmanager.com https://connect.facebook.net https://static.cloudflareinsights.com https://challenges.cloudflare.com https://apis.google.com https://www.gstatic.com`,
+    `script-src 'self' 'unsafe-inline' ${isDev ? "'unsafe-eval'" : ""} https://www.googletagmanager.com https://connect.facebook.net https://static.cloudflareinsights.com https://challenges.cloudflare.com https://apis.google.com https://www.gstatic.com`,
     // Inline `style={{...}}` (blur-placeholder backgrounds, etc.) is used extensively throughout
     // the storefront — nonce-ing every one of those individually isn't practical the way it is for
     // the small, fixed set of inline <script> tags, so style-src keeps 'unsafe-inline'.
-    "style-src 'self' 'unsafe-inline'",
-    "font-src 'self' data:",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' data: https://fonts.gstatic.com",
     // Sentry's browser SDK spins up a small worker from a blob: URL for some features.
     "worker-src 'self' blob:",
     `connect-src 'self' ${isDev ? "ws:" : ""} https://www.google-analytics.com https://connect.facebook.net https://cloudflareinsights.com https://challenges.cloudflare.com https://apis.google.com https://*.algolia.net https://*.algolianet.com https://*.ingest.de.sentry.io https://*.ingest.sentry.io https://eu.i.posthog.com https://firebaseinstallations.googleapis.com https://fcmregistrations.googleapis.com https://fcm.googleapis.com`,
@@ -75,7 +75,7 @@ export async function middleware(request: NextRequest) {
   }
 
   const response = NextResponse.next();
-  response.headers.set("Content-Security-Policy", buildCsp(getNonce()));
+  response.headers.set("Content-Security-Policy", buildCsp());
   // The admin and training Workers must never be indexed.
   if (process.env.APP_TARGET === "admin" || process.env.APP_TARGET === "training") response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
   // Never in dev: browsers cache HSTS per host for the full max-age, which would pin localhost to https.

@@ -11,7 +11,8 @@ export const BRAND = {
   emailName: "Nure Asmir",
   /** Contact + social profiles shown when the owner has not typed their own in Settings. */
   contact: {
-    phone: "+923116111963",
+    phone: "+924236622241",
+    whatsappPhone: "+923116111963",
     whatsappChatUrl: "https://wa.me/message/BW72H342EHB3E1",
     instagramUrl: "https://www.instagram.com/nureasmirofficial",
     facebookUrl: "https://www.facebook.com/share/1BYdatPDfZ/",

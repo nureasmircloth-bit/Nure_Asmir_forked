@@ -9,7 +9,7 @@ import { callApi, useToast } from "../../_ui/client";
 import { Icon } from "../../_ui/icons";
 import { ImageCropper } from "../campaign/image-cropper";
 
-export function SiteImageSlot({ slot, label, help, size, aspect, fallback, current }: { slot: string; label: string; help: string; size: string; aspect: string; fallback: string; current: { url: string; version: number } | null }) {
+export function SiteImageSlot({ slot, label, help, size, aspect, fallback, current, isMobile }: { slot: string; label: string; help: string; size: string; aspect: string; fallback: string; current: { url: string; version: number } | null; isMobile?: boolean }) {
   const router = useRouter();
   const toast = useToast();
   const upload = useLockedAction();
@@ -48,17 +48,118 @@ export function SiteImageSlot({ slot, label, help, size, aspect, fallback, curre
     });
   }
 
+  const isMobileSlot = isMobile ?? (slot.includes("mobile") || aspect.includes("9 / 16") || aspect.includes("9/16"));
+  const [previewMode, setPreviewMode] = useState<"box" | "phone">(isMobileSlot ? "phone" : "box");
+
   const shown = current ? current.url : fallback;
   return (
     <section className="a-card">
-      <header className="a-card-head">
+      <header className="a-card-head" style={{ justifyContent: "space-between", alignItems: "center" }}>
         <h2 style={{ fontSize: 16 }}>{label}</h2>
+        {isMobileSlot && <span style={{ fontSize: 11, background: "rgba(197, 160, 89, 0.15)", color: "#8a6d2f", padding: "2px 7px", borderRadius: 4, fontWeight: 600 }}>Mobile 9:16</span>}
       </header>
       <div className="a-card-pad a-stack" style={{ gap: 12 }}>
-        <div style={{ aspectRatio: aspect, maxHeight: 260, position: "relative", overflow: "hidden", borderRadius: 10, background: "var(--sunk)", border: "1px solid var(--line)", margin: "0 auto", width: "min(100%, 420px)" }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={shown} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: 12, color: "var(--ink-light)", fontWeight: 500 }}>
+            {previewMode === "phone" ? "Mobile phone mockup" : "Standard canvas"}
+          </span>
+          <div style={{ display: "inline-flex", background: "var(--sunk)", borderRadius: 6, padding: 2, border: "1px solid var(--line)" }}>
+            <button
+              type="button"
+              onClick={() => setPreviewMode("box")}
+              aria-pressed={previewMode === "box"}
+              style={{
+                border: 0,
+                background: previewMode === "box" ? "var(--bg)" : "transparent",
+                color: previewMode === "box" ? "var(--ink)" : "var(--ink-light)",
+                fontWeight: previewMode === "box" ? 600 : 400,
+                borderRadius: 4,
+                padding: "3px 8px",
+                fontSize: 11,
+                cursor: "pointer",
+                boxShadow: previewMode === "box" ? "0 1px 2px rgba(0,0,0,0.06)" : "none",
+              }}
+            >
+              Canvas
+            </button>
+            <button
+              type="button"
+              onClick={() => setPreviewMode("phone")}
+              aria-pressed={previewMode === "phone"}
+              style={{
+                border: 0,
+                background: previewMode === "phone" ? "var(--bg)" : "transparent",
+                color: previewMode === "phone" ? "var(--ink)" : "var(--ink-light)",
+                fontWeight: previewMode === "phone" ? 600 : 400,
+                borderRadius: 4,
+                padding: "3px 8px",
+                fontSize: 11,
+                cursor: "pointer",
+                boxShadow: previewMode === "phone" ? "0 1px 2px rgba(0,0,0,0.06)" : "none",
+              }}
+            >
+              📱 Phone Frame
+            </button>
+          </div>
         </div>
+
+        {previewMode === "phone" ? (
+          <div
+            style={{
+              width: "200px",
+              height: "356px",
+              margin: "0 auto",
+              borderRadius: "32px",
+              border: "7px solid #1f2937",
+              background: "#09090b",
+              position: "relative",
+              overflow: "hidden",
+              boxShadow: "0 14px 28px rgba(0,0,0,0.18), 0 0 0 1px rgba(255,255,255,0.08) inset",
+            }}
+          >
+            {/* Notch */}
+            <div
+              style={{
+                position: "absolute",
+                top: 6,
+                left: "50%",
+                transform: "translateX(-50%)",
+                width: 60,
+                height: 12,
+                borderRadius: 8,
+                background: "#09090b",
+                zIndex: 5,
+              }}
+            />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={shown} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            {/* Mobile screen hint overlay */}
+            <div
+              style={{
+                position: "absolute",
+                bottom: 8,
+                left: 8,
+                right: 8,
+                background: "rgba(0,0,0,0.68)",
+                backdropFilter: "blur(4px)",
+                color: "#fff",
+                borderRadius: 6,
+                padding: "4px 8px",
+                fontSize: 10,
+                textAlign: "center",
+                pointerEvents: "none",
+                letterSpacing: "0.02em",
+              }}
+            >
+              📱 Mobile Screen View
+            </div>
+          </div>
+        ) : (
+          <div style={{ aspectRatio: aspect, maxHeight: 260, position: "relative", overflow: "hidden", borderRadius: 10, background: "var(--sunk)", border: "1px solid var(--line)", margin: "0 auto", width: "min(100%, 420px)" }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={shown} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          </div>
+        )}
         <p className="a-muted">{help}</p>
         <p className="a-help">Best size: {size}. {current ? "You are using your own picture." : "Right now the standard picture is used."}</p>
         <div className="a-row">

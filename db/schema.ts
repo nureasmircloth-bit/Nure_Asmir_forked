@@ -76,6 +76,7 @@ export const categories = pgTable("categories", {
   description: text("description"),
   status: text("status").notNull().default("active"),
   sortOrder: integer("sort_order").notNull().default(0),
+  subcategories: text("subcategories"),
   // Cover image for the homepage "Objects of everyday elegance" cards (a tall 3:4 crop) — all
   // nullable since a category can exist (and did, for every category before this feature) without
   // one; the storefront falls back to a static placeholder in that case.
@@ -492,6 +493,9 @@ export const siteSettings = pgTable("site_settings", {
   bankReservationHours: integer("bank_reservation_hours").notNull().default(6),
   taxEnabled: boolean("tax_enabled").notNull().default(false),
   currency: text("currency").notNull().default("PKR"),
+  themeAccentColor: text("theme_accent_color").notNull().default("#c5a059"),
+  fontFamily: text("font_family").notNull().default("Cormorant Garamond"),
+  contactFontFamily: text("contact_font_family").notNull().default("Inter"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
