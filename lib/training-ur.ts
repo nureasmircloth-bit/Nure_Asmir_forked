@@ -75,6 +75,7 @@ export const UR: Record<string, LessonText> = {
       "Pack karein, phir “Book TCS” dabayein. Aap ko tracking number aur print karne ka label milta hai. (Bohat se orders? Sab par tick lagayein aur ek saath book karein.)",
       "Jab TCS parcel utha leta hai to order khud “With TCS” mein chala jata hai. Us waqt se wo cancel nahi ho sakta.",
       "Jab TCS deliver kar deta hai to order Delivered ho jata hai, cash-on-delivery paid mark ho jati hai aur customer ko bata diya jata hai. Aap ko kuch nahi karna padta.",
+      "WhatsApp, Facebook ya exhibition se ek saath bohat se orders? Orders → Bulk orders kholein. Live delivery zones aur product SKUs wali Excel sheet download karein, customers ki lines bharein, stock check karein aur sab orders ek click mein place karein.",
     ],
   },
   refunds: {
