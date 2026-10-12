@@ -63,4 +63,8 @@ jobs:
           DATABASE_URL="$PRACTICE_DATABASE_URL" ADMIN_EMAIL=practice@nureasmir.com ADMIN_INITIAL_PASSWORD="$(openssl rand -hex 16)" npx tsx scripts/sandbox-setup.ts
 
       - name: Deploy to Vercel Production
-        run: npx --yes vercel@63.1.2 deploy --prod --yes
+        run: |
+          CLEAN_TOKEN=$(node -e 'process.stdout.write((process.env.VERCEL_TOKEN || "").replace(/^\uFEFF/, "").trim())')
+          CLEAN_ORG=$(node -e 'process.stdout.write((process.env.VERCEL_ORG_ID || "").replace(/^\uFEFF/, "").trim())')
+          CLEAN_PROJECT=$(node -e 'process.stdout.write((process.env.VERCEL_PROJECT_ID || "").replace(/^\uFEFF/, "").trim())')
+          VERCEL_TOKEN="$CLEAN_TOKEN" VERCEL_ORG_ID="$CLEAN_ORG" VERCEL_PROJECT_ID="$CLEAN_PROJECT" npx --yes vercel@63.1.2 deploy --prod --yes --token="$CLEAN_TOKEN"
