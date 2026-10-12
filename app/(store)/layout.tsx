@@ -7,6 +7,7 @@ import { ServiceWorkerRegistrar } from "./_components/sw-register";
 import { MobileTabBar } from "./_components/mobile-tab-bar";
 import { ShopToaster } from "./_components/shop-toast";
 import { AlertsPrompt } from "./_components/alerts-prompt";
+import { ChunkErrorHandler } from "./_components/chunk-error-handler";
 
 /** Shell shared by every storefront page: display-currency context, the floating WhatsApp
  * shortcut (bottom-left) and the currency switcher (bottom-right), as on the benchmark site. */
@@ -16,6 +17,7 @@ export default async function StoreLayout({ children }: { children: React.ReactN
   const chat = settings.whatsappChatUrl || (digits ? `https://wa.me/${digits}` : "");
   return (
     <CurrencyProvider>
+      <ChunkErrorHandler />
       <StoreHeader />
       {children}
       <WhatsAppFloat href={chat || "/contact"} external={Boolean(chat)}>

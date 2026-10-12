@@ -12,9 +12,18 @@ const securityHeaders = [
 ];
 
 // Identifies this build to the service worker (/sw.js?v=…) so every deploy swaps cached pages/chunks.
-const BUILD_ID = (process.env.GITHUB_SHA || process.env.CF_PAGES_COMMIT_SHA || String(Date.now())).slice(0, 10);
+const BUILD_ID = (
+  process.env.VERCEL_GIT_COMMIT_SHA ||
+  process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ||
+  process.env.VERCEL_DEPLOYMENT_ID ||
+  process.env.GITHUB_SHA ||
+  process.env.CF_PAGES_COMMIT_SHA ||
+  Date.now().toString(36)
+).slice(0, 16);
 
 const nextConfig: NextConfig = {
+  // Synchronize internal Next.js build ID with the service worker cache version
+  generateBuildId: async () => BUILD_ID,
   // Lets the e2e suite build/serve a production copy next to a running `next dev` (.next is locked by dev).
   ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
   env: { NEXT_PUBLIC_BUILD_ID: BUILD_ID },

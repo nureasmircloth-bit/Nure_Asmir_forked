@@ -165,13 +165,39 @@ async function staleWhileRevalidate(event, request, cacheName, ttl, hardMax, rac
   return refresh;
 }
 
+async function networkFirst(request, cacheName, timeoutMs = 3500) {
+  const cache = await caches.open(cacheName);
+  try {
+    const response = await fetchWithTimeout(request, timeoutMs);
+    if (response && response.status === 200) {
+      put(cacheName, request, response);
+    }
+    return response;
+  } catch (error) {
+    const hit = await cache.match(request);
+    if (hit) return hit;
+    throw error;
+  }
+}
+
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (IS_ADMIN_HOST || request.method !== "GET") return;
 
   const url = new URL(request.url);
-  // Next.js client-side navigation / prefetch traffic: leave to the browser.
-  if (request.headers.get("rsc") || url.searchParams.has("_rsc") || request.headers.get("next-router-prefetch")) return;
+  const accept = request.headers.get("accept") || "";
+
+  // Next.js client-side navigation / prefetch / RSC traffic: ALWAYS bypass Service Worker directly to network.
+  if (
+    request.headers.get("rsc") ||
+    request.headers.get("next-router-prefetch") ||
+    request.headers.get("next-router-state-tree") ||
+    request.headers.get("next-url") ||
+    url.searchParams.has("_rsc") ||
+    accept.includes("text/x-component")
+  ) {
+    return;
+  }
 
   const sameOrigin = url.origin === self.location.origin;
 
@@ -193,11 +219,17 @@ self.addEventListener("fetch", (event) => {
   if (NEVER.some((re) => re.test(url.pathname))) return;
 
   if (request.mode === "navigate") {
+    // Network-first ensures the user always gets fresh HTML with matching chunk hashes from the latest deployment.
+    // If network fails (offline), gracefully fall back to cached version of the requested page or offline screen.
     event.respondWith(
-      staleWhileRevalidate(event, request, PAGE_CACHE, QUIET_PAGE.test(url.pathname) ? TTLS.quietPage : TTLS.page, TTLS.pageMax, SAVED_COPY_RACE).catch(async () => {
+      networkFirst(request, PAGE_CACHE, SAVED_COPY_RACE).catch(async () => {
         const cache = await caches.open(PAGE_CACHE);
-        const fallback = (await cache.match(request)) || (await cache.match("/")) || (await cache.match(self.location.origin));
+        const fallback = await cache.match(request);
         if (fallback) return fallback;
+        if (url.pathname === "/") {
+          const homeFallback = (await cache.match("/")) || (await cache.match(self.location.origin));
+          if (homeFallback) return homeFallback;
+        }
         return new Response(OFFLINE_HTML, {
           status: 200,
           headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
