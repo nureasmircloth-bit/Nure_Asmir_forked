@@ -62,6 +62,10 @@ const NAV_WITHOUT_TRAINING: NavGroup[] = NAV.map((group) => ({ ...group, items: 
 /** Renders role-specific admin navigation with active-page markers and pending counts; on the training site it adds the lessons and labs, in the real admin a link to the training site. */
 export function NavLinks({ counts, role, lab, trainingUrl }: { counts: Partial<Record<"orders" | "refunds" | "stock", number>>; role?: string; lab?: boolean; trainingUrl?: string }) {
   const pathname = usePathname() || "";
+  const closeMobile = () => {
+    const shell = document.querySelector<HTMLElement>(".adm-shell");
+    if (shell) shell.dataset.mobile = "closed";
+  };
   return (
     <nav className="adm-nav" aria-label="Main">
       {(role === "developer" ? DEV_NAV : lab ? [NAV_WITHOUT_TRAINING[0], LAB_GROUP, ...NAV_WITHOUT_TRAINING.slice(1)] : NAV_WITHOUT_TRAINING).map((group, index) => (
@@ -71,7 +75,7 @@ export function NavLinks({ counts, role, lab, trainingUrl }: { counts: Partial<R
             const active = item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`);
             const count = item.countKey ? counts[item.countKey] : 0;
             return (
-              <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined} prefetch={false} title={item.label}>
+              <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined} prefetch={false} title={item.label} onClick={closeMobile}>
                 <Icon name={item.icon} />
                 <span className="adm-nav-text">{item.label}</span>
                 {count ? <span className="count" aria-label={`${count} waiting`}>{count > 99 ? "99+" : count}</span> : null}

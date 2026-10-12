@@ -121,8 +121,14 @@ export function HeaderClient({
 
       <header className="site-header">
         <div className="hdr-side">
-          <button type="button" className="icon-btn" aria-label="Open menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}>
-            {Icon.menu}
+          <button
+            type="button"
+            className="icon-btn"
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((prev) => !prev)}
+          >
+            {menuOpen ? Icon.close : Icon.menu}
           </button>
           <button type="button" className="icon-btn hdr-search-btn" aria-label="Search" onClick={openSearch}>
             {Icon.search}
@@ -154,10 +160,8 @@ export function HeaderClient({
 
       <aside className={`drawer ${menuOpen ? "is-open" : ""}`} aria-hidden={!menuOpen} aria-label="Menu">
         <div className="drawer-top">
-          <Link href="/" className="logo" onClick={closeAll} aria-label="Nure Asmir — home">
-            <Image src="/brand/wordmark-v2.png" alt="Nure Asmir" width={969} height={155} unoptimized />
-          </Link>
-          <button type="button" className="icon-btn" aria-label="Close menu" onClick={() => setMenuOpen(false)}>
+          <span className="drawer-title">Explore</span>
+          <button type="button" className="icon-btn drawer-close-btn" aria-label="Close menu" onClick={() => setMenuOpen(false)}>
             {Icon.close}
           </button>
         </div>

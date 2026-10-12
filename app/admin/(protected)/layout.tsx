@@ -10,7 +10,7 @@ import { Icon } from "../_ui/icons";
 import { ToastProvider } from "../_ui/client";
 import { NavLinks } from "../_ui/nav";
 import { SearchPalette } from "../_ui/palette";
-import { SideToggle } from "../_ui/side-toggle";
+import { SideToggle, AdminMobileToggle, AdminMobileScrim } from "../_ui/side-toggle";
 import { ThemeMenu } from "../_ui/theme-menu";
 import { LogoutButton } from "./logout-button";
 import { PushToggle } from "./push-toggle";
@@ -57,6 +57,7 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
     <ToastProvider>
       {hits && <SandboxBar left={hits.left} limit={hits.limit} adminUrl={adminUrl} />}
       <div className="adm-shell" data-side={side} data-sandbox={lab ? "1" : undefined}>
+        <AdminMobileScrim />
         <aside className="adm-side">
           <div className="adm-brand">
             <Image src="/logo-icon.png" alt="" width={38} height={38} priority />
@@ -87,6 +88,7 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
         </aside>
         <div className="adm-main">
           <div className="adm-top">
+            <AdminMobileToggle />
             <SearchPalette />
             <div className="adm-top-right">
               {!lab && (

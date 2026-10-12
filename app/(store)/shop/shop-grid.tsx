@@ -29,18 +29,20 @@ export function ShopGrid({
   total,
   categories,
   scopeCategory,
+  initialQuery = "",
 }: {
   products: CardProduct[];
   total?: number;
   categories?: Array<{ slug: string; name: string }>;
   scopeCategory?: string;
+  initialQuery?: string;
 }) {
   const showTabs = !!categories?.length;
-  const paged = showTabs || !!scopeCategory;
+  const paged = showTabs || !!scopeCategory || !!initialQuery;
   const [category, setCategory] = useState("all");
   const [sort, setSort] = useState<Sort>("newest");
   const [filters, setFilters] = useState<CatalogFilters>(EMPTY_FILTERS);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [items, setItems] = useState(products);
   const [count, setCount] = useState(total ?? products.length);
   const [page, setPage] = useState(1);
@@ -49,7 +51,11 @@ export function ShopGrid({
   const [panel, setPanel] = useState(false);
   const [facets, setFacets] = useState<Facets | null>(null);
   const [facetsLoading, setFacetsLoading] = useState(false);
-  const firstPages = useRef(new Map<string, Loaded>([["all|newest||", { products, total: total ?? products.length }]]));
+  const firstPages = useRef(
+    new Map<string, Loaded>([
+      [`${scopeCategory ? "all" : "all"}|newest|${initialQuery.trim()}|`, { products, total: total ?? products.length }],
+    ]),
+  );
   const facetCache = useRef(new Map<string, Facets>());
   const request = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -149,11 +155,11 @@ export function ShopGrid({
     const params = new URLSearchParams(window.location.search);
     const wanted = parseFilters(params);
     const cat = params.get("cat") ?? "all";
-    const q = params.get("q") ?? "";
+    const q = params.get("q") ?? initialQuery ?? "";
     const order = (["low", "high"].includes(params.get("sort") ?? "") ? params.get("sort") : "newest") as Sort;
     const validCat = showTabs && categories?.some((item) => item.slug === cat) ? cat : "all";
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (hasFilters(wanted) || validCat !== "all" || order !== "newest" || q) void show(validCat, order, wanted, q);
+    if (hasFilters(wanted) || validCat !== "all" || order !== "newest" || (q && q !== initialQuery)) void show(validCat, order, wanted, q);
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };

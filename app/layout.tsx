@@ -13,6 +13,7 @@ const display = Cormorant_Garamond({
   subsets: ["latin"],
   weight: ["400", "500", "600"],
   display: "swap",
+  preload: false,
 });
 
 const sans = Jost({
@@ -20,6 +21,7 @@ const sans = Jost({
   subsets: ["latin"],
   weight: ["300", "400", "500", "600"],
   display: "swap",
+  preload: false,
 });
 
 export const viewport: Viewport = {
@@ -106,7 +108,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   };
 
   return (
-    <html lang="en-PK" data-scroll-behavior="smooth" suppressHydrationWarning className={`${display.variable} ${sans.variable}`}>
+    <html lang="en-PK" suppressHydrationWarning className={`${display.variable} ${sans.variable}`}>
       <head>
         <script type="application/ld+json" nonce={nonce} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
         {settings.fontFamily && settings.fontFamily !== "Cormorant Garamond" && (
