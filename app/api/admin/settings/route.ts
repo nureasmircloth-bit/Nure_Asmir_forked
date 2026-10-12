@@ -59,7 +59,13 @@ const updateSchema = z.object({
   bankReservationHours: z.coerce.number().int().min(1).optional(),
   taxEnabled: z.boolean().optional(),
   themeAccentColor: z.string().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/).or(z.literal("")).optional(),
+  themePreset: z.string().max(40).optional(),
+  themeBackgroundColor: z.string().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/).or(z.literal("")).optional(),
+  themeTextColor: z.string().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/).or(z.literal("")).optional(),
+  themeSurfaceColor: z.string().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/).or(z.literal("")).optional(),
+  themeRadius: z.enum(["sharp", "subtle", "rounded", "pill"]).optional(),
   fontFamily: z.string().regex(/^[a-zA-Z0-9\s\-',]+$/).max(80).or(z.literal("")).optional(),
+  bodyFontFamily: z.string().regex(/^[a-zA-Z0-9\s\-',]+$/).max(80).or(z.literal("")).optional(),
   contactFontFamily: z.string().regex(/^[a-zA-Z0-9\s\-',]+$/).max(80).or(z.literal("")).optional(),
 });
 
@@ -202,7 +208,13 @@ export async function PATCH(request: Request) {
     ...(data.bankReservationHours !== undefined ? { bankReservationHours: data.bankReservationHours } : {}),
     ...(data.taxEnabled !== undefined ? { taxEnabled: data.taxEnabled } : {}),
     ...(data.themeAccentColor !== undefined ? { themeAccentColor: data.themeAccentColor } : {}),
+    ...(data.themePreset !== undefined ? { themePreset: data.themePreset } : {}),
+    ...(data.themeBackgroundColor !== undefined ? { themeBackgroundColor: data.themeBackgroundColor } : {}),
+    ...(data.themeTextColor !== undefined ? { themeTextColor: data.themeTextColor } : {}),
+    ...(data.themeSurfaceColor !== undefined ? { themeSurfaceColor: data.themeSurfaceColor } : {}),
+    ...(data.themeRadius !== undefined ? { themeRadius: data.themeRadius } : {}),
     ...(data.fontFamily !== undefined ? { fontFamily: data.fontFamily } : {}),
+    ...(data.bodyFontFamily !== undefined ? { bodyFontFamily: data.bodyFontFamily } : {}),
     ...(data.contactFontFamily !== undefined ? { contactFontFamily: data.contactFontFamily } : {}),
   };
 

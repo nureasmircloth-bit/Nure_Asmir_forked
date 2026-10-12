@@ -770,7 +770,13 @@ export type PublicSettings = {
   bankReservationHours: number;
   refundWindowDays: number;
   themeAccentColor: string;
+  themePreset: string;
+  themeBackgroundColor: string;
+  themeTextColor: string;
+  themeSurfaceColor: string;
+  themeRadius: string;
   fontFamily: string;
+  bodyFontFamily: string;
   contactFontFamily: string;
 };
 
@@ -819,7 +825,13 @@ export const getPublicSettings = cache(async (): Promise<PublicSettings> => {
     deliveryMode: row?.deliveryMode ?? "zones",
     flatDeliveryCharge: row?.flatDeliveryCharge ?? 250,
     themeAccentColor: row?.themeAccentColor || "#c5a059",
+    themePreset: row?.themePreset || "signature",
+    themeBackgroundColor: row?.themeBackgroundColor || "#ffffff",
+    themeTextColor: row?.themeTextColor || "#111111",
+    themeSurfaceColor: row?.themeSurfaceColor || "#faf9f6",
+    themeRadius: row?.themeRadius || "subtle",
     fontFamily: row?.fontFamily || "Cormorant Garamond",
+    bodyFontFamily: row?.bodyFontFamily || "Jost",
     contactFontFamily: row?.contactFontFamily || "Inter",
   };
 });

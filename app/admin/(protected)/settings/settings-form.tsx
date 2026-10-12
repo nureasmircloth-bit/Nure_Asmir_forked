@@ -44,7 +44,13 @@ export type SettingsValues = {
   metaPixelId: string;
   gaMeasurementId: string;
   themeAccentColor: string;
+  themePreset: string;
+  themeBackgroundColor: string;
+  themeTextColor: string;
+  themeSurfaceColor: string;
+  themeRadius: string;
   fontFamily: string;
+  bodyFontFamily: string;
   contactFontFamily: string;
 };
 export type PendingSettings = {
@@ -300,99 +306,338 @@ export function SettingsForm({ initial, status, initialPending }: { initial: Set
         {text("tiktokUrl", "TikTok page", { placeholder: "https://www.tiktok.com/@yourname" })}
       </Section>
 
-      <Section id="appearance" title="Storefront theme & typography" intro="Personalize your brand accent colour and typography. Updates are immediately reflected across the website.">
+      <Section id="appearance" title="Storefront theme & appearance" intro="Customize your whole website aesthetic — background, surfaces, typography, colors and corner radius. Updates apply globally across the storefront.">
         <div className="a-field wide">
-          <label htmlFor="s-themeAccentColor">
-            Theme accent colour <Hint text="The signature highlight colour used for buttons, badges, sale tags and active tabs." />
+          <label>
+            Curated brand theme presets <Hint text="Select a signature luxury theme to instantly harmonize backgrounds, card surfaces, text contrast, accents, and typography." />
           </label>
-          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, marginTop: 4 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12, marginTop: 8 }}>
             {[
-              { name: "Nure Gold (Signature)", color: "#c5a059" },
-              { name: "Royal Emerald", color: "#1b4332" },
-              { name: "Regal Navy", color: "#1a2b49" },
-              { name: "Classic Noir", color: "#18181b" },
-              { name: "Burgundy", color: "#6b1d2f" },
-            ].map((preset) => (
-              <button
-                key={preset.color}
-                type="button"
-                onClick={() => setValue("themeAccentColor", preset.color)}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "6px 12px",
-                  borderRadius: 20,
-                  border: form.themeAccentColor.toLowerCase() === preset.color.toLowerCase() ? "2px solid var(--ink)" : "1px solid var(--line)",
-                  background: form.themeAccentColor.toLowerCase() === preset.color.toLowerCase() ? "var(--sunk)" : "var(--bg)",
-                  cursor: "pointer",
-                  fontSize: 12,
-                  fontWeight: form.themeAccentColor.toLowerCase() === preset.color.toLowerCase() ? 600 : 400,
-                }}
-              >
-                <span style={{ width: 14, height: 14, borderRadius: "50%", background: preset.color, display: "inline-block", border: "1px solid rgba(0,0,0,0.15)" }} />
-                {preset.name}
-              </button>
-            ))}
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginLeft: "auto" }}>
-              <input
-                type="color"
-                value={form.themeAccentColor.startsWith("#") ? form.themeAccentColor : "#c5a059"}
-                onChange={(e) => setValue("themeAccentColor", e.target.value)}
-                style={{ width: 34, height: 34, padding: 0, border: "1px solid var(--line)", borderRadius: 8, cursor: "pointer", background: "transparent" }}
-                title="Custom color picker"
-              />
-              <input
-                id="s-themeAccentColor"
-                type="text"
-                value={form.themeAccentColor}
-                onChange={set("themeAccentColor")}
-                placeholder="#c5a059"
-                style={{ width: 100, fontSize: 13, textTransform: "lowercase", fontFamily: "monospace" }}
-              />
-            </div>
-          </div>
-          <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 12, color: "var(--ink-light)" }}>Accent button preview:</span>
-            <span style={{ background: form.themeAccentColor, color: "#fff", padding: "4px 14px", borderRadius: 20, fontSize: 11, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase" }}>
-              Shop New Arrivals
-            </span>
+              {
+                id: "signature",
+                name: "Signature Ivory & Gold",
+                desc: "Classic luxury — pure white canvas, dark ink, warm champagne gold.",
+                bg: "#ffffff",
+                surface: "#faf9f6",
+                text: "#111111",
+                accent: "#c5a059",
+                radius: "subtle",
+                displayFont: "Cormorant Garamond",
+                bodyFont: "Jost",
+              },
+              {
+                id: "cashmere",
+                name: "Warm Cashmere & Bronze",
+                desc: "Warm linen tones, rich bronze highlights, editorial typography.",
+                bg: "#fbf8f5",
+                surface: "#f3ece3",
+                text: "#231d19",
+                accent: "#9d7a54",
+                radius: "subtle",
+                displayFont: "Playfair Display",
+                bodyFont: "Jost",
+              },
+              {
+                id: "emerald",
+                name: "Emerald Heritage",
+                desc: "Regal forest green accent on porcelain white with Roman serif headings.",
+                bg: "#f6f8f7",
+                surface: "#ebf2ee",
+                text: "#122019",
+                accent: "#1b4332",
+                radius: "subtle",
+                displayFont: "Cinzel",
+                bodyFont: "Outfit",
+              },
+              {
+                id: "noir",
+                name: "Midnight Noir",
+                desc: "High-contrast dark luxury runway mode with sharp corners and gold.",
+                bg: "#101012",
+                surface: "#1a1a1e",
+                text: "#f4f4f6",
+                accent: "#d4af37",
+                radius: "sharp",
+                displayFont: "Playfair Display",
+                bodyFont: "Inter",
+              },
+              {
+                id: "minimal",
+                name: "Modern Minimal",
+                desc: "Clean monochrome gallery aesthetic with rounded soft geometry.",
+                bg: "#ffffff",
+                surface: "#f4f4f5",
+                text: "#18181b",
+                accent: "#18181b",
+                radius: "rounded",
+                displayFont: "Outfit",
+                bodyFont: "Inter",
+              },
+              {
+                id: "navy",
+                name: "Royal Navy & Champagne",
+                desc: "Deep navy undertones with metallic gold buttons and modern sans.",
+                bg: "#f7f9fc",
+                surface: "#edf2f7",
+                text: "#0f172a",
+                accent: "#c29a59",
+                radius: "subtle",
+                displayFont: "Prata",
+                bodyFont: "Plus Jakarta Sans",
+              },
+            ].map((p) => {
+              const isSelected = form.themePreset === p.id || (
+                form.themeBackgroundColor?.toLowerCase() === p.bg.toLowerCase() &&
+                form.themeAccentColor?.toLowerCase() === p.accent.toLowerCase() &&
+                form.themeTextColor?.toLowerCase() === p.text.toLowerCase()
+              );
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => {
+                    setValue("themePreset", p.id);
+                    setValue("themeBackgroundColor", p.bg);
+                    setValue("themeSurfaceColor", p.surface);
+                    setValue("themeTextColor", p.text);
+                    setValue("themeAccentColor", p.accent);
+                    setValue("themeRadius", p.radius);
+                    setValue("fontFamily", p.displayFont);
+                    setValue("bodyFontFamily", p.bodyFont);
+                  }}
+                  style={{
+                    textAlign: "left",
+                    padding: "14px 16px",
+                    borderRadius: 12,
+                    border: isSelected ? "2px solid var(--ink)" : "1px solid var(--line)",
+                    background: isSelected ? "var(--sunk)" : "var(--bg)",
+                    cursor: "pointer",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
+                    transition: "all .15s ease",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span style={{ fontSize: 13, fontWeight: isSelected ? 600 : 500, color: "var(--ink)" }}>{p.name}</span>
+                    <div style={{ display: "flex", gap: 3 }}>
+                      <span style={{ width: 12, height: 12, borderRadius: "50%", background: p.bg, border: "1px solid #ccc" }} title="Background" />
+                      <span style={{ width: 12, height: 12, borderRadius: "50%", background: p.surface, border: "1px solid #ccc" }} title="Surface" />
+                      <span style={{ width: 12, height: 12, borderRadius: "50%", background: p.text, border: "1px solid #ccc" }} title="Text" />
+                      <span style={{ width: 12, height: 12, borderRadius: "50%", background: p.accent, border: "1px solid #ccc" }} title="Accent" />
+                    </div>
+                  </div>
+                  <span style={{ fontSize: 11, color: "var(--ink-light)", lineHeight: 1.4 }}>{p.desc}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
         <div className="a-field">
+          <label htmlFor="s-themeBackgroundColor">
+            Website background colour <Hint text="The main backdrop colour of your entire storefront." />
+          </label>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+            <input
+              type="color"
+              value={form.themeBackgroundColor?.startsWith("#") ? form.themeBackgroundColor : "#ffffff"}
+              onChange={(e) => {
+                setValue("themePreset", "custom");
+                setValue("themeBackgroundColor", e.target.value);
+              }}
+              style={{ width: 38, height: 38, padding: 0, border: "1px solid var(--line)", borderRadius: 8, cursor: "pointer", background: "transparent" }}
+            />
+            <input
+              id="s-themeBackgroundColor"
+              type="text"
+              value={form.themeBackgroundColor}
+              onChange={(e) => {
+                setValue("themePreset", "custom");
+                setValue("themeBackgroundColor", e.target.value);
+              }}
+              placeholder="#ffffff"
+              style={{ width: 110, fontSize: 13, textTransform: "lowercase", fontFamily: "monospace" }}
+            />
+          </div>
+        </div>
+
+        <div className="a-field">
+          <label htmlFor="s-themeSurfaceColor">
+            Card & surface colour <Hint text="Used for cards, drawer panels, filter dropdowns and soft pill backgrounds." />
+          </label>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+            <input
+              type="color"
+              value={form.themeSurfaceColor?.startsWith("#") ? form.themeSurfaceColor : "#faf9f6"}
+              onChange={(e) => {
+                setValue("themePreset", "custom");
+                setValue("themeSurfaceColor", e.target.value);
+              }}
+              style={{ width: 38, height: 38, padding: 0, border: "1px solid var(--line)", borderRadius: 8, cursor: "pointer", background: "transparent" }}
+            />
+            <input
+              id="s-themeSurfaceColor"
+              type="text"
+              value={form.themeSurfaceColor}
+              onChange={(e) => {
+                setValue("themePreset", "custom");
+                setValue("themeSurfaceColor", e.target.value);
+              }}
+              placeholder="#faf9f6"
+              style={{ width: 110, fontSize: 13, textTransform: "lowercase", fontFamily: "monospace" }}
+            />
+          </div>
+        </div>
+
+        <div className="a-field">
+          <label htmlFor="s-themeTextColor">
+            Primary text / ink colour <Hint text="The main text colour used for headings, product titles, prices and body copy." />
+          </label>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+            <input
+              type="color"
+              value={form.themeTextColor?.startsWith("#") ? form.themeTextColor : "#111111"}
+              onChange={(e) => {
+                setValue("themePreset", "custom");
+                setValue("themeTextColor", e.target.value);
+              }}
+              style={{ width: 38, height: 38, padding: 0, border: "1px solid var(--line)", borderRadius: 8, cursor: "pointer", background: "transparent" }}
+            />
+            <input
+              id="s-themeTextColor"
+              type="text"
+              value={form.themeTextColor}
+              onChange={(e) => {
+                setValue("themePreset", "custom");
+                setValue("themeTextColor", e.target.value);
+              }}
+              placeholder="#111111"
+              style={{ width: 110, fontSize: 13, textTransform: "lowercase", fontFamily: "monospace" }}
+            />
+          </div>
+        </div>
+
+        <div className="a-field">
+          <label htmlFor="s-themeAccentColor">
+            Theme accent colour <Hint text="Signature highlight colour used for checkout buttons, badges, sale tags and active tabs." />
+          </label>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+            <input
+              type="color"
+              value={form.themeAccentColor?.startsWith("#") ? form.themeAccentColor : "#c5a059"}
+              onChange={(e) => {
+                setValue("themePreset", "custom");
+                setValue("themeAccentColor", e.target.value);
+              }}
+              style={{ width: 38, height: 38, padding: 0, border: "1px solid var(--line)", borderRadius: 8, cursor: "pointer", background: "transparent" }}
+            />
+            <input
+              id="s-themeAccentColor"
+              type="text"
+              value={form.themeAccentColor}
+              onChange={(e) => {
+                setValue("themePreset", "custom");
+                setValue("themeAccentColor", e.target.value);
+              }}
+              placeholder="#c5a059"
+              style={{ width: 110, fontSize: 13, textTransform: "lowercase", fontFamily: "monospace" }}
+            />
+          </div>
+        </div>
+
+        <div className="a-field">
+          <label htmlFor="s-themeRadius">
+            Corner radius style <Hint text="Sets the curvature of buttons, cards, search bars and interactive elements." />
+          </label>
+          <select
+            id="s-themeRadius"
+            value={form.themeRadius || "subtle"}
+            onChange={(e) => {
+              setValue("themePreset", "custom");
+              setValue("themeRadius", e.target.value);
+            }}
+          >
+            <option value="sharp">Sharp (0px — Architectural runway luxury)</option>
+            <option value="subtle">Subtle (4px — Classic bespoke tailoring / Default)</option>
+            <option value="rounded">Rounded (10px — Soft modern luxury)</option>
+            <option value="pill">Pill (20px — Contemporary friendly)</option>
+          </select>
+        </div>
+
+        <div className="a-field">
           <label htmlFor="s-fontFamily">
-            Brand display font (Headings) <Hint text="Used for large brand titles, category headings and luxury quotes. Select a preset or type any Google Font." />
+            Brand display font (Headings) <Hint text="Used for large brand titles, category headings and luxury quotes." />
           </label>
           <select
             id="s-fontFamily"
             value={["Cormorant Garamond", "Playfair Display", "Inter", "Outfit", "Plus Jakarta Sans", "Montserrat", "Cinzel", "Prata"].includes(form.fontFamily) ? form.fontFamily : "custom"}
             onChange={(e) => {
               if (e.target.value !== "custom") {
+                setValue("themePreset", "custom");
                 setValue("fontFamily", e.target.value);
               }
             }}
           >
             <option value="Cormorant Garamond">Cormorant Garamond (Classic Luxury Serif — Default)</option>
             <option value="Playfair Display">Playfair Display (High-Fashion Editorial)</option>
+            <option value="Cinzel">Cinzel (Royal Roman Serif)</option>
+            <option value="Prata">Prata (Refined Didone Serif)</option>
             <option value="Inter">Inter (Ultra-Clean Modern Sans)</option>
             <option value="Outfit">Outfit (Minimalist Geometric Sans)</option>
             <option value="Plus Jakarta Sans">Plus Jakarta Sans (Contemporary Premium Sans)</option>
             <option value="Montserrat">Montserrat (Clean Architectural Sans)</option>
-            <option value="Cinzel">Cinzel (Royal Roman Serif)</option>
-            <option value="Prata">Prata (Refined Didone Serif)</option>
             <option value="custom">Custom Google Font…</option>
           </select>
           {!["Cormorant Garamond", "Playfair Display", "Inter", "Outfit", "Plus Jakarta Sans", "Montserrat", "Cinzel", "Prata"].includes(form.fontFamily) && (
             <input
               type="text"
               value={form.fontFamily}
-              onChange={set("fontFamily")}
+              onChange={(e) => {
+                setValue("themePreset", "custom");
+                setValue("fontFamily", e.target.value);
+              }}
               placeholder="e.g. Bodoni Moda, Lora, Marcellus"
               style={{ marginTop: 8 }}
             />
           )}
-          <span className="a-help">Custom fonts automatically load from Google Fonts servers.</span>
+        </div>
+
+        <div className="a-field">
+          <label htmlFor="s-bodyFontFamily">
+            Brand body font (Paragraphs & UI) <Hint text="Used for product descriptions, navigation links, filters, and checkout." />
+          </label>
+          <select
+            id="s-bodyFontFamily"
+            value={["Jost", "Inter", "Outfit", "Plus Jakarta Sans", "Montserrat", "Lato", "system-ui"].includes(form.bodyFontFamily) ? form.bodyFontFamily : "custom"}
+            onChange={(e) => {
+              if (e.target.value !== "custom") {
+                setValue("themePreset", "custom");
+                setValue("bodyFontFamily", e.target.value);
+              }
+            }}
+          >
+            <option value="Jost">Jost (Clean geometric sans — Default)</option>
+            <option value="Inter">Inter (Crisp modern UI sans)</option>
+            <option value="Outfit">Outfit (Contemporary minimalist)</option>
+            <option value="Plus Jakarta Sans">Plus Jakarta Sans (Warm executive sans)</option>
+            <option value="Montserrat">Montserrat (Editorial sans)</option>
+            <option value="Lato">Lato (Classic neutral sans)</option>
+            <option value="system-ui">System native (Fastest, OS default)</option>
+            <option value="custom">Custom Google Font…</option>
+          </select>
+          {!["Jost", "Inter", "Outfit", "Plus Jakarta Sans", "Montserrat", "Lato", "system-ui"].includes(form.bodyFontFamily) && (
+            <input
+              type="text"
+              value={form.bodyFontFamily}
+              onChange={(e) => {
+                setValue("themePreset", "custom");
+                setValue("bodyFontFamily", e.target.value);
+              }}
+              placeholder="e.g. Raleway, Poppins, Nunito Sans"
+              style={{ marginTop: 8 }}
+            />
+          )}
         </div>
 
         <div className="a-field">
@@ -409,21 +654,56 @@ export function SettingsForm({ initial, status, initialPending }: { initial: Set
             <option value="system-ui">System native (Fastest, matches device font)</option>
             <option value="Cormorant Garamond">Cormorant Garamond (Match luxury serif)</option>
           </select>
-          <span className="a-help">Simple, clean sans-serif ensures phone numbers and addresses are crystal clear.</span>
         </div>
 
-        {form.fontFamily && (
-          <div className="wide" style={{ border: "1px solid var(--line)", borderRadius: 10, padding: 14, background: "var(--sunk)" }}>
-            <p style={{ margin: "0 0 6px", fontSize: 11, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--ink-light)" }}>Live font preview:</p>
-            <link rel="stylesheet" href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(form.fontFamily)}:wght@400;500;600;700&display=swap`} />
-            <h3 style={{ fontFamily: `"${form.fontFamily}", Georgia, serif`, fontSize: 24, margin: "4px 0", fontWeight: 500, color: "var(--ink)" }}>
-              Tradition in a Modern Form — Nure Asmir
-            </h3>
-            <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--ink-light)" }}>
-              The quick brown fox jumps over the lazy dog. 0123456789
-            </p>
+        <div className="wide" style={{ border: "1px solid var(--line)", borderRadius: 12, padding: 18, background: form.themeBackgroundColor || "#ffffff", color: form.themeTextColor || "#111111" }}>
+          <p style={{ margin: "0 0 10px", fontSize: 11, textTransform: "uppercase", letterSpacing: ".12em", opacity: 0.6 }}>Live storefront appearance preview:</p>
+          {form.fontFamily && <link rel="stylesheet" href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(form.fontFamily)}:wght@400;500;600;700&display=swap`} />}
+          {form.bodyFontFamily && form.bodyFontFamily !== "system-ui" && <link rel="stylesheet" href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(form.bodyFontFamily)}:wght@400;500;600&display=swap`} />}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16, alignItems: "center" }}>
+            <div style={{ padding: 16, background: form.themeSurfaceColor || "#faf9f6", borderRadius: form.themeRadius === "sharp" ? 0 : form.themeRadius === "rounded" ? 12 : form.themeRadius === "pill" ? 22 : 4, border: "1px solid rgba(0,0,0,0.08)" }}>
+              <span style={{ fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", opacity: 0.6, display: "block", marginBottom: 6 }}>Luxury Collection</span>
+              <h4 style={{ fontFamily: `"${form.fontFamily}", Georgia, serif`, fontSize: 22, margin: "0 0 6px", fontWeight: 500, color: form.themeTextColor || "#111111" }}>
+                Pure Linen Shalwar Kameez
+              </h4>
+              <p style={{ fontFamily: form.bodyFontFamily === "system-ui" ? "system-ui, sans-serif" : `"${form.bodyFontFamily}", sans-serif`, fontSize: 13, margin: "0 0 12px", opacity: 0.75, lineHeight: 1.5 }}>
+                Bespoke cut from hand-selected yarns, finished with pearl-inlay buttons.
+              </p>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
+                <strong style={{ fontSize: 16, fontFamily: form.bodyFontFamily === "system-ui" ? "system-ui, sans-serif" : `"${form.bodyFontFamily}", sans-serif` }}>PKR 14,500</strong>
+                <span
+                  style={{
+                    background: form.themeAccentColor || "#c5a059",
+                    color: "#ffffff",
+                    padding: "7px 16px",
+                    borderRadius: form.themeRadius === "sharp" ? 0 : form.themeRadius === "rounded" ? 8 : form.themeRadius === "pill" ? 999 : 4,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    letterSpacing: ".08em",
+                    textTransform: "uppercase",
+                    display: "inline-block",
+                  }}
+                >
+                  Add to Bag
+                </span>
+              </div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <span style={{ fontSize: 12, opacity: 0.7 }}>Corner Radius:</span>
+                <span style={{ fontSize: 12, fontWeight: 600, textTransform: "capitalize" }}>{form.themeRadius || "subtle"}</span>
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <span style={{ fontSize: 12, opacity: 0.7 }}>Display Font:</span>
+                <span style={{ fontSize: 12, fontWeight: 600 }}>{form.fontFamily}</span>
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <span style={{ fontSize: 12, opacity: 0.7 }}>Body Font:</span>
+                <span style={{ fontSize: 12, fontWeight: 600 }}>{form.bodyFontFamily}</span>
+              </div>
+            </div>
           </div>
-        )}
+        </div>
       </Section>
 
       <Section id="tcs" title="TCS delivery" intro="Where TCS collects parcels from. The TCS account login is stored safely on the server — see the note below.">

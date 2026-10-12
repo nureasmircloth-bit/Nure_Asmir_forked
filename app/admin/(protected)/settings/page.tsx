@@ -47,7 +47,13 @@ export default async function SettingsPage() {
     metaPixelId: row?.metaPixelId ?? "",
     gaMeasurementId: row?.gaMeasurementId ?? "",
     themeAccentColor: row?.themeAccentColor || "#c5a059",
+    themePreset: row?.themePreset || "signature",
+    themeBackgroundColor: row?.themeBackgroundColor || "#ffffff",
+    themeTextColor: row?.themeTextColor || "#111111",
+    themeSurfaceColor: row?.themeSurfaceColor || "#faf9f6",
+    themeRadius: row?.themeRadius || "subtle",
     fontFamily: row?.fontFamily || "Cormorant Garamond",
+    bodyFontFamily: row?.bodyFontFamily || "Jost",
     contactFontFamily: row?.contactFontFamily || "Inter",
   };
   let initialPending: { changes: Partial<SettingsValues>; applyAt: string; remainingSeconds: number } | null = null;
