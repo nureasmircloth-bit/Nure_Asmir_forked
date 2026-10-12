@@ -1,16 +1,9 @@
 name: Reservation expiry cron + DB keep-alive
 
-# Cloudflare Workers cron triggers aren't wired up for this OpenNext deployment, so this scheduled
-# GitHub Actions run is what actually calls /api/cron/expire-reservations on a schedule — without
-# it, pending_confirmation orders never auto-cancel/release stock, and reservation reminders never
-# go out. It also pings /api/health every run, purely to keep Neon's free-tier compute from ever
-# fully auto-suspending (its default idle timeout is 5 minutes) — that suspend/wake cycle is what
-# causes the site to intermittently error out for a few seconds after hours of no traffic. This
-# repo is public, so GitHub Actions minutes here are unlimited and free regardless of frequency.
+# Calls /api/cron/expire-reservations on a schedule to release expired inventory holds
+# and send reminder notifications. Also pings /api/health to keep Neon DB active.
 on:
   schedule:
-    # Safety net only: Cloudflare's own timer (worker-entry.ts) now does this every 3 minutes, exactly on time. GitHub
-    # in practice runs scheduled jobs about every 20 minutes, so it is no longer relied on.
     - cron: "*/30 * * * *"
   workflow_dispatch: {}
 
@@ -20,35 +13,35 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     env:
-      SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+      SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL || 'https://nureasmir.com' }}
       CRON_SECRET: ${{ secrets.CRON_SECRET }}
     steps:
       - name: Keep the database warm
-        run: curl -sf "$SITE_URL/api/health"
+        continue-on-error: true
+        run: curl -sf --retry 2 --retry-delay 2 "$SITE_URL/api/health"
 
       - name: Call expire-reservations endpoint
         run: |
-          curl -sf -X GET "$SITE_URL/api/cron/expire-reservations" \
+          curl -sf --retry 2 --retry-delay 2 -X GET "$SITE_URL/api/cron/expire-reservations" \
             -H "Authorization: Bearer $CRON_SECRET"
 
-      # Asks TCS where each booked parcel is. When TCS has collected one the order moves to "With TCS" (and can
-      # no longer be cancelled); delivered / returned parcels update their orders too. Non-blocking on purpose:
-      # a TCS problem must never fail the reservation-expiry and DB keep-alive steps above.
+      # Asks TCS where each booked parcel is. Non-blocking on purpose.
       - name: TCS status sync
         continue-on-error: true
         run: |
-          curl -sf -X GET "$SITE_URL/api/cron/courier-sync"             -H "Authorization: Bearer $CRON_SECRET"
+          curl -sf --retry 2 --retry-delay 2 -X GET "$SITE_URL/api/cron/courier-sync" \
+            -H "Authorization: Bearer $CRON_SECRET"
 
-      # Announces flash sales that just went live (push to opted-in shoppers) and repairs any
-      # reserved-stock drift. Also non-blocking.
+      # Announces flash sales that just went live and repairs reserved-stock drift. Non-blocking.
       - name: Flash-sale alerts + stock reconciliation
         continue-on-error: true
         run: |
-          curl -sf -X GET "$SITE_URL/api/cron/sales"             -H "Authorization: Bearer $CRON_SECRET"
+          curl -sf --retry 2 --retry-delay 2 -X GET "$SITE_URL/api/cron/sales" \
+            -H "Authorization: Bearer $CRON_SECRET"
 
-      # Once a day (the route skips repeat calls): measures the picture stores and hides products sold out for the
-      # owner's chosen number of days. Non-blocking.
+      # Daily housekeeping (maintenance). Non-blocking.
       - name: Daily housekeeping
         continue-on-error: true
         run: |
-          curl -sf -X GET "$SITE_URL/api/cron/maintenance" -H "Authorization: Bearer $CRON_SECRET"
+          curl -sf --retry 2 --retry-delay 2 -X GET "$SITE_URL/api/cron/maintenance" \
+            -H "Authorization: Bearer $CRON_SECRET"
