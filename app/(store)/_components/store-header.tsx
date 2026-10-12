@@ -9,7 +9,12 @@ export async function StoreHeader() {
   const [categories, settings, discounts] = await Promise.all([getActiveCategories(), getPublicSettings(), getCategoryDiscounts().catch(() => new Map<string, number>())]);
   return (
     <HeaderClient
-      categories={categories.map((category) => ({ name: category.name, slug: category.slug, discount: discounts.get(category.id) }))}
+      categories={categories.map((category) => ({
+        name: category.name,
+        slug: category.slug,
+        subcategories: category.subcategories,
+        discount: discounts.get(category.id),
+      }))}
       messages={buildAnnouncements({
         mode: isAnnouncementMode(settings.announcementMode) ? settings.announcementMode : "auto",
         lines: settings.announcementLines,

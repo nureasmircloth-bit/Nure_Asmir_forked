@@ -40,10 +40,12 @@ test.describe("flash-sale pricing", () => {
 });
 
 test.describe("currency display", () => {
-  test("falls back to PKR until rates exist and converts when they do", () => {
+  test("falls back to PKR until rates exist and converts when they do with 2% buffer and .99 ceiling", () => {
     expect(formatPrice(12500, "USD", null)).toBe("Rs. 12,500");
     expect(formatPrice(12500, "PKR", { PKR: 1 })).toBe("Rs. 12,500");
-    expect(formatPrice(12500, "USD", { USD: 0.0036 })).toBe("$45.00");
+    expect(formatPrice(12500, "USD", { USD: 0.0036 })).toBe("$45.99");
+    // 7500 to EUR with rate 24.19/7500 (approx 0.00322533) -> 24.6738 -> 24.99 €
+    expect(formatPrice(7500, "EUR", { EUR: 24.19 / 7500 })).toBe("24.99 €");
   });
 });
 

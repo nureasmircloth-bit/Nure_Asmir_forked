@@ -65,8 +65,12 @@ export default async function ContactPage() {
             {settings.supportEmail ? <a href={`mailto:${settings.supportEmail}`}>{settings.supportEmail}</a> : <p>Coming soon.</p>}
           </article>
           <article>
-            <span>Phone</span>
-            {settings.supportPhone ? <a href={`tel:${settings.supportPhone.replace(/\s/g, "")}`}>{settings.supportPhone}</a> : <p>Coming soon.</p>}
+            <span>Direct Phone Call</span>
+            {settings.supportPhone ? (
+              <a href={`tel:${settings.supportPhone.replace(/\s/g, "")}`}>
+                {settings.supportPhone.replace(/\D/g, "") === "924236622241" ? "+92 42 36622241" : settings.supportPhone}
+              </a>
+            ) : <p>Coming soon.</p>}
           </article>
           <article>
             <span>Instagram</span>

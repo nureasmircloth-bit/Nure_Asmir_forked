@@ -70,7 +70,10 @@ const replaceExisting = process.argv.includes("--replace-existing");
 async function existingRules(name: string): Promise<number> {
   if (!token) return 0;
   const response = await fetch(`${API}/zones/${zone}/rulesets/phases/${name}/entrypoint`, { headers: { Authorization: `Bearer ${token}` } });
-  if (!response.ok) return 0; // 404 = no ruleset yet
+  if (response.status === 404) return 0; // no ruleset yet
+  if (!response.ok) {
+    throw new Error(`Cloudflare API request failed while reading phase ${name} (${response.status})`);
+  }
   const json = (await response.json()) as { result?: { rules?: Array<{ description?: string }> } };
   const rules = json.result?.rules ?? [];
   if (rules.length) console.log(`  ! phase ${name} already has ${rules.length} rule(s): ${rules.map((r) => r.description ?? "(unnamed)").join("; ")}`);

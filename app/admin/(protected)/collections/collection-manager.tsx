@@ -33,6 +33,7 @@ type Category = {
   name: string;
   slug: string;
   description: string | null;
+  subcategories: string | null;
   status: string;
   sortOrder: number;
   imageUrl: string | null;
@@ -293,6 +294,7 @@ export function CollectionManager({ products }: { products: Product[] }) {
                       <th>Photo</th>
                       <th>Name</th>
                       <th>Slug</th>
+                      <th>Subcategories</th>
                       <th>Description</th>
                       <th>Status</th>
                       <th>Order</th>
@@ -380,6 +382,16 @@ export function CollectionManager({ products }: { products: Product[] }) {
                         <td>
                           <input
                             form={`category-${category.id}`}
+                            name="subcategories"
+                            defaultValue={category.subcategories ?? ""}
+                            placeholder="Casual, Festive, Embroidered"
+                            aria-label="Subcategories"
+                            style={{ minWidth: 160 }}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            form={`category-${category.id}`}
                             name="description"
                             defaultValue={category.description ?? ""}
                             aria-label="Description"
@@ -432,6 +444,10 @@ export function CollectionManager({ products }: { products: Product[] }) {
             <label>
               <span>URL slug (optional)</span>
               <input name="slug" placeholder="eid-edit" />
+            </label>
+            <label>
+              <span>Subcategories (comma separated)</span>
+              <input name="subcategories" placeholder="Casual, Festive, Embroidered" />
             </label>
             <label>
               <span>Description</span>

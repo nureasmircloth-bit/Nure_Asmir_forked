@@ -74,7 +74,7 @@ export function ProductGallery({ name, images, fallback }: { name: string; image
   const [waiting, setWaiting] = useState(false); // an arrow or thumbnail was tapped and its photo is still arriving: the arrows pulse
   const currentRequest = useRef(0);
   // Slides to a photo once it has arrived (at most ~1 s of waiting): sliding to a photo that is still downloading shows an empty frame.
-  const show = useCallback(async (to: number) => {
+  const show = useCallback(async (to: number, moveDirection?: 1 | -1) => {
     const id = ++currentRequest.current;
     setSeen((before) => {
       const next = new Set(before);
@@ -85,22 +85,22 @@ export function ProductGallery({ name, images, fallback }: { name: string; image
       }
       return next;
     });
-    if (!loaded.current.has(to)) {
-      setWaiting(true);
+    const needsWait = !loaded.current.has(to);
+    setWaiting(needsWait);
+    if (needsWait) {
       await waitUntil(() => loaded.current.has(to), 2500);
       if (currentRequest.current !== id) return;
       setWaiting(false);
     }
     if (currentRequest.current !== id) return;
-    setDirection(to >= index ? 1 : -1);
+    setDirection(moveDirection ?? (to >= index ? 1 : -1));
     setActive(to);
     trackEvent("gallery_photo_changed", { to: to + 1 });
   }, [index, gallery.length]);
   const go = useCallback((next: number) => show(Math.max(0, Math.min(last, next))), [show, last]);
   /** Used by the full-size viewer, where the photos wrap round. */
   const stepLoop = useCallback((delta: number) => {
-    show((index + delta + gallery.length) % gallery.length);
-    setDirection(delta > 0 ? 1 : -1);
+    show((index + delta + gallery.length) % gallery.length, delta > 0 ? 1 : -1);
   }, [show, index, gallery.length]);
 
   const drag = useSlideDrag(track, gallery.length, index, go);

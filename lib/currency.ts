@@ -54,18 +54,40 @@ export async function fetchRates(): Promise<RatesPayload> {
 }
 
 export function formatPrice(amountPkr: number, currency: CurrencyCode, rates: RatesPerPkr | null): string {
-  const meta = CURRENCIES.find((c) => c.code === currency) ?? CURRENCIES[0];
   const rate = currency === BASE_CURRENCY ? 1 : rates?.[currency];
-  // No rate yet (first paint / offline): always fall back to the real PKR price.
-  const useCurrency = rate ? meta : CURRENCIES[0];
-  const value = amountPkr * (rate ?? 1);
-  if (useCurrency.code === "PKR") return `Rs. ${Math.round(value).toLocaleString("en-PK")}`;
-  return new Intl.NumberFormat(useCurrency.locale, {
-    style: "currency",
-    currency: useCurrency.code,
-    minimumFractionDigits: useCurrency.digits,
-    maximumFractionDigits: useCurrency.digits,
-  }).format(value);
+  // No rate yet (first paint / offline) or base currency: always fall back to the real PKR price.
+  if (!rate || currency === BASE_CURRENCY) {
+    return `Rs. ${Math.round(amountPkr).toLocaleString("en-PK")}`;
+  }
+
+  // Add 2% safety buffer on foreign conversions to protect against FX volatility and fees
+  const buffered = amountPkr * rate * 1.02;
+
+  // Smart ecommerce ceiling ending in .99 (e.g. 24.19 -> 24.67 -> 24.99)
+  const floorVal = Math.floor(buffered);
+  const target99 = floorVal + 0.99;
+  const finalValue = buffered <= target99 ? target99 : floorVal + 1.99;
+
+  // Format with period (.) separator for visual clarity across all international shoppers
+  const formattedNumber = finalValue.toFixed(2);
+  switch (currency) {
+    case "EUR":
+      return `${formattedNumber} €`;
+    case "USD":
+      return `$${formattedNumber}`;
+    case "GBP":
+      return `£${formattedNumber}`;
+    case "CAD":
+      return `CA$${formattedNumber}`;
+    case "AUD":
+      return `A$${formattedNumber}`;
+    case "AED":
+      return `AED ${formattedNumber}`;
+    case "SAR":
+      return `SAR ${formattedNumber}`;
+    default:
+      return `${currency} ${formattedNumber}`;
+  }
 }
 
 /* ---- flags + "start on the shopper's own currency" ---- */

@@ -50,8 +50,9 @@ export function ProductCard({ product, priority = false, sizes, swipe = true }: 
       }
       return next;
     });
-    if (!loaded.current.has(to)) {
-      setWaiting(true);
+    const needsWait = !loaded.current.has(to);
+    setWaiting(needsWait);
+    if (needsWait) {
       await waitUntil(() => loaded.current.has(to), patience);
       if (currentRequest.current !== id) return;
       setWaiting(false);

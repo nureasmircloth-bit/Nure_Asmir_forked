@@ -13,42 +13,19 @@ import type { AnnouncementStyle } from "@/lib/shop-rules";
  */
 export function AnnouncementBar({ messages, style = "rotate" }: { messages: string[]; style?: AnnouncementStyle }) {
   const [index, setIndex] = useState(0);
-  const rotating = style === "rotate";
 
   useEffect(() => {
-    if (!rotating || messages.length < 2) return;
+    if (messages.length < 2) return;
     const timer = window.setInterval(() => setIndex((current) => (current + 1) % messages.length), 4500);
     return () => window.clearInterval(timer);
-  }, [rotating, messages.length]);
+  }, [messages.length]);
 
   if (!messages.length) return null;
-  // the list can get shorter while the bar is on screen (the owner edits the lines): never point past its end
+  // the list can get shorter while the bar is on screen: never point past its end
   const current = index % messages.length;
 
-  if (!rotating) {
-    // A whole loop takes longer the more text there is, so reading speed stays the same for one line or six.
-    const seconds = Math.max(16, Math.round(messages.join("").length * 0.32));
-    const line = (copy: number) => (
-      <span className="announcement-run" key={copy} aria-hidden={copy === 1}>
-        {messages.map((message) => (
-          <span key={message} className="announcement-item">
-            {message}
-          </span>
-        ))}
-      </span>
-    );
-    return (
-      <div className="announcement announcement-scroll" role="status" data-direction={style === "scroll-right" ? "right" : "left"}>
-        <div className="announcement-belt" style={{ animationDuration: `${seconds}s` }}>
-          {line(0)}
-          {line(1)}
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="announcement" role="status">
+    <div className="announcement" role="status" data-style={style}>
       <div className="announcement-ticker">
         {messages.map((message, position) => {
           const previous = (current - 1 + messages.length) % messages.length;

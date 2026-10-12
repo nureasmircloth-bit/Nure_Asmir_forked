@@ -30,8 +30,15 @@ async function searchProducts(query: string): Promise<{ results: CatalogProduct[
   return { results, total: Math.max(total, results.length) };
 }
 
-export default async function SearchPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  const typed = String((await searchParams).q ?? "").trim().slice(0, 100);
+import Link from "next/link";
+
+export default async function SearchPage({ searchParams }: { searchParams: Promise<{ q?: string; min?: string; max?: string; sort?: string }> }) {
+  const sp = await searchParams;
+  const typed = String(sp.q ?? "").trim().slice(0, 100);
+  const minPrice = sp.min ? Number(sp.min) : null;
+  const maxPrice = sp.max ? Number(sp.max) : null;
+  const sort = sp.sort === "low" || sp.sort === "high" ? sp.sort : "best";
+
   // Only the first ten words are used; the page says so instead of quietly ignoring the rest.
   const words = typed.split(/\s+/).filter(Boolean);
   const query = words.slice(0, SEARCH_MAX_WORDS).join(" ");
@@ -39,25 +46,91 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   // Never paint hundreds of cards at once: the first 48 best matches, and a hint to narrow the search.
   const { results, total } = query ? await searchProducts(query) : { results: [] as CatalogProduct[], total: 0 };
 
+  let filtered = results;
+  if (minPrice != null && !Number.isNaN(minPrice)) filtered = filtered.filter((p) => p.price >= minPrice);
+  if (maxPrice != null && !Number.isNaN(maxPrice)) filtered = filtered.filter((p) => p.price <= maxPrice);
+  if (sort === "low") filtered = [...filtered].sort((a, b) => a.price - b.price);
+  if (sort === "high") filtered = [...filtered].sort((a, b) => b.price - a.price);
+
   return (
     <main className="page-fade-in">
       <section className="search-page">
         <header>
           <h1 className="page-title">{query ? `Results for “${query}”` : "Search"}</h1>
-          <p className="result-count">{query ? (total > results.length ? `Showing the first ${results.length} of ${total} products – try a more specific word` : `${total} ${total === 1 ? "product" : "products"}`) : "Use the search icon above to find a product."}</p>
+          <p className="result-count">
+            {query
+              ? filtered.length !== total
+                ? `Showing ${filtered.length} products (filtered from ${total})`
+                : `${total} ${total === 1 ? "product" : "products"}`
+              : "Use the search button to find a product."}
+          </p>
           {cut && <p className="result-count">Only the first {SEARCH_MAX_WORDS} words of your search were used.</p>}
         </header>
-        {results.length > 0 && (
+
+        {query && results.length > 0 && (
+          <div className="in-cat-search-row" style={{ maxWidth: 880, margin: "0 auto 28px" }}>
+            <div className="in-cat-price-pills">
+              <span className="price-pill-label">Price:</span>
+              <Link
+                href={`/search?q=${encodeURIComponent(query)}${sort !== "best" ? `&sort=${sort}` : ""}`}
+                className={`price-pill ${minPrice == null && maxPrice == null ? "is-active" : ""}`}
+              >
+                All
+              </Link>
+              <Link
+                href={`/search?q=${encodeURIComponent(query)}&max=5000${sort !== "best" ? `&sort=${sort}` : ""}`}
+                className={`price-pill ${maxPrice === 5000 && minPrice == null ? "is-active" : ""}`}
+              >
+                Under 5k
+              </Link>
+              <Link
+                href={`/search?q=${encodeURIComponent(query)}&min=5000&max=10000${sort !== "best" ? `&sort=${sort}` : ""}`}
+                className={`price-pill ${minPrice === 5000 && maxPrice === 10000 ? "is-active" : ""}`}
+              >
+                5k–10k
+              </Link>
+              <Link
+                href={`/search?q=${encodeURIComponent(query)}&min=10000${sort !== "best" ? `&sort=${sort}` : ""}`}
+                className={`price-pill ${minPrice === 10000 && maxPrice == null ? "is-active" : ""}`}
+              >
+                10k+
+              </Link>
+            </div>
+            <div className="in-cat-price-pills">
+              <span className="price-pill-label">Sort:</span>
+              <Link
+                href={`/search?q=${encodeURIComponent(query)}${minPrice ? `&min=${minPrice}` : ""}${maxPrice ? `&max=${maxPrice}` : ""}`}
+                className={`price-pill ${sort === "best" ? "is-active" : ""}`}
+              >
+                Best
+              </Link>
+              <Link
+                href={`/search?q=${encodeURIComponent(query)}&sort=low${minPrice ? `&min=${minPrice}` : ""}${maxPrice ? `&max=${maxPrice}` : ""}`}
+                className={`price-pill ${sort === "low" ? "is-active" : ""}`}
+              >
+                Low to high
+              </Link>
+              <Link
+                href={`/search?q=${encodeURIComponent(query)}&sort=high${minPrice ? `&min=${minPrice}` : ""}${maxPrice ? `&max=${maxPrice}` : ""}`}
+                className={`price-pill ${sort === "high" ? "is-active" : ""}`}
+              >
+                High to low
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {filtered.length > 0 && (
           <div className="product-grid">
-            {results.map((product) => (
+            {filtered.map((product) => (
               <ProductCard key={product.slug} product={toCard(product)} />
             ))}
           </div>
         )}
-        {query && !results.length && (
+        {query && !filtered.length && (
           <div className="cart-empty">
-            <h2>No exact match.</h2>
-            <p>Try a category, colour or product name.</p>
+            <h2>No match found.</h2>
+            <p>Try clearing price filters or search for another keyword.</p>
           </div>
         )}
       </section>

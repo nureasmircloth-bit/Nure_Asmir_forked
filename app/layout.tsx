@@ -109,6 +109,38 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
     <html lang="en-PK" data-scroll-behavior="smooth" className={`${display.variable} ${sans.variable}`}>
       <head>
         <script type="application/ld+json" nonce={nonce} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+        {settings.fontFamily && settings.fontFamily !== "Cormorant Garamond" && (
+          <link
+            rel="stylesheet"
+            href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(settings.fontFamily.trim())}:wght@400;500;600;700&display=swap`}
+          />
+        )}
+        {settings.contactFontFamily && settings.contactFontFamily !== "Inter" && settings.contactFontFamily !== "system-ui" && (
+          <link
+            rel="stylesheet"
+            href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(settings.contactFontFamily.trim())}:wght@400;500;600&display=swap`}
+          />
+        )}
+        <style
+          nonce={nonce}
+          dangerouslySetInnerHTML={{
+            __html: `
+              :root {
+                ${settings.themeAccentColor ? `--gold: ${settings.themeAccentColor}; --accent: ${settings.themeAccentColor};` : ""}
+                ${settings.fontFamily && settings.fontFamily !== "Cormorant Garamond" ? `--font-display: "${settings.fontFamily}", Georgia, serif; --display: "${settings.fontFamily}", Georgia, serif;` : ""}
+                ${settings.contactFontFamily ? `--contact-font: ${settings.contactFontFamily === "system-ui" ? "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" : `"${settings.contactFontFamily}", -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`};` : ""}
+              }
+              .contact-page {
+                font-family: var(--contact-font, var(--sans));
+              }
+              .contact-page h1 {
+                font-family: var(--contact-font, var(--sans)) !important;
+                font-weight: 600;
+                letter-spacing: -0.02em;
+              }
+            `,
+          }}
+        />
       </head>
       <body>
         {children}

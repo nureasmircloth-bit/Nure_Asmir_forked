@@ -31,8 +31,8 @@ function buildCsp(): string {
     // Inline `style={{...}}` (blur-placeholder backgrounds, etc.) is used extensively throughout
     // the storefront — nonce-ing every one of those individually isn't practical the way it is for
     // the small, fixed set of inline <script> tags, so style-src keeps 'unsafe-inline'.
-    "style-src 'self' 'unsafe-inline'",
-    "font-src 'self' data:",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' data: https://fonts.gstatic.com",
     // Sentry's browser SDK spins up a small worker from a blob: URL for some features.
     "worker-src 'self' blob:",
     `connect-src 'self' ${isDev ? "ws:" : ""} https://www.google-analytics.com https://connect.facebook.net https://cloudflareinsights.com https://challenges.cloudflare.com https://apis.google.com https://*.algolia.net https://*.algolianet.com https://*.ingest.de.sentry.io https://*.ingest.sentry.io https://eu.i.posthog.com https://firebaseinstallations.googleapis.com https://fcmregistrations.googleapis.com https://fcm.googleapis.com`,

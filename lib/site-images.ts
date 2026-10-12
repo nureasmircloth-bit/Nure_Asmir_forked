@@ -7,11 +7,19 @@ import { mediaUrl } from "@/lib/media-url";
 export const SITE_IMAGE_SLOTS = [
   {
     slot: "about_hero",
-    label: "Photo on the “Our story” page",
-    help: "The big picture next to the story. A portrait or square photo works best.",
-    size: "about 1200 × 1500 pixels (portrait)",
-    fallback: "/og.jpg",
+    label: "Photo on the “Our story” page (Desktop)",
+    help: "The big picture next to the story on desktop screens. A portrait photo works best.",
+    size: "about 1200 × 1500 pixels (portrait 4:5)",
+    fallback: "/cdn/products/seed-noir-kameez-shalwar-with-waistcoat-1-w960.webp",
     aspect: "4 / 5",
+  },
+  {
+    slot: "about_hero_mobile",
+    label: "Mobile photo on the “Our story” page (Phone)",
+    help: "Portrait photo shown to phone shoppers. Check the interactive mobile preview below to see how it fits.",
+    size: "about 1080 × 1920 pixels (vertical 9:16)",
+    fallback: "/cdn/products/seed-noir-kameez-shalwar-with-waistcoat-1-w960.webp",
+    aspect: "9 / 16",
   },
   {
     slot: "share_image",

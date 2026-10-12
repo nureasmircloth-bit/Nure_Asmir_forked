@@ -563,6 +563,7 @@ export type CategoryWithImage = {
   slug: string;
   sortOrder: number;
   description?: string;
+  subcategories?: string[];
   imageUrl?: string;
   blurDataUrl?: string;
   // The wide /collections/[slug] hero crop — undefined whenever no separate hero photo was ever
@@ -638,6 +639,7 @@ export async function getActiveCategories(): Promise<CategoryWithImage[]> {
       slug: categories.slug,
       sortOrder: categories.sortOrder,
       description: categories.description,
+      subcategories: categories.subcategories,
       imageR2Key: categories.imageR2Key,
       imageWidths: categories.imageVariantWidths,
       blurDataUrl: categories.imageBlurDataUrl,
@@ -656,6 +658,9 @@ export async function getActiveCategories(): Promise<CategoryWithImage[]> {
     slug: row.slug,
     sortOrder: row.sortOrder,
     description: row.description ?? undefined,
+    subcategories: row.subcategories
+      ? row.subcategories.split(",").map((s) => s.trim()).filter(Boolean)
+      : undefined,
     imageUrl: row.imageR2Key ? mediaUrl(row.imageR2Key, row.imageWidths) : undefined,
     blurDataUrl: row.blurDataUrl ?? undefined,
     heroImageUrl: row.heroR2Key ? mediaUrl(row.heroR2Key, row.heroWidths) : undefined,
@@ -762,12 +767,15 @@ export type PublicSettings = {
   codReservationHours: number;
   bankReservationHours: number;
   refundWindowDays: number;
+  themeAccentColor: string;
+  fontFamily: string;
+  contactFontFamily: string;
 };
 
 export const getPublicSettings = cache(async (): Promise<PublicSettings> => {
   const [row] = await db.select().from(siteSettings).where(eq(siteSettings.id, "store")).limit(1);
   return {
-    whatsappNumber: row?.whatsappNumber || process.env.WHATSAPP_DEFAULT_NUMBER || BRAND.contact.phone,
+    whatsappNumber: row?.whatsappNumber || process.env.WHATSAPP_DEFAULT_NUMBER || BRAND.contact.whatsappPhone,
     supportPhone: row?.supportPhone || BRAND.contact.phone,
     supportEmail: row?.supportEmail ?? "",
     instagramUrl: row?.instagramUrl || BRAND.contact.instagramUrl,
@@ -791,5 +799,8 @@ export const getPublicSettings = cache(async (): Promise<PublicSettings> => {
     bankDepositEnabled: row?.bankDepositEnabled ?? false,
     deliveryMode: row?.deliveryMode ?? "zones",
     flatDeliveryCharge: row?.flatDeliveryCharge ?? 250,
+    themeAccentColor: row?.themeAccentColor || "#c5a059",
+    fontFamily: row?.fontFamily || "Cormorant Garamond",
+    contactFontFamily: row?.contactFontFamily || "Inter",
   };
 });

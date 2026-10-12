@@ -14,6 +14,7 @@ const createSchema = z.object({
   name: z.string().min(1),
   slug: z.string().optional(),
   description: z.string().optional(),
+  subcategories: z.string().optional(),
   status: z.enum(["active", "inactive"]).optional(),
   sortOrder: z.coerce.number().int().optional(),
 });
@@ -56,6 +57,7 @@ export async function POST(request: Request) {
         name: data.name,
         slug,
         description: data.description || null,
+        subcategories: data.subcategories || null,
         status: data.status ?? "active",
         sortOrder: data.sortOrder ?? 0,
       })

@@ -132,7 +132,19 @@
 .adm-nav svg { flex: none; width: 19px; height: 19px; }
 .adm-nav .count { margin-left: auto; min-width: 22px; padding: 1px 7px; border-radius: 999px; background: var(--new); color: #fff; font-size: 12px; font-weight: 700; text-align: center; }
 .adm[data-theme="night"] .adm-nav .count { color: #1b1408; }
-.adm-side-foot { flex: none; padding: 12px; display: grid; gap: 8px; border-top: 1px solid var(--line); background: var(--surface); }
+.adm-side-foot { flex: none; padding: 10px 12px; border-top: 1px solid var(--line); background: var(--surface); }
+.adm-user-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 38px; }
+.adm-user-info { display: flex; align-items: center; gap: 9px; min-width: 0; flex: 1; text-decoration: none; }
+.adm-user-avatar { display: grid; place-items: center; width: 32px; height: 32px; flex: none; border-radius: 50%; background: var(--primary); color: var(--on-primary); font-weight: 700; font-size: 13px; }
+.adm-user-meta { min-width: 0; flex: 1; }
+.adm-user-meta strong { display: block; overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; line-height: 1.25; }
+.adm-user-meta small { display: block; color: var(--muted); font-size: 11px; line-height: 1.2; }
+.adm-foot-actions { display: flex; align-items: center; gap: 4px; flex: none; }
+.adm-push-compact { position: relative; width: 32px; height: 32px; border-radius: 8px; color: var(--muted); display: grid; place-items: center; cursor: pointer; transition: color 0.12s, background-color 0.12s; }
+.adm-push-compact:hover { background: var(--surface-2); color: var(--text); }
+.adm-push-compact.is-active { color: var(--primary); }
+.adm-push-dot { position: absolute; top: 5px; right: 5px; width: 6px; height: 6px; border-radius: 50%; background: #10b981; box-shadow: 0 0 0 1.5px var(--surface); }
+.adm-foot-actions .a-icon-btn { width: 32px; height: 32px; border-radius: 8px; }
 .adm-user { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 10px; background: var(--surface-2); }
 .adm-user > span { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--primary); color: var(--on-primary); font-weight: 700; }
 .adm-user div { min-width: 0; }
@@ -696,6 +708,9 @@
 .adm-shell[data-side="collapsed"] > .adm-side .adm-nav .count { position: absolute; top: 2px; right: 2px; margin: 0; min-width: 16px; padding: 0 4px; font-size: 10px; line-height: 16px; animation: rail-count .35s ease both; }
 .adm-shell[data-side="collapsed"] > .adm-side .adm-push { max-height: 0; opacity: 0; }
 .adm-shell[data-side="collapsed"] > .adm-side .adm-side-foot .a-btn { max-height: 0; opacity: 0; padding-top: 0; padding-bottom: 0; border-width: 0; }
+.adm-shell[data-side="collapsed"] > .adm-side .adm-user-meta,
+.adm-shell[data-side="collapsed"] > .adm-side .adm-foot-actions { display: none; }
+.adm-shell[data-side="collapsed"] > .adm-side .adm-user-row { justify-content: center; }
 .adm-shell[data-side="collapsed"] > .adm-side .adm-user { padding: 4px; background: transparent; }
 .adm-shell[data-side="collapsed"] > .adm-side .adm-user div { max-width: 0; opacity: 0; }
 @keyframes rail-count { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: scale(1); } }

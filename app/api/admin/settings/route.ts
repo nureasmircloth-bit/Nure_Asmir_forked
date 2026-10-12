@@ -58,6 +58,9 @@ const updateSchema = z.object({
   codReservationHours: z.coerce.number().int().min(1).optional(),
   bankReservationHours: z.coerce.number().int().min(1).optional(),
   taxEnabled: z.boolean().optional(),
+  themeAccentColor: z.string().max(30).optional(),
+  fontFamily: z.string().max(80).optional(),
+  contactFontFamily: z.string().max(80).optional(),
 });
 
 /** Accepts the bare code or the whole <meta …> tag the search engine shows, and keeps only the code. */
@@ -118,6 +121,9 @@ export async function PATCH(request: Request) {
     ...(data.codReservationHours !== undefined ? { codReservationHours: data.codReservationHours } : {}),
     ...(data.bankReservationHours !== undefined ? { bankReservationHours: data.bankReservationHours } : {}),
     ...(data.taxEnabled !== undefined ? { taxEnabled: data.taxEnabled } : {}),
+    ...(data.themeAccentColor !== undefined ? { themeAccentColor: data.themeAccentColor } : {}),
+    ...(data.fontFamily !== undefined ? { fontFamily: data.fontFamily } : {}),
+    ...(data.contactFontFamily !== undefined ? { contactFontFamily: data.contactFontFamily } : {}),
     updatedAt: new Date(),
   };
 

@@ -13,7 +13,13 @@ import { useWishlist } from "@/lib/wishlist";
 import { Price } from "./currency";
 import { discountLabel } from "./sale";
 
-type NavCategory = { name: string; slug: string; /** Biggest percentage off in this category right now (0/undefined = none). */ discount?: number };
+type NavCategory = {
+  name: string;
+  slug: string;
+  subcategories?: string[];
+  /** Biggest percentage off in this category right now (0/undefined = none). */
+  discount?: number;
+};
 
 type Hit = SearchHit;
 
@@ -23,6 +29,7 @@ const Icon = {
   bag: <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true"><path d="M5 8h14l-1 12H6L5 8z" /><path d="M9 8V6a3 3 0 016 0v2" /></svg>,
   heart: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true"><path d="M12 21s-7.5-4.6-10.2-9.1C.2 8.9 1.4 5 5 4c2.4-.7 4.6.4 7 3 2.4-2.6 4.6-3.7 7-3 3.6 1 4.8 4.9 3.2 7.9C19.5 16.4 12 21 12 21z" strokeLinejoin="round" /></svg>,
   close: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19" /></svg>,
+  chevronDown: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>,
 };
 
 export function HeaderClient({
@@ -42,7 +49,12 @@ export function HeaderClient({
   const [searchOpen, setSearchOpen] = useState(false);
   const [bagCount, setBagCount] = useState(0);
   const [bump, setBump] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const wishlistCount = useWishlist().length;
+
+  const toggleCategory = (slug: string) => {
+    setExpandedCategories((prev) => ({ ...prev, [slug]: !prev[slug] }));
+  };
 
   useEffect(() => {
     let before = cartCount(readCart());
@@ -112,7 +124,7 @@ export function HeaderClient({
           <button type="button" className="icon-btn" aria-label="Open menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}>
             {Icon.menu}
           </button>
-          <button type="button" className="icon-btn" aria-label="Search" onClick={openSearch}>
+          <button type="button" className="icon-btn hdr-search-btn" aria-label="Search" onClick={openSearch}>
             {Icon.search}
           </button>
           <button type="button" className="hdr-search-hint" onClick={openSearch}>
@@ -149,21 +161,70 @@ export function HeaderClient({
             {Icon.close}
           </button>
         </div>
-        <nav>
-          <Link href="/" onClick={closeAll}>Home</Link>
-          <Link href="/shop" onClick={closeAll}>New arrivals</Link>
-          {categories.map((category) => (
-            <Link key={category.slug} href={`/collections/${category.slug}`} onClick={closeAll}>
-              {category.name}
-              {category.discount ? <em className="nav-sale">Up to −{category.discount}%</em> : null}
-            </Link>
-          ))}
-          <Link href="/about" onClick={closeAll}>Our story</Link>
-          <Link href="/track-order" onClick={closeAll}>Track order</Link>
-          <Link href="/contact" onClick={closeAll}>Contact</Link>
+        <nav className="drawer-nav">
+          <Link href="/" onClick={closeAll} className="drawer-nav-item">Home</Link>
+          <Link href="/shop" onClick={closeAll} className="drawer-nav-item">
+            <span>New arrivals</span>
+            <span className="drawer-new-pill">New</span>
+          </Link>
+          {categories.map((category) => {
+            const hasSubs = Boolean(category.subcategories && category.subcategories.length > 0);
+            const isOpen = Boolean(expandedCategories[category.slug]);
+            return (
+              <div key={category.slug} className={`drawer-group ${isOpen ? "is-expanded" : ""}`}>
+                <div className="drawer-cat-row">
+                  <Link
+                    href={`/collections/${category.slug}`}
+                    onClick={closeAll}
+                    className="drawer-cat-link"
+                  >
+                    <span>{category.name}</span>
+                    {category.discount ? <em className="nav-sale">Up to −{category.discount}%</em> : null}
+                  </Link>
+                  {hasSubs && (
+                    <button
+                      type="button"
+                      className="drawer-expand-btn"
+                      onClick={() => toggleCategory(category.slug)}
+                      aria-expanded={isOpen}
+                      aria-label={`${isOpen ? "Collapse" : "Expand"} ${category.name} subcategories`}
+                    >
+                      {Icon.chevronDown}
+                    </button>
+                  )}
+                </div>
+                {hasSubs && isOpen && (
+                  <div className="drawer-sub-list">
+                    <Link
+                      href={`/collections/${category.slug}`}
+                      onClick={closeAll}
+                      className="drawer-sub-link is-all"
+                    >
+                      All {category.name}
+                    </Link>
+                    {category.subcategories!.map((sub) => (
+                      <Link
+                        key={sub}
+                        href={`/collections/${category.slug}?q=${encodeURIComponent(sub)}`}
+                        onClick={closeAll}
+                        className="drawer-sub-link"
+                      >
+                        {sub}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          <Link href="/about" onClick={closeAll} className="drawer-nav-item">Our story</Link>
+          <Link href="/track-order" onClick={closeAll} className="drawer-nav-item">Track order</Link>
+          <Link href="/contact" onClick={closeAll} className="drawer-nav-item">Contact</Link>
         </nav>
         <div className="drawer-foot">
-          <a href={waLink} target="_blank" rel="noreferrer">WhatsApp us</a>
+          <a href={waLink} target="_blank" rel="noreferrer" className="drawer-foot-wa">
+            <span className="drawer-wa-dot" /> WhatsApp us
+          </a>
           <Link href="/faq" onClick={closeAll}>FAQ</Link>
           <Link href="/policies/shipping" onClick={closeAll}>Shipping &amp; returns</Link>
         </div>

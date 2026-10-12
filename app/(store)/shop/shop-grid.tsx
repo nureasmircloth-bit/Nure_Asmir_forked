@@ -40,6 +40,7 @@ export function ShopGrid({
   const [category, setCategory] = useState("all");
   const [sort, setSort] = useState<Sort>("newest");
   const [filters, setFilters] = useState<CatalogFilters>(EMPTY_FILTERS);
+  const [searchQuery, setSearchQuery] = useState("");
   const [items, setItems] = useState(products);
   const [count, setCount] = useState(total ?? products.length);
   const [page, setPage] = useState(1);
@@ -48,29 +49,31 @@ export function ShopGrid({
   const [panel, setPanel] = useState(false);
   const [facets, setFacets] = useState<Facets | null>(null);
   const [facetsLoading, setFacetsLoading] = useState(false);
-  const firstPages = useRef(new Map<string, Loaded>([["all|newest|", { products, total: total ?? products.length }]]));
+  const firstPages = useRef(new Map<string, Loaded>([["all|newest||", { products, total: total ?? products.length }]]));
   const facetCache = useRef(new Map<string, Facets>());
   const request = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const scope = scopeCategory ?? category;
-  const keyOf = (cat: string, order: Sort, f: CatalogFilters) => `${scopeCategory ? "all" : cat}|${order}|${filtersToParams(f).toString()}`;
+  const keyOf = (cat: string, order: Sort, f: CatalogFilters, q: string) => `${scopeCategory ? "all" : cat}|${order}|${q.trim()}|${filtersToParams(f).toString()}`;
 
-  async function fetchPage(cat: string, order: Sort, f: CatalogFilters, pageNumber: number): Promise<Loaded> {
+  async function fetchPage(cat: string, order: Sort, f: CatalogFilters, pageNumber: number, q: string): Promise<Loaded> {
     const params = filtersToParams(f);
     params.set("cat", scopeCategory ?? cat);
     params.set("sort", order);
     params.set("page", String(pageNumber));
+    if (q.trim()) params.set("q", q.trim());
     const response = await fetch(`/api/catalog/page?${params.toString()}`);
     if (!response.ok) throw new Error(String(response.status));
     return (await response.json()) as Loaded;
   }
 
-  const syncAddress = useCallback((cat: string, order: Sort, f: CatalogFilters) => {
+  const syncAddress = useCallback((cat: string, order: Sort, f: CatalogFilters, q: string) => {
     try {
       const params = filtersToParams(f);
       if (cat !== "all" && !scopeCategory) params.set("cat", cat);
       if (order !== "newest") params.set("sort", order);
+      if (q.trim()) params.set("q", q.trim());
       const query = params.toString();
       window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
     } catch {
@@ -78,17 +81,18 @@ export function ShopGrid({
     }
   }, [scopeCategory]);
 
-  async function show(cat: string, order: Sort, f: CatalogFilters) {
+  async function show(cat: string, order: Sort, f: CatalogFilters, q: string = searchQuery) {
     // Whatever was waiting to run (a slider drag's pause timer) is older than this choice and must never overwrite it.
     if (timer.current) clearTimeout(timer.current);
     setCategory(cat);
     setSort(order);
     setFilters(f);
+    setSearchQuery(q);
     setFailed(false);
-    syncAddress(cat, order, f);
+    syncAddress(cat, order, f, q);
     if (!paged) return;
     const id = ++request.current;
-    const key = keyOf(cat, order, f);
+    const key = keyOf(cat, order, f, q);
     const cached = firstPages.current.get(key);
     if (cached) {
       setItems(cached.products);
@@ -99,7 +103,7 @@ export function ShopGrid({
     }
     setBusy(true);
     try {
-      const loaded = await fetchPage(cat, order, f, 1);
+      const loaded = await fetchPage(cat, order, f, 1, q);
       if (id !== request.current) return;
       firstPages.current.set(key, loaded);
       setItems(loaded.products);
@@ -116,7 +120,7 @@ export function ShopGrid({
   function changeFilters(next: CatalogFilters) {
     setFilters(next);
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => void show(category, sort, next), 350);
+    timer.current = setTimeout(() => void show(category, sort, next, searchQuery), 350);
   }
 
   async function more() {
@@ -125,7 +129,7 @@ export function ShopGrid({
     setBusy(true);
     setFailed(false);
     try {
-      const loaded = await fetchPage(category, sort, filters, page + 1);
+      const loaded = await fetchPage(category, sort, filters, page + 1, searchQuery);
       if (id !== request.current) return;
       setItems((current) => {
         const seen = new Set(current.map((product) => product.id));
@@ -145,10 +149,11 @@ export function ShopGrid({
     const params = new URLSearchParams(window.location.search);
     const wanted = parseFilters(params);
     const cat = params.get("cat") ?? "all";
+    const q = params.get("q") ?? "";
     const order = (["low", "high"].includes(params.get("sort") ?? "") ? params.get("sort") : "newest") as Sort;
     const validCat = showTabs && categories?.some((item) => item.slug === cat) ? cat : "all";
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (hasFilters(wanted) || validCat !== "all" || order !== "newest") void show(validCat, order, wanted);
+    if (hasFilters(wanted) || validCat !== "all" || order !== "newest" || q) void show(validCat, order, wanted, q);
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
@@ -184,14 +189,24 @@ export function ShopGrid({
   // A small collection that is not paged is filtered and sorted here.
   const visible = useMemo(() => {
     if (paged) return items;
-    const sorted = [...items];
+    let result = items;
+    if (searchQuery.trim()) {
+      const lower = searchQuery.trim().toLowerCase();
+      result = result.filter(
+        (p) =>
+          p.name.toLowerCase().includes(lower) ||
+          p.slug.toLowerCase().includes(lower) ||
+          (p.category && p.category.toLowerCase().includes(lower))
+      );
+    }
+    const sorted = [...result];
     if (sort === "low") sorted.sort((a, b) => a.price - b.price);
     if (sort === "high") sorted.sort((a, b) => b.price - a.price);
     return sorted;
-  }, [items, paged, sort]);
+  }, [items, paged, sort, searchQuery]);
 
   const active = countFilters(filters);
-  const removeChip = (next: CatalogFilters) => void show(category, sort, next);
+  const removeChip = (next: CatalogFilters) => void show(category, sort, next, searchQuery);
 
   return (
     <section className="shop-shell">
@@ -199,7 +214,7 @@ export function ShopGrid({
         {showTabs ? (
           <div className="filter-tabs" role="tablist" aria-label="Filter products by category">
             {[{ slug: "all", name: "All" }, ...(categories ?? [])].map((item) => (
-              <button key={item.slug} type="button" role="tab" aria-selected={category === item.slug} className={category === item.slug ? "active" : ""} onClick={() => void show(item.slug, sort, filters)}>
+              <button key={item.slug} type="button" role="tab" aria-selected={category === item.slug} className={category === item.slug ? "active" : ""} onClick={() => void show(item.slug, sort, filters, searchQuery)}>
                 {item.name}
               </button>
             ))}
@@ -220,10 +235,75 @@ export function ShopGrid({
               label="Sort products"
               value={sort}
               align="right"
-              onChange={(next) => void show(category, next as Sort, filters)}
+              onChange={(next) => void show(category, next as Sort, filters, searchQuery)}
               options={SORTS.map((item) => ({ value: item.value, label: item.label }))}
             />
           </label>
+        </div>
+      </div>
+
+      <div className="in-cat-search-row">
+        <div className="in-cat-search-wrap">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" />
+            <path d="M20 20l-3.5-3.5" />
+          </svg>
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(event) => {
+              const val = event.target.value;
+              setSearchQuery(val);
+              if (timer.current) clearTimeout(timer.current);
+              timer.current = setTimeout(() => void show(category, sort, filters, val), 350);
+            }}
+            placeholder={scopeCategory ? "Search in this collection (e.g. embroidered, black, linen)…" : "Search products…"}
+            aria-label="Search within this collection"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              className="in-cat-search-clear"
+              onClick={() => {
+                setSearchQuery("");
+                void show(category, sort, filters, "");
+              }}
+              aria-label="Clear search"
+            >
+              ×
+            </button>
+          )}
+        </div>
+        <div className="in-cat-price-pills">
+          <span className="price-pill-label">Price:</span>
+          <button
+            type="button"
+            className={`price-pill ${filters.min == null && filters.max == null ? "is-active" : ""}`}
+            onClick={() => changeFilters({ ...filters, min: undefined, max: undefined })}
+          >
+            All
+          </button>
+          <button
+            type="button"
+            className={`price-pill ${filters.max === 5000 && filters.min == null ? "is-active" : ""}`}
+            onClick={() => changeFilters({ ...filters, min: undefined, max: filters.max === 5000 ? undefined : 5000 })}
+          >
+            Under 5k
+          </button>
+          <button
+            type="button"
+            className={`price-pill ${filters.min === 5000 && filters.max === 10000 ? "is-active" : ""}`}
+            onClick={() => changeFilters({ ...filters, min: filters.min === 5000 && filters.max === 10000 ? undefined : 5000, max: filters.min === 5000 && filters.max === 10000 ? undefined : 10000 })}
+          >
+            5k–10k
+          </button>
+          <button
+            type="button"
+            className={`price-pill ${filters.min === 10000 && filters.max == null ? "is-active" : ""}`}
+            onClick={() => changeFilters({ ...filters, min: filters.min === 10000 ? undefined : 10000, max: undefined })}
+          >
+            10k+
+          </button>
         </div>
       </div>
 

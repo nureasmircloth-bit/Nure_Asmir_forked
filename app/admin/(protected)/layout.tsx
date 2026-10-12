@@ -70,19 +70,19 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
             <NavLinks counts={counts} role={user.role} lab={lab} trainingUrl={!lab && user.role === "owner" ? TRAINING_URL : undefined} />
           </div>
           <div className="adm-side-foot">
-            {!lab && (
-              <div className="adm-push">
-                <PushToggle />
+            <div className="adm-user-row">
+              <div className="adm-user-info" title={`${user.displayName ?? user.email} (${user.role === "owner" ? "Owner" : user.role === "developer" ? "Developer" : user.role})`}>
+                <span className="adm-user-avatar">{(user.displayName ?? user.email).slice(0, 1).toUpperCase()}</span>
+                <div className="adm-user-meta">
+                  <strong>{user.displayName ?? user.email}</strong>
+                  <small>{user.role === "owner" ? "Owner" : user.role === "developer" ? "Developer" : user.role}</small>
+                </div>
               </div>
-            )}
-            <div className="adm-user">
-              <span>{(user.displayName ?? user.email).slice(0, 1).toUpperCase()}</span>
-              <div>
-                <strong>{user.displayName ?? user.email}</strong>
-                <small>{user.role === "owner" ? "Owner" : user.role === "developer" ? "Developer" : user.role}</small>
+              <div className="adm-foot-actions">
+                {!lab && <PushToggle compact />}
+                <LogoutButton compact to={lab ? "/admin/training-login" : "/admin/login"} />
               </div>
             </div>
-            <LogoutButton to={lab ? "/admin/training-login" : "/admin/login"} />
           </div>
         </aside>
         <div className="adm-main">

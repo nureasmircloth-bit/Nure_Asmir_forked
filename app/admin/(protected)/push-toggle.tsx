@@ -10,7 +10,9 @@ type State = "unsupported" | "off" | "on" | "blocked" | "busy";
 
 /** "Order alerts" switch in the admin sidebar: registers this browser with Firebase Cloud Messaging
  * and stores the device token so new orders / payment proofs can be pushed to it. */
-export function PushToggle() {
+import { Icon } from "../_ui/icons";
+
+export function PushToggle({ compact = false }: { compact?: boolean }) {
   const [state, setState] = useState<State>("busy");
   const [note, setNote] = useState("");
 
@@ -85,6 +87,35 @@ export function PushToggle() {
   }
 
   if (state === "unsupported") return null;
+
+  if (compact) {
+    return (
+      <button
+        type="button"
+        className={`a-icon-btn adm-push-compact ${state === "on" ? "is-active" : ""}`}
+        disabled={state === "busy" || state === "blocked"}
+        onClick={state === "on" ? disable : enable}
+        title={
+          state === "on"
+            ? "Order alerts: on (click to disable)"
+            : state === "blocked"
+            ? "Alerts are blocked in this browser"
+            : "Turn on order alerts"
+        }
+        aria-label={state === "on" ? "Order alerts on" : "Turn on order alerts"}
+      >
+        {state === "busy" ? (
+          <span className="spinner" aria-hidden="true" />
+        ) : (
+          <>
+            <Icon name="bell" size={17} />
+            {state === "on" && <span className="adm-push-dot" aria-hidden="true" />}
+          </>
+        )}
+      </button>
+    );
+  }
+
   return (
     <div className="admin-push">
       <button

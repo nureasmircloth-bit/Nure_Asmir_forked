@@ -38,7 +38,11 @@ export function CampaignCarousel({ slides }: { slides: CampaignSlide[] }) {
   const go = (delta: number) => setActive((index) => (index + delta + items.length) % items.length);
 
   const onTouchStart = (event: React.TouchEvent) => {
-    if (items.length < 2 || event.touches.length !== 1) return;
+    if (items.length < 2) return;
+    if (event.touches.length !== 1) {
+      touchStart.current = null;
+      return;
+    }
     setPaused(true);
     const touch = event.touches[0];
     touchStart.current = { x: touch.clientX, y: touch.clientY, time: performance.now() };

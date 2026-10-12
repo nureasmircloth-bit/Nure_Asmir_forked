@@ -72,6 +72,7 @@ export async function GET(request: Request, context: { params: Promise<{ key: st
     } as RequestInit);
     if (!origin.ok && objectKey.startsWith("r2/")) {
       const fallback = await fetch(`${publicBucketOrigin()}/${objectKey.slice(3)}`, {
+        cf: { cacheEverything: true, cacheTtl: ONE_YEAR, cacheTtlByStatus: { "200-299": ONE_YEAR, "404": 60, "500-599": 0 } },
         signal: AbortSignal.timeout(8000),
       } as RequestInit);
       if (fallback.ok) origin = fallback;
