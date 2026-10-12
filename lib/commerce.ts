@@ -635,40 +635,45 @@ export async function getSalePricesByIds(ids: string[]): Promise<Record<string, 
  * hero banner (via heroImageUrl, falling back to imageUrl). Categories without an uploaded image
  * simply omit imageUrl/heroImageUrl; callers fall back to a static placeholder. */
 export async function getActiveCategories(): Promise<CategoryWithImage[]> {
-  const rows = await db
-    .select({
-      id: categories.id,
-      name: categories.name,
-      slug: categories.slug,
-      sortOrder: categories.sortOrder,
-      description: categories.description,
-      subcategories: categories.subcategories,
-      imageR2Key: categories.imageR2Key,
-      imageWidths: categories.imageVariantWidths,
-      blurDataUrl: categories.imageBlurDataUrl,
-      heroR2Key: categories.heroR2Key,
-      heroWidths: categories.heroVariantWidths,
-      heroBlurDataUrl: categories.heroBlurDataUrl,
-      updatedAt: categories.updatedAt,
-    })
-    .from(categories)
-    .where(eq(categories.status, "active"))
-    .orderBy(asc(categories.sortOrder), asc(categories.name));
+  try {
+    const rows = await db
+      .select({
+        id: categories.id,
+        name: categories.name,
+        slug: categories.slug,
+        sortOrder: categories.sortOrder,
+        description: categories.description,
+        subcategories: categories.subcategories,
+        imageR2Key: categories.imageR2Key,
+        imageWidths: categories.imageVariantWidths,
+        blurDataUrl: categories.imageBlurDataUrl,
+        heroR2Key: categories.heroR2Key,
+        heroWidths: categories.heroVariantWidths,
+        heroBlurDataUrl: categories.heroBlurDataUrl,
+        updatedAt: categories.updatedAt,
+      })
+      .from(categories)
+      .where(eq(categories.status, "active"))
+      .orderBy(asc(categories.sortOrder), asc(categories.name));
 
-  return rows.map((row) => ({
-    id: row.id,
-    name: row.name,
-    slug: row.slug,
-    sortOrder: row.sortOrder,
-    description: row.description ?? undefined,
-    subcategories: row.subcategories
-      ? row.subcategories.split(",").map((s) => s.trim()).filter(Boolean)
-      : undefined,
-    imageUrl: row.imageR2Key ? mediaUrl(row.imageR2Key, row.imageWidths) : undefined,
-    blurDataUrl: row.blurDataUrl ?? undefined,
-    heroImageUrl: row.heroR2Key ? mediaUrl(row.heroR2Key, row.heroWidths) : undefined,
-    heroBlurDataUrl: row.heroBlurDataUrl ?? undefined,
-  }));
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      sortOrder: row.sortOrder,
+      description: row.description ?? undefined,
+      subcategories: row.subcategories
+        ? row.subcategories.split(",").map((s) => s.trim()).filter(Boolean)
+        : undefined,
+      imageUrl: row.imageR2Key ? mediaUrl(row.imageR2Key, row.imageWidths) : undefined,
+      blurDataUrl: row.blurDataUrl ?? undefined,
+      heroImageUrl: row.heroR2Key ? mediaUrl(row.heroR2Key, row.heroWidths) : undefined,
+      heroBlurDataUrl: row.heroBlurDataUrl ?? undefined,
+    }));
+  } catch (err) {
+    console.warn("Failed to load active categories, using empty list:", err);
+    return [];
+  }
 }
 
 export type FeedVariant = {
@@ -819,9 +824,15 @@ export async function applyDuePendingSettings(row?: typeof siteSettings.$inferSe
 }
 
 export const getPublicSettings = cache(async (): Promise<PublicSettings> => {
-  let [row] = await db.select().from(siteSettings).where(eq(siteSettings.id, "store")).limit(1);
-  const updated = await applyDuePendingSettings(row);
-  if (updated) row = updated;
+  let row: typeof siteSettings.$inferSelect | undefined;
+  try {
+    const rows = await db.select().from(siteSettings).where(eq(siteSettings.id, "store")).limit(1);
+    row = rows[0];
+    const updated = await applyDuePendingSettings(row);
+    if (updated) row = updated;
+  } catch (err) {
+    console.warn("Failed to fetch public settings from database, using defaults:", err);
+  }
   return {
     whatsappNumber: row?.whatsappNumber || process.env.WHATSAPP_DEFAULT_NUMBER || BRAND.contact.whatsappPhone,
     supportPhone: row?.supportPhone || BRAND.contact.phone,
