@@ -79,9 +79,10 @@ and marks the admin host `noindex`. Shoppers never download admin code or CSS (`
 * **The old Cloudflare Workers** (`nure-asmir`, `nure-asmir-admin`, `nure-asmir-training`) are retired. Their code (`wrangler*.jsonc`, `worker-entry.ts`,
   `admin-entry.ts`, `open-next.config.ts`, the `cf:*` scripts) is kept in git for now but nothing deploys it. To close the live Workers, run Actions →
   "Retire Cloudflare Workers (one time)" (list first, then tick "delete").
-* **The training lab** (`/admin/training*`, lessons, six guided labs in `lib/labs.ts`, free practice) runs on the practice tables when the deployment has
-  `SANDBOX=1`, `DATABASE_URL` = the practice connection and `TRAINING_PASSWORD`. That needs its **own Vercel project** on `training.nureasmir.com` (a project
-  cannot be both the real admin and a practice copy, because that switch is per deployment, not per hostname). See `docs/consultant/03-loading-and-indexing.html#sandbox`.
+* **The training lab** (`/admin/training*`, lessons, six guided labs in `lib/labs.ts`, free practice) is the same Vercel project and the same build, deployed a second
+  time by `.github/workflows/deploy-training.yml` (after every successful production deploy, or by hand). That deployment is given `SANDBOX=1`, the practice database as
+  `DATABASE_URL`, `TRAINING_PASSWORD` and the picture-store keys only (never the real database or any email/WhatsApp/TCS/push/search/AI key), and `training.nureasmir.com`
+  is aliased to it. If the page asks for a Vercel login, switch off Deployment Protection for the project (Settings → Deployment Protection). See `docs/consultant/03-loading-and-indexing.html#sandbox`.
 
 ## Shopper experience details
 

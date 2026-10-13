@@ -1,0 +1,84 @@
+name: Deploy training lab (Vercel, same project)
+
+# The training lab (training.nureasmir.com) is the SAME Vercel project and the SAME build as the real site. It is deployed a second time as a
+# non-production deployment whose runtime variables switch it into practice mode for good (SANDBOX=1) and give it ONLY the practice database
+# connection: it never receives the real database or any email / WhatsApp / TCS / push / search / AI key. Then the training hostname is
+# pointed at that deployment. (Vercel's Hobby plan has no custom environments, which is why the variables are given at deploy time.)
+on:
+  workflow_run:
+    workflows: ["Deploy to Production (Vercel)"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-training
+  cancel-in-progress: false
+
+jobs:
+  training:
+    name: Deploy the training lab
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      PRACTICE_DATABASE_URL: ${{ secrets.PRACTICE_DATABASE_URL }}
+      TRAINING_PASSWORD: ${{ secrets.TRAINING_PASSWORD }}
+      SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+      AWS_ENDPOINT_URL_S3: ${{ secrets.AWS_ENDPOINT_URL_S3 }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      CSP_NONCE: ${{ secrets.CSP_NONCE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Check what the lab needs
+        run: |
+          for v in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID PRACTICE_DATABASE_URL TRAINING_PASSWORD; do
+            if [ -z "${!v:-}" ]; then echo "::error::$v is not set - the training lab cannot be deployed"; exit 1; fi
+          done
+
+      - name: Build once, exactly as production is built
+        run: |
+          TOKEN=$(node -e 'process.stdout.write((process.env.VERCEL_TOKEN || "").replace(/^﻿/, "").trim())')
+          echo "::add-mask::$TOKEN"
+          echo "CLEAN_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+          npx --yes vercel@63.1.2 pull --yes --environment=production --token="$TOKEN"
+          npx --yes vercel@63.1.2 build --prod --token="$TOKEN"
+
+      - name: Deploy it again in practice mode
+        id: deploy
+        run: |
+          SESSION=$(printf '%s' "${SESSION_SECRET}:training" | sha256sum | cut -d' ' -f1)
+          echo "::add-mask::$SESSION"
+          URL=$(npx --yes vercel@63.1.2 deploy --prebuilt --yes --token="$CLEAN_TOKEN" \
+            -e SANDBOX=1 -e APP_TARGET=training -e SANDBOX_HITS_PER_DAY=3000 \
+            -e DATABASE_URL="$PRACTICE_DATABASE_URL" -e PRACTICE_DATABASE_URL="$PRACTICE_DATABASE_URL" \
+            -e TRAINING_PASSWORD="$TRAINING_PASSWORD" -e SESSION_SECRET="$SESSION" -e CSP_NONCE="${CSP_NONCE:-}" \
+            -e AWS_ENDPOINT_URL_S3="${AWS_ENDPOINT_URL_S3:-}" -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-}" \
+            -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-}" -e AWS_REGION="${AWS_REGION:-}")
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Point training.nureasmir.com at it
+        run: npx --yes vercel@63.1.2 alias set "${{ steps.deploy.outputs.url }}" training.nureasmir.com --token="$CLEAN_TOKEN"
+
+      - name: Check that it answers in practice mode
+        run: |
+          sleep 5
+          code=$(curl -s -o /dev/null -w '%{http_code}' https://training.nureasmir.com/admin/training-login || true)
+          echo "training login page: HTTP $code"
+          [ "$code" = "200" ] || echo "::warning::the training login page did not answer 200 (Vercel deployment protection may be on for non-production deployments - switch it off for this project)"
