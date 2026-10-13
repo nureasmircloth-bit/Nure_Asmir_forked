@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getNonce } from "@/lib/nonce";
 import { sandboxGate } from "@/lib/sandbox-gate";
 
 const isDev = process.env.NODE_ENV !== "production";
@@ -74,10 +73,28 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(bare, 308);
   }
 
+  // When accessed via admin subdomain (e.g. admin.nureasmir.com):
+  // automatically route root and non-admin routes to /admin without needing manual /admin typing.
+  const isAdminSubdomain = host.startsWith("admin.") || process.env.APP_TARGET === "admin";
+  if (isAdminSubdomain) {
+    const pathname = request.nextUrl.pathname;
+    if (pathname === "/") {
+      return NextResponse.redirect(new URL("/admin", request.url));
+    }
+    if (pathname === "/login") {
+      return NextResponse.redirect(new URL("/admin/login", request.url));
+    }
+    if (!pathname.startsWith("/admin") && !pathname.startsWith("/api") && !pathname.includes(".")) {
+      return NextResponse.redirect(new URL(`/admin${pathname}`, request.url));
+    }
+  }
+
   const response = NextResponse.next();
   response.headers.set("Content-Security-Policy", buildCsp());
-  // The admin and training Workers must never be indexed.
-  if (process.env.APP_TARGET === "admin" || process.env.APP_TARGET === "training") response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+  // The admin and training Workers / subdomains must never be indexed.
+  if (isAdminSubdomain || process.env.APP_TARGET === "admin" || process.env.APP_TARGET === "training") {
+    response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+  }
   // Never in dev: browsers cache HSTS per host for the full max-age, which would pin localhost to https.
   if (!allowInsecure) response.headers.set("Strict-Transport-Security", "max-age=63072000");
   return response;

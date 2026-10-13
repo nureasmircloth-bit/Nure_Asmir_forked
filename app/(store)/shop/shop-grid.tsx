@@ -257,6 +257,8 @@ export function ShopGrid({
             <path d="M20 20l-3.5-3.5" />
           </svg>
           <input
+            id="shop-search-query"
+            name="q"
             type="search"
             value={searchQuery}
             onChange={(event) => {

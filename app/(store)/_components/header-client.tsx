@@ -158,10 +158,18 @@ export function HeaderClient({
 
       {(menuOpen || searchOpen) && <button type="button" className="scrim" aria-label="Close panel" onClick={closeAll} />}
 
-      <aside className={`drawer ${menuOpen ? "is-open" : ""}`} aria-hidden={!menuOpen} aria-label="Menu">
+      <aside className={`drawer ${menuOpen ? "is-open" : ""}`} inert={!menuOpen ? true : undefined} aria-label="Menu">
         <div className="drawer-top">
           <span className="drawer-title">Explore</span>
-          <button type="button" className="icon-btn drawer-close-btn" aria-label="Close menu" onClick={() => setMenuOpen(false)}>
+          <button
+            type="button"
+            className="icon-btn drawer-close-btn"
+            aria-label="Close menu"
+            onClick={() => {
+              if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+              setMenuOpen(false);
+            }}
+          >
             {Icon.close}
           </button>
         </div>
@@ -323,8 +331,20 @@ function SearchOverlay({
   }, [hits]);
 
   const term = query.trim();
+  const handleClose = () => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    onClose();
+  };
+
   return (
-    <div className={`search-overlay ${open ? "is-open" : ""}`} aria-hidden={!open} role="dialog" aria-label="Search">
+    <div
+      className={`search-overlay ${open ? "is-open" : ""}`}
+      inert={!open ? true : undefined}
+      role="dialog"
+      aria-label="Search"
+    >
       <form
         className="search-bar"
         onSubmit={(event) => {
@@ -335,6 +355,7 @@ function SearchOverlay({
         {Icon.search}
         <input
           id="site-search-input"
+          name="q"
           ref={inputRef}
           type="search"
           value={query}
@@ -343,7 +364,7 @@ function SearchOverlay({
           aria-label="Search products"
           autoComplete="off"
         />
-        <button type="button" className="icon-btn" aria-label="Close search" onClick={onClose}>
+        <button type="button" className="icon-btn" aria-label="Close search" onClick={handleClose}>
           {Icon.close}
         </button>
       </form>

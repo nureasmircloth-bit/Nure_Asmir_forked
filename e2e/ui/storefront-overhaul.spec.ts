@@ -272,8 +272,8 @@ test.describe("storefront overhaul", () => {
 
     test("a filter nothing matches says so and offers a way back", async ({ page }) => {
       await page.goto("/shop?cat=e2e-ui-filters&min=11000&colors=Olive");
-      await expect(page.getByText("Nothing matches these filters.")).toBeVisible({ timeout: 20_000 });
-      await page.getByRole("button", { name: "Clear the filters" }).click();
+      await expect(page.getByText("Nothing matches your search or filters.")).toBeVisible({ timeout: 20_000 });
+      await page.getByRole("button", { name: "Clear filters and search" }).click();
       await expect(countText(page)).toHaveText("3 products");
     });
 

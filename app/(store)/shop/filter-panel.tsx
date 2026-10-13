@@ -23,7 +23,7 @@ export const swatchFor = (name: string): string | null => {
 };
 
 /** A price box you can finish typing in: what you type is kept as you go and applied when you leave the box or press Enter (an empty box keeps the old price). */
-function PriceInput({ value, label, onCommit }: { value: number; label: string; onCommit: (next: number) => void }) {
+function PriceInput({ id, name, value, label, onCommit }: { id?: string; name?: string; value: number; label: string; onCommit: (next: number) => void }) {
   const [draft, setDraft] = useState<string | null>(null);
   const apply = () => {
     const digits = (draft ?? "").replace(/\D/g, "");
@@ -32,6 +32,8 @@ function PriceInput({ value, label, onCommit }: { value: number; label: string; 
   };
   return (
     <input
+      id={id}
+      name={name}
       inputMode="numeric"
       aria-label={label}
       value={draft ?? String(value)}
@@ -61,17 +63,37 @@ function PriceRange({ bounds, min, max, onChange }: { bounds: { min: number; max
       <div className="fp-track" aria-hidden="true">
         <i style={{ left: `${left}%`, width: `${Math.max(0, right - left)}%` }} />
       </div>
-      <input type="range" aria-label="Lowest price" min={bounds.min} max={bounds.max} step={step} value={low} onChange={(event) => commit(Math.min(Number(event.target.value), high), high)} />
-      <input type="range" aria-label="Highest price" min={bounds.min} max={bounds.max} step={step} value={high} onChange={(event) => commit(low, Math.max(Number(event.target.value), low))} />
+      <input
+        id="fp-range-min"
+        name="rangeMin"
+        type="range"
+        aria-label="Lowest price"
+        min={bounds.min}
+        max={bounds.max}
+        step={step}
+        value={low}
+        onChange={(event) => commit(Math.min(Number(event.target.value), high), high)}
+      />
+      <input
+        id="fp-range-max"
+        name="rangeMax"
+        type="range"
+        aria-label="Highest price"
+        min={bounds.min}
+        max={bounds.max}
+        step={step}
+        value={high}
+        onChange={(event) => commit(low, Math.max(Number(event.target.value), low))}
+      />
       <div className="fp-fields">
-        <label>
+        <label htmlFor="fp-min-price">
           <span>From</span>
-          <PriceInput label="Lowest price in rupees" value={low} onCommit={(next) => commit(Math.min(next, high), high)} />
+          <PriceInput id="fp-min-price" name="minPrice" label="Lowest price in rupees" value={low} onCommit={(next) => commit(Math.min(next, high), high)} />
         </label>
         <b aria-hidden="true">–</b>
-        <label>
+        <label htmlFor="fp-max-price">
           <span>To</span>
-          <PriceInput label="Highest price in rupees" value={high} onCommit={(next) => commit(low, Math.max(next, low))} />
+          <PriceInput id="fp-max-price" name="maxPrice" label="Highest price in rupees" value={high} onCommit={(next) => commit(low, Math.max(next, low))} />
         </label>
       </div>
       <p className="fp-caption">
@@ -172,8 +194,14 @@ export function FilterPanel({
             </section>
           )}
           <section>
-            <label className="fp-switch">
-              <input type="checkbox" checked={filters.inStock} onChange={(event) => onChange({ ...filters, inStock: event.target.checked })} />
+            <label className="fp-switch" htmlFor="fp-in-stock">
+              <input
+                id="fp-in-stock"
+                name="inStock"
+                type="checkbox"
+                checked={filters.inStock}
+                onChange={(event) => onChange({ ...filters, inStock: event.target.checked })}
+              />
               <span>Only show what is in stock</span>
             </label>
           </section>

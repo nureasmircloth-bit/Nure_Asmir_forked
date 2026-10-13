@@ -1,0 +1,38 @@
+name: Retire Cloudflare Workers (one time)
+
+# The shop, the admin and the training lab now run on Vercel, and DNS is served by Vercel. The three old Cloudflare Workers
+# (nure-asmir, nure-asmir-admin, nure-asmir-training) are no longer reached by visitors, but their timers (every 3 minutes) keep
+# calling the site and use up allowance. Run this by hand: leave "delete" off first to only LIST them, then tick it to close them.
+# The code stays in git and the picture buckets are not touched. Needs the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets.
+on:
+  workflow_dispatch:
+    inputs:
+      delete:
+        description: "Really delete the Workers (leave off for a list-only look)"
+        type: boolean
+        default: false
+
+permissions: {}
+
+jobs:
+  retire:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: List or delete the Workers
+        run: |
+          if [ "${{ inputs.delete }}" = "true" ]; then
+            node scripts/retire-cloudflare-workers.mjs --delete
+          else
+            node scripts/retire-cloudflare-workers.mjs
+          fi
