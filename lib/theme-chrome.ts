@@ -41,8 +41,15 @@ export const MIN_CONTRAST = 4.5;
 const DARK_TEXT = "#111111";
 const LIGHT_TEXT = "#ffffff";
 
-/** The more readable of near-black and white on a background (the one with the higher contrast ratio). */
-export const readableOn = (background: string): string => (contrastRatio(background, DARK_TEXT) >= contrastRatio(background, LIGHT_TEXT) ? DARK_TEXT : LIGHT_TEXT);
+/**
+ * The most readable text colour on a background: near-black or white, whichever has the higher contrast ratio. On the middle greys neither
+ * reaches 4.5:1, so pure black is tried as well (some candidate always reaches it).
+ */
+export function readableOn(background: string): string {
+  const best = contrastRatio(background, DARK_TEXT) >= contrastRatio(background, LIGHT_TEXT) ? DARK_TEXT : LIGHT_TEXT;
+  if (contrastRatio(background, best) >= MIN_CONTRAST) return best;
+  return contrastRatio(background, "#000000") >= contrastRatio(background, best) ? "#000000" : best;
+}
 
 /** What each area looks like when nothing is chosen (the built-in background the text colour would sit on). */
 export const CHROME_DEFAULT_BG = { header: "#ffffff", sidebar: "#faf9f6", footer: "#0d0d0d", currency: "#ffffff" } as const;
@@ -100,7 +107,7 @@ export function chromeCss(colors: ChromeColors): string {
   if (cur.ink) {
     rules.push(
       `.currency-switcher .currency-main,.currency-switcher ul,.currency-switcher li button,.currency-switcher li button b{color:${cur.ink} !important}`,
-      `.currency-switcher li button span,.currency-switcher .currency-note{color:color-mix(in srgb,${cur.ink} 65%,transparent) !important}`,
+      `.currency-switcher li button span,.currency-switcher .currency-note{color:${cur.ink} !important}`, // opaque: a diluted colour can drop below 4.5:1
       `.currency-switcher li button:hover,.currency-switcher li button.active{background:color-mix(in srgb,${cur.ink} 10%,transparent) !important}`,
     );
   }

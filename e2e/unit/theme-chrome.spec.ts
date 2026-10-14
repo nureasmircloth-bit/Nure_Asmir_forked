@@ -11,8 +11,8 @@ test.describe("shop frame colours", () => {
     for (const bg of ["#c5a059", "#0b3d2e", "#14213d", "#fff3d6", "#555555"]) {
       expect(contrastRatio(bg, readableOn(bg)), bg).toBeGreaterThanOrEqual(4.5);
     }
-    // no colour is readable on the very middle greys, but the better of the two is still chosen
-    expect(contrastRatio("#777777", readableOn("#777777"))).toBeGreaterThan(4);
+    // on the very middle greys neither near-black nor white reaches 4.5:1, so pure black is used
+    for (const bg of ["#777777", "#767676", "#808080", "#7a7a7a"]) expect(contrastRatio(bg, readableOn(bg)), bg).toBeGreaterThanOrEqual(4.5);
   });
 
   test("a text colour that is hard to read on its background is ignored, also on the built-in background", () => {
