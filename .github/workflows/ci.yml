@@ -45,3 +45,8 @@ jobs:
       - name: Production build – Next.js (Vercel)
         if: ${{ env.DATABASE_URL != '' }}
         run: npm run build
+
+      # The training lab is still built for Cloudflare (the admin build), so a pull request must not break it.
+      - name: Production build – training lab (Cloudflare admin build)
+        if: ${{ env.DATABASE_URL != '' }}
+        run: npm run cf:build:admin

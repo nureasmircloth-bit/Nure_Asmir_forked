@@ -232,6 +232,13 @@
       "when": 1791802800000,
       "tag": "0032_storefront_theme_presets",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1791941801473,
+      "tag": "0033_storefront_texts",
+      "breakpoints": true
     }
   ]
 }

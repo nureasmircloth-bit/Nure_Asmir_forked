@@ -234,7 +234,7 @@ test.describe("storefront overhaul", () => {
       await expect(panel.getByRole("button", { name: "M", exact: true })).toBeVisible();
       await expect(panel.getByRole("button", { name: "One size" })).toBeVisible();
       await expect(panel.getByRole("button", { name: "Navy" })).toBeVisible();
-      await expect(panel.getByRole("slider", { name: "Lowest price" })).toBeVisible();
+      await expect(panel.getByRole("slider", { name: "Lowest price slider" })).toBeVisible();
 
       await panel.getByRole("button", { name: "M", exact: true }).click();
       await expect(panel.getByRole("button", { name: /Show 1 product$/ })).toBeVisible({ timeout: 15_000 });

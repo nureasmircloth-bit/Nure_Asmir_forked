@@ -1,9 +1,9 @@
-name: Deploy training lab (Vercel, same project)
+name: Deploy training lab (Cloudflare Worker)
 
-# The training lab (training.nureasmir.com) is the SAME Vercel project and the SAME build as the real site. It is deployed a second time as a
-# non-production deployment whose runtime variables switch it into practice mode for good (SANDBOX=1) and give it ONLY the practice database
-# connection: it never receives the real database or any email / WhatsApp / TCS / push / search / AI key. Then the training hostname is
-# pointed at that deployment. (Vercel's Hobby plan has no custom environments, which is why the variables are given at deploy time.)
+# Shop and admin run on Vercel. The TRAINING LAB stays on Cloudflare as its own Worker (nure-asmir-training): the same admin build in practice
+# mode (SANDBOX=1) that is given the PRACTICE database connection only, and none of the keys for email, WhatsApp, TCS, push, search or AI.
+# It has no timer. Its address is https://nure-asmir-training.<your-subdomain>.workers.dev; training.nureasmir.com (DNS is on Vercel) redirects
+# to it when the TRAINING_URL variable is set on the Vercel project (see middleware.ts).
 on:
   workflow_run:
     workflows: ["Deploy to Production (Vercel)"]
@@ -24,17 +24,14 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     env:
-      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-      PRACTICE_DATABASE_URL: ${{ secrets.PRACTICE_DATABASE_URL }}
-      TRAINING_PASSWORD: ${{ secrets.TRAINING_PASSWORD }}
-      SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
-      AWS_ENDPOINT_URL_S3: ${{ secrets.AWS_ENDPOINT_URL_S3 }}
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_REGION: ${{ secrets.AWS_REGION }}
-      CSP_NONCE: ${{ secrets.CSP_NONCE }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      DATABASE_URL: ${{ secrets.PRACTICE_DATABASE_URL }}
+      NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+      NEXT_PUBLIC_STORE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+      NEXT_PUBLIC_ADMIN_URL: https://admin.nureasmir.com
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
+      NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -45,40 +42,63 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "24"
+          cache: "npm"
 
       - name: Check what the lab needs
+        env:
+          TRAINING_PASSWORD: ${{ secrets.TRAINING_PASSWORD }}
         run: |
-          for v in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID PRACTICE_DATABASE_URL TRAINING_PASSWORD; do
-            if [ -z "${!v:-}" ]; then echo "::error::$v is not set - the training lab cannot be deployed"; exit 1; fi
+          for v in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID DATABASE_URL TRAINING_PASSWORD; do
+            if [ -z "${!v:-}" ]; then echo "::error::$v is not set (DATABASE_URL here is the PRACTICE_DATABASE_URL secret) - the training lab cannot be deployed"; exit 1; fi
           done
 
-      - name: Build once, exactly as production is built
-        run: |
-          TOKEN=$(node -e 'process.stdout.write((process.env.VERCEL_TOKEN || "").replace(/^﻿/, "").trim())')
-          echo "::add-mask::$TOKEN"
-          echo "CLEAN_TOKEN=$TOKEN" >> "$GITHUB_ENV"
-          npx --yes vercel@63.1.2 pull --yes --environment=production --token="$TOKEN"
-          npx --yes vercel@63.1.2 build --prod --token="$TOKEN"
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Deploy it again in practice mode
-        id: deploy
+      - name: Choose the Worker config (with or without the picture bucket)
         run: |
-          SESSION=$(printf '%s' "${SESSION_SECRET}:training" | sha256sum | cut -d' ' -f1)
-          echo "::add-mask::$SESSION"
-          URL=$(npx --yes vercel@63.1.2 deploy --prebuilt --yes --token="$CLEAN_TOKEN" \
-            -e SANDBOX=1 -e APP_TARGET=training -e SANDBOX_HITS_PER_DAY=3000 \
-            -e DATABASE_URL="$PRACTICE_DATABASE_URL" -e PRACTICE_DATABASE_URL="$PRACTICE_DATABASE_URL" \
-            -e TRAINING_PASSWORD="$TRAINING_PASSWORD" -e SESSION_SECRET="$SESSION" -e CSP_NONCE="${CSP_NONCE:-}" \
-            -e AWS_ENDPOINT_URL_S3="${AWS_ENDPOINT_URL_S3:-}" -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-}" \
-            -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-}" -e AWS_REGION="${AWS_REGION:-}")
-          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          if npx wrangler r2 bucket info nure-asmir-media-r2 >/dev/null 2>&1; then
+            echo "TRAINING_CONFIG=wrangler.training.jsonc" >> "$GITHUB_ENV"
+          else
+            echo "::warning::R2 is not available - deploying the lab without the picture bucket."
+            node scripts/without-r2.mjs wrangler.training.jsonc wrangler.training.deploy.jsonc
+            echo "TRAINING_CONFIG=wrangler.training.deploy.jsonc" >> "$GITHUB_ENV"
+          fi
 
-      - name: Point training.nureasmir.com at it
-        run: npx --yes vercel@63.1.2 alias set "${{ steps.deploy.outputs.url }}" training.nureasmir.com --token="$CLEAN_TOKEN"
+      - name: Build (admin build)
+        run: npm run cf:build:admin
 
-      - name: Check that it answers in practice mode
+      - name: Deploy
+        run: npx wrangler deploy -c "$TRAINING_CONFIG"
+
+      # The lab gets only what it needs. Values arrive through env and are piped, never put into the script text.
+      - name: Give the lab its secrets
+        env:
+          PRACTICE_DATABASE_URL: ${{ secrets.PRACTICE_DATABASE_URL }}
+          TRAINING_PASSWORD: ${{ secrets.TRAINING_PASSWORD }}
+          AWS_ENDPOINT_URL_S3: ${{ secrets.AWS_ENDPOINT_URL_S3 }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          CSP_NONCE: ${{ secrets.CSP_NONCE }}
         run: |
-          sleep 5
-          code=$(curl -s -o /dev/null -w '%{http_code}' https://training.nureasmir.com/admin/training-login || true)
-          echo "training login page: HTTP $code"
-          [ "$code" = "200" ] || echo "::warning::the training login page did not answer 200 (Vercel deployment protection may be on for non-production deployments - switch it off for this project)"
+          set -euo pipefail
+          printf '%s' "$PRACTICE_DATABASE_URL" | npx wrangler secret put DATABASE_URL -c "$TRAINING_CONFIG"
+          for name in PRACTICE_DATABASE_URL TRAINING_PASSWORD AWS_ENDPOINT_URL_S3 AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_REGION CSP_NONCE; do
+            value="${!name:-}"
+            if [ -n "$value" ]; then
+              printf '%s' "$value" | npx wrangler secret put "$name" -c "$TRAINING_CONFIG" || { echo "::error::could not set $name on the training lab"; exit 1; }
+            fi
+          done
+
+      - name: Smoke check
+        run: |
+          sub=$(curl -sf -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{console.log(JSON.parse(d).result.subdomain||'')}catch{console.log('')}})")
+          [ -n "$sub" ] || { echo "::error::could not work out the workers.dev subdomain"; exit 1; }
+          url="https://nure-asmir-training.$sub.workers.dev/admin/training-login"
+          for i in 1 2 3 4 5; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$url" || true)
+            [ "$code" = "200" ] && { echo "training login answered 200 at $url"; exit 0; }
+            sleep 6
+          done
+          echo "::error::the training login page did not answer 200 (last: $code) at $url"; exit 1

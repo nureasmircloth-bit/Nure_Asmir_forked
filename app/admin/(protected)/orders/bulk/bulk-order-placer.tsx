@@ -46,6 +46,9 @@ export function BulkOrderPlacer() {
   const [dragOver, setDragOver] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // One key per order of an upload, made once, so pressing "Place" again after an uncertain answer cannot create a second order.
+  const orderKeys = useRef<string[]>([]);
+  const [skippedAccepted, setSkippedAccepted] = useState(false);
 
   useEffect(() => {
     fetch("/api/admin/orders/place/options", { cache: "no-store" })
@@ -106,6 +109,8 @@ export function BulkOrderPlacer() {
           return;
         }
 
+        orderKeys.current = orders.map(() => crypto.randomUUID());
+        setSkippedAccepted(false);
         setParsedOrders(orders);
 
         // Run live pre-placement dry run check against catalogue and live inventory
@@ -158,8 +163,7 @@ export function BulkOrderPlacer() {
 
         setProgress({ done: i, total, label: `Placing order ${i + 1} of ${total}: ${orderName}…` });
 
-        // Deterministic idempotency key per upload session + order index to prevent duplicate charge
-        const idempotencyKey = `${Date.now()}-${orderIndex}-${Math.random().toString(36).slice(2, 10)}`;
+        const idempotencyKey = orderKeys.current[orderIndex];
 
         const response = await callApi<{ order: { id: string; orderNumber: string; total: number } }>(
           "/api/admin/orders/place",
@@ -258,9 +262,16 @@ export function BulkOrderPlacer() {
             <p className="a-muted" style={{ margin: "6px 0 16px", fontSize: 13.5 }}>
               or click to browse from your device (.xlsx, .csv, or .json)
             </p>
-            <span className="a-btn a-btn-sm">
+            <button
+              type="button"
+              className="a-btn a-btn-sm"
+              onClick={(event) => {
+                event.stopPropagation();
+                fileInputRef.current?.click();
+              }}
+            >
               <Icon name="upload" size={15} /> Select file
-            </span>
+            </button>
           </div>
 
           {reading.pending && (
@@ -303,6 +314,7 @@ export function BulkOrderPlacer() {
                   type="button"
                   className="a-btn a-btn-quiet"
                   onClick={() => {
+                    setParseErrors([]);
                     setStep("upload");
                     setPreviewRows([]);
                     setParsedOrders([]);
@@ -314,7 +326,7 @@ export function BulkOrderPlacer() {
                   type="button"
                   className="a-btn a-btn-primary"
                   onClick={runPlaceOrders}
-                  disabled={validCount === 0 || placing.pending}
+                  disabled={validCount === 0 || placing.pending || (parseErrors.length > 0 && !skippedAccepted)}
                 >
                   <Icon name="check" size={16} /> Place {validCount} valid order{validCount === 1 ? "" : "s"}
                 </button>
@@ -332,6 +344,23 @@ export function BulkOrderPlacer() {
               )}
             </div>
           </div>
+
+          {parseErrors.length > 0 && (
+            <div className="a-card a-card-pad" role="alert" style={{ borderColor: "var(--red-line)", background: "var(--red-surface)" }}>
+              <strong style={{ color: "var(--red-text)" }}>These spreadsheet rows were left out and will NOT be ordered:</strong>
+              <ul style={{ margin: "6px 0 10px", paddingLeft: 20, fontSize: 13.5 }}>
+                {parseErrors.map((err, i) => (
+                  <li key={i}>
+                    <strong>Row {err.row}:</strong> {err.message}
+                  </li>
+                ))}
+              </ul>
+              <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13.5 }}>
+                <input type="checkbox" checked={skippedAccepted} onChange={(event) => setSkippedAccepted(event.target.checked)} />
+                I understand, place the orders without these rows
+              </label>
+            </div>
+          )}
 
           <div className="a-card" style={{ overflowX: "auto" }}>
             <table className="a-table" style={{ width: "100%", fontSize: 13.5 }}>

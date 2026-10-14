@@ -7,6 +7,8 @@ import { expect, test } from "@playwright/test";
 const BASE = process.env.E2E_BASE_URL ?? "http://localhost:3100";
 
 test.describe("admin hostname", () => {
+  // The Host header is replaced to imitate the admin address. Edge servers of a deployed site ignore that, so this runs against a local server only.
+  test.skip(!/^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(BASE), "needs a local server: a deployed edge does not honour a replaced Host header");
   const admin = { host: "admin.nureasmir.com" };
 
   test("the bare address opens the admin, /login opens its sign-in, and other pages are taken into /admin", async ({ request }) => {
@@ -28,7 +30,9 @@ test.describe("admin hostname", () => {
     expect(health.status()).toBe(200); // not redirected into /admin
     expect(health.headers()["x-robots-tag"] ?? "").toMatch(/noindex/);
     const file = await request.get(`${BASE}/robots.txt`, { headers: admin, maxRedirects: 0 });
-    expect(file.status(), "a path with a dot is a file, not a page").not.toBe(307);
+    expect(file.status(), "a path with a dot is a file, not a page").toBe(200);
+    expect(file.headers()["content-type"] ?? "").toMatch(/text\/plain/);
+    expect(await file.text()).toMatch(/user-agent/i);
   });
 
   test("the shop hostname is untouched: the home page is the shop, indexable, with no redirect", async ({ request }) => {

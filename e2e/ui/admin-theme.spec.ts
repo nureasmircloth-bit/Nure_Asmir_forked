@@ -9,10 +9,16 @@ test.describe("admin theme → storefront", () => {
   test.skip(({ browserName, isMobile, viewport }) => browserName !== "chromium" || isMobile || (viewport?.width ?? 0) < 1000, "admin UI is exercised on desktop Chromium");
   test.describe.configure({ timeout: 240_000 });
 
-  const reset = () => sql`update site_settings set theme_preset = 'signature', theme_accent_color = '#c5a059', theme_background_color = '#ffffff', theme_text_color = '#111111', theme_surface_color = '#faf9f6', theme_radius = 'subtle', font_family = 'Cormorant Garamond', pending_changes = null, pending_apply_at = null where id = 'store'`;
+  type Saved = { theme_preset: string; theme_accent_color: string; theme_background_color: string; theme_text_color: string; theme_surface_color: string; theme_radius: string; font_family: string; shop_description: string; newsletter_title: string; newsletter_text: string };
+  let original: Saved | undefined;
+  const reset = async () => {
+    const o = original;
+    if (!o) return;
+    await sql`update site_settings set theme_preset = ${o.theme_preset}, theme_accent_color = ${o.theme_accent_color}, theme_background_color = ${o.theme_background_color}, theme_text_color = ${o.theme_text_color}, theme_surface_color = ${o.theme_surface_color}, theme_radius = ${o.theme_radius}, font_family = ${o.font_family}, shop_description = ${o.shop_description}, newsletter_title = ${o.newsletter_title}, newsletter_text = ${o.newsletter_text}, pending_changes = null, pending_apply_at = null where id = 'store'`;
+  };
 
   async function login(page: Page) {
-    await sql`delete from login_attempts`;
+    await sql`delete from login_attempts where lower(email) = lower(${process.env.E2E_ADMIN_EMAIL!})`;
     await page.goto("/admin/login");
     await page.waitForLoadState("networkidle");
     await page.getByLabel("Email").fill(process.env.E2E_ADMIN_EMAIL!);
@@ -23,7 +29,8 @@ test.describe("admin theme → storefront", () => {
 
   test.beforeAll(async ({ request }) => {
     await warmUp(request, ["/api/admin/login", "/admin/login", "/admin/settings", "/contact", "/shop"]);
-    await reset();
+    const [row] = (await sql`select theme_preset, theme_accent_color, theme_background_color, theme_text_color, theme_surface_color, theme_radius, font_family, shop_description, newsletter_title, newsletter_text from site_settings where id = 'store'`) as Saved[];
+    original = row;
   });
   test.afterAll(async () => {
     await reset();
@@ -46,7 +53,7 @@ test.describe("admin theme → storefront", () => {
     await expect(page.locator(".a-toast").first()).toContainText("Settings saved", { timeout: 20_000 });
     await expect.poll(async () => {
       const res = await page.request.patch(`${BASE}/api/admin/settings`, { data: { action: "apply-now" } });
-      return res.ok() && ((await res.json()) as { applied?: boolean }).applied === true;
+      return res.ok(); // with the buffer off in tests there is nothing waiting; this makes sure of it
     }, { timeout: 20_000 }).toBe(true);
 
     for (const path of ["/", "/shop", "/contact", "/faq"]) {
@@ -75,5 +82,27 @@ test.describe("admin theme → storefront", () => {
     const panel = await page.locator(".adm").first().evaluate((el) => ({ background: getComputedStyle(el).backgroundColor, color: getComputedStyle(el).color }));
     expect(panel.background).not.toBe("rgb(255, 244, 230)");
     expect(panel.color).not.toBe("rgb(26, 26, 64)");
+  });
+  test("the footer description and the newsletter wording typed in the admin show on every page", async ({ page }) => {
+    await login(page);
+    await page.goto("/admin/settings");
+    await page.getByLabel("Short description of your shop").fill("E2E Tailoring from Lahore, delivered everywhere.");
+    await page.getByLabel("Newsletter heading").fill("E2E Join the list");
+    await page.getByLabel("Newsletter line").fill("E2E First look at every drop.");
+    await page.getByRole("button", { name: "Save settings" }).click();
+    await expect(page.locator(".a-toast").first()).toContainText("Settings saved", { timeout: 20_000 });
+    await expect.poll(async () => {
+      const res = await page.request.patch(`${BASE}/api/admin/settings`, { data: { action: "apply-now" } });
+      return res.ok(); // with the buffer off in tests there is nothing waiting; this makes sure of it
+    }, { timeout: 20_000 }).toBe(true);
+
+    for (const path of ["/", "/contact"]) {
+      await page.goto(`${BASE}${path}`);
+      await expect(page.getByRole("heading", { name: "E2E Join the list" })).toBeVisible();
+      await expect(page.getByText("E2E First look at every drop.")).toBeVisible();
+      await expect(page.locator("footer").getByText("E2E Tailoring from Lahore, delivered everywhere.")).toBeVisible();
+    }
+    await page.goto(`${BASE}/`); // pages with their own description keep it; the home page uses the shop description
+    await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", "E2E Tailoring from Lahore, delivered everywhere.");
   });
 });

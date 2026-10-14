@@ -187,19 +187,19 @@ test.describe("admin: menu, messages, story, top bar", () => {
     await login(page);
     await page.goto("/admin/settings");
     const section = page.locator("section#topbar");
-    await section.getByRole("radio", { name: /Scrolling, towards the left/ }).check();
+    await section.getByRole("radio", { name: /Slide from right/ }).check();
     await section.getByRole("button", { name: /Preview on phone and computer/ }).click();
     const preview = page.getByRole("dialog", { name: "Top bar preview" });
     await expect(preview.locator(".a-device")).toHaveCount(2);
-    await expect(preview.locator(".announcement-scroll")).toHaveCount(2);
-    await expect(preview).toContainText("On a phone");
-    await expect(preview).toContainText("On a computer");
+    await expect(preview.locator(".announcement-ticker")).toHaveCount(2);
+    await expect(preview).toContainText("Phone screen");
+    await expect(preview).toContainText("Desktop screen");
     await page.keyboard.press("Escape");
 
     await page.getByRole("button", { name: "Save settings" }).click();
     await expect(page.locator(".a-toast").first()).toContainText("Settings saved", { timeout: 20_000 });
     const [row] = (await sql`select announcement_style as s from site_settings where id = 'store'`) as Array<{ s: string }>;
     expect(row.s).toBe("scroll-left");
-    await expect.poll(async () => (await (await page.request.get(`${BASE}/shop`)).text()).includes("announcement-scroll"), { timeout: 40_000 }).toBe(true);
+    await expect.poll(async () => (await (await page.request.get(`${BASE}/shop`)).text()).includes('data-style="scroll-left"'), { timeout: 40_000 }).toBe(true);
   });
 });

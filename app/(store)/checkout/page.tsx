@@ -594,7 +594,6 @@ export default function CheckoutPage() {
                           <span>Enter the 6-digit code</span>
                           <input
                             id="checkout-otp"
-                            name="otp"
                             autoComplete="one-time-code"
                             inputMode="numeric"
                             maxLength={6}
@@ -707,7 +706,6 @@ export default function CheckoutPage() {
                       <span>Coupon code</span>
                       <input
                         id="checkout-coupon"
-                        name="coupon"
                         autoComplete="off"
                         value={couponInput}
                         onChange={(event) => setCouponInput(event.target.value.toUpperCase())}
@@ -804,7 +802,7 @@ export default function CheckoutPage() {
               <p>Enter your WhatsApp number to avoid email OTP verification.</p>
               <input
                 id="checkout-customer-phone"
-                name="customerPhone"
+                aria-label="WhatsApp number"
                 type="tel"
                 autoComplete="tel"
                 value={customerPhone}

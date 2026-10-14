@@ -16,13 +16,13 @@ test.describe("laptop-only gate", () => {
     await expect(page.getByLabel("Password")).toBeHidden();
   });
 
-  test("shrinking a desktop window below 1024px switches to the notice, widening brings the panel back", async ({ page, viewport, browserName, isMobile }) => {
+  test("shrinking a desktop window keeps the panel usable (the menu folds into a drawer), widening brings the sidebar back", async ({ page, viewport, browserName, isMobile }) => {
     test.skip(browserName !== "chromium" || isMobile || (viewport?.width ?? 0) < 1024, "one desktop browser is enough");
     await page.goto("/admin/login");
     await expect(page.getByLabel("Password")).toBeVisible();
     await page.setViewportSize({ width: 820, height: 900 });
-    await expect(page.getByRole("heading", { name: /open this on a laptop/i })).toBeVisible();
-    await expect(page.getByLabel("Password")).toBeHidden();
+    await expect(page.getByRole("heading", { name: /open this on a laptop/i })).toBeHidden(); // the old "please use a laptop" screen is retired
+    await expect(page.getByLabel("Password")).toBeVisible();
     await page.setViewportSize({ width: 1280, height: 800 });
     await expect(page.getByLabel("Password")).toBeVisible();
   });
@@ -850,7 +850,7 @@ test.describe("admin (desktop Chromium)", () => {
     await login(page);
     await page.goto("/admin/pictures");
     const card = page.locator("section", { hasText: "Photo on the “Our story” page" });
-    await card.locator('input[type="file"]').setInputFiles({ name: "story.png", mimeType: "image/png", buffer: makePng(900, 1100, [150, 90, 60]) });
+    await card.locator('input[type="file"]').first().setInputFiles({ name: "story.png", mimeType: "image/png", buffer: makePng(900, 1100, [150, 90, 60]) });
     await page.getByRole("button", { name: "Use this crop" }).click();
     await expect(toast(page).first()).toContainText("Picture changed", { timeout: 40_000 });
     const about = await (await page.request.get(`${BASE}/about`)).text();

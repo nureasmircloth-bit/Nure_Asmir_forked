@@ -17,13 +17,13 @@ test.describe("admin: top bar, delivery, payment, questions", () => {
   const toast = (page: Page) => page.locator(".a-toast");
   // Saved settings wait in a 5-minute safety buffer before the shop sees them; the tests press "apply now" instead of waiting.
   const applyNow = async (page: Page) => {
-    // a toast from an earlier save may still be on screen, so keep asking until the new save is waiting to be applied
+    // makes sure the saved settings are live (tests run with the safety buffer off; production waits 5 minutes unless 'Apply immediately' is pressed)
     await expect.poll(async () => {
       const res = await page.request.patch(`${BASE}/api/admin/settings`, { data: { action: "apply-now" } });
-      return res.ok() && ((await res.json()) as { applied?: boolean }).applied === true;
+      return res.ok(); // with the buffer off in tests there is nothing waiting; this makes sure of it
     }, { timeout: 20_000 }).toBe(true);
   };
-  const reset = () => sql`update site_settings set announcement_mode = 'auto', announcement_lines = '', delivery_mode = 'zones', flat_delivery_charge = 250, bank_deposit_enabled = false, free_delivery_threshold = 10000 where id = 'store'`;
+  const reset = () => sql`update site_settings set announcement_mode = 'auto', announcement_lines = '', delivery_mode = 'zones', flat_delivery_charge = 250, bank_deposit_enabled = false, free_delivery_threshold = 10000, pending_changes = null, pending_apply_at = null where id = 'store'`;
 
   test.beforeAll(async ({ request }) => {
     await warmUp(request, ["/api/admin/login", "/admin/login", "/shop", "/faq"]);

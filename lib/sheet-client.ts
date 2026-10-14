@@ -276,6 +276,7 @@ export async function readSheetFile(file: File): Promise<unknown[][]> {
   if (!/\.xlsx$/i.test(file.name)) throw new Error("Please choose an Excel file (.xlsx) or a .csv file. Old .xls files: open them in Excel and use Save As → Excel Workbook.");
   const ExcelJS = await loadExcel();
   const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(await file.arrayBuffer()); // the sheets must be read before one is chosen
   const isInstruction = (name: string) => /instructions|how to fill|lists|reference|guide|readme/i.test(name);
   const eligible = wb.worksheets.filter((sheet) => !isInstruction(String((sheet as unknown as { name?: string }).name ?? "")));
   const pool = eligible.length > 0 ? eligible : wb.worksheets;

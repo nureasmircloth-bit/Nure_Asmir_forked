@@ -66,6 +66,7 @@ export async function middleware(request: NextRequest) {
 
   // One address for the shop: "www.nureasmir.com/…" goes to "nureasmir.com/…" (a permanent redirect, so search engines keep a single copy of every page).
   const host = (request.headers.get("host") ?? "").toLowerCase();
+  const hostname = host.split(":")[0]; // without a port
   if (!allowInsecure && process.env.APP_TARGET !== "admin" && process.env.APP_TARGET !== "training" && host.startsWith("www.")) {
     const bare = new URL(request.url);
     bare.host = host.slice(4);
@@ -73,20 +74,30 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(bare, 308);
   }
 
+  // The training lab runs as its own Cloudflare Worker (its zone is not on Cloudflare, so it has no custom domain): this hostname,
+  // served by Vercel, sends visitors on to it when the TRAINING_URL variable (its workers.dev address) is set.
+  const trainingUrl = process.env.TRAINING_URL;
+  if (trainingUrl && hostname.startsWith("training.")) {
+    const target = new URL(trainingUrl);
+    target.pathname = request.nextUrl.pathname;
+    target.search = request.nextUrl.search;
+    return NextResponse.redirect(target, 307);
+  }
+
   // When accessed via admin subdomain (e.g. admin.nureasmir.com):
   // automatically route root and non-admin routes to /admin without needing manual /admin typing.
-  const isAdminSubdomain = host.startsWith("admin.") || process.env.APP_TARGET === "admin";
+  const isAdminSubdomain = hostname.startsWith("admin.") || process.env.APP_TARGET === "admin";
   if (isAdminSubdomain) {
     const pathname = request.nextUrl.pathname;
-    if (pathname === "/") {
-      return NextResponse.redirect(new URL("/admin", request.url));
-    }
-    if (pathname === "/login") {
-      return NextResponse.redirect(new URL("/admin/login", request.url));
-    }
-    if (!pathname.startsWith("/admin") && !pathname.startsWith("/api") && !pathname.includes(".")) {
-      return NextResponse.redirect(new URL(`/admin${pathname}`, request.url));
-    }
+    const inside = (base: string) => pathname === base || pathname.startsWith(`${base}/`); // whole path segments only: "/administrator" is not "/admin"
+    const redirectTo = (path: string) => {
+      const url = request.nextUrl.clone();
+      url.pathname = path;
+      return NextResponse.redirect(url);
+    };
+    if (pathname === "/") return redirectTo("/admin");
+    if (pathname === "/login") return redirectTo("/admin/login");
+    if (!inside("/admin") && !inside("/api") && !pathname.includes(".")) return redirectTo(`/admin${pathname}`);
   }
 
   const response = NextResponse.next();

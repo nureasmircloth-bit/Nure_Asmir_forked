@@ -13,15 +13,15 @@ export async function StoreFooter() {
   return (
     <>
       <section className="newsletter" aria-labelledby="newsletter-title">
-        <h2 id="newsletter-title">Subscribe to our newsletter</h2>
-        <p>Sign up for new arrivals, offers and more.</p>
+        <h2 id="newsletter-title">{settings.newsletterTitle || "Subscribe to our newsletter"}</h2>
+        <p>{settings.newsletterText || "Sign up for new arrivals, offers and more."}</p>
         <NewsletterForm />
       </section>
       <footer className="footer">
         <div className="footer-main">
           <div className="footer-brand">
             <Image src="/brand/wordmark-light-v2.png" alt={BRAND.name} width={969} height={155} unoptimized />
-            <p>{BRAND.description}</p>
+            <p>{settings.shopDescription || BRAND.description}</p>
             <div className="footer-social">
               {settings.facebookUrl && (
                 <a href={settings.facebookUrl} target="_blank" rel="noreferrer noopener" aria-label="Facebook">

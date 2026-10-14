@@ -74,7 +74,13 @@ async function loadSettingsData() {
     fontFamily: row?.fontFamily || "Cormorant Garamond",
     bodyFontFamily: row?.bodyFontFamily || "Jost",
     contactFontFamily: row?.contactFontFamily || "Inter",
+    shopDescription: row?.shopDescription ?? "",
+    newsletterTitle: row?.newsletterTitle ?? "",
+    newsletterText: row?.newsletterText ?? "",
   };
+
+  // The form shows what is waiting to go live, so saving again never throws those waiting changes away.
+  if (initialPending) Object.assign(values, initialPending.changes);
 
   const status: SystemStatus = {
     tcs: isTcsConfigured(),

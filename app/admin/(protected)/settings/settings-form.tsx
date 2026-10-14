@@ -52,6 +52,9 @@ export type SettingsValues = {
   fontFamily: string;
   bodyFontFamily: string;
   contactFontFamily: string;
+  shopDescription: string;
+  newsletterTitle: string;
+  newsletterText: string;
 };
 export type PendingSettings = {
   changes: Partial<SettingsValues>;
@@ -341,6 +344,9 @@ export function SettingsForm({ initial, status, initialPending }: { initial: Set
         {text("instagramUrl", "Instagram page", { placeholder: "https://www.instagram.com/yourname" })}
         {text("facebookUrl", "Facebook page", { placeholder: "https://www.facebook.com/yourpage" })}
         {text("tiktokUrl", "TikTok page", { placeholder: "https://www.tiktok.com/@yourname" })}
+        {text("shopDescription", "Short description of your shop", { wide: true, hint: "One or two sentences under the logo in the footer and in Google results. Empty = the built-in text." })}
+        {text("newsletterTitle", "Newsletter heading", { hint: "The heading above the sign-up box. Empty = “Subscribe to our newsletter”." })}
+        {text("newsletterText", "Newsletter line", { wide: true, hint: "The line under that heading. Empty = “Sign up for new arrivals, offers and more.”" })}
       </Section>
 
       <Section id="appearance" title="Storefront theme & appearance" intro="Customize your whole website aesthetic — background, surfaces, typography, colors and corner radius. Updates apply globally across the storefront.">
@@ -633,6 +639,7 @@ export function SettingsForm({ initial, status, initialPending }: { initial: Set
           </select>
           {customDisplayOpen && (
             <div style={{ marginTop: 8 }}>
+              <label htmlFor="s-fontFamily-custom" className="sr-only">Custom heading font (Google Font name)</label>
               <input
                 id="s-fontFamily-custom"
                 name="fontFamilyCustom"
@@ -683,6 +690,7 @@ export function SettingsForm({ initial, status, initialPending }: { initial: Set
           </select>
           {customBodyOpen && (
             <div style={{ marginTop: 8 }}>
+              <label htmlFor="s-bodyFontFamily-custom" className="sr-only">Custom body font (Google Font name)</label>
               <input
                 id="s-bodyFontFamily-custom"
                 name="bodyFontFamilyCustom"

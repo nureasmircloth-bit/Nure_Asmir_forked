@@ -67,7 +67,7 @@ function PriceRange({ bounds, min, max, onChange }: { bounds: { min: number; max
         id="fp-range-min"
         name="rangeMin"
         type="range"
-        aria-label="Lowest price"
+        aria-label="Lowest price slider"
         min={bounds.min}
         max={bounds.max}
         step={step}
@@ -78,7 +78,7 @@ function PriceRange({ bounds, min, max, onChange }: { bounds: { min: number; max
         id="fp-range-max"
         name="rangeMax"
         type="range"
-        aria-label="Highest price"
+        aria-label="Highest price slider"
         min={bounds.min}
         max={bounds.max}
         step={step}

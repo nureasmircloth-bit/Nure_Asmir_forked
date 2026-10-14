@@ -502,6 +502,10 @@ export const siteSettings = pgTable("site_settings", {
   fontFamily: text("font_family").notNull().default("Cormorant Garamond"),
   bodyFontFamily: text("body_font_family").notNull().default("Jost"),
   contactFontFamily: text("contact_font_family").notNull().default("Inter"),
+  // Storefront wording the owner can change (empty = the built-in text)
+  shopDescription: text("shop_description").notNull().default(""),
+  newsletterTitle: text("newsletter_title").notNull().default(""),
+  newsletterText: text("newsletter_text").notNull().default(""),
   pendingChanges: text("pending_changes"),
   pendingApplyAt: timestamp("pending_apply_at", { withTimezone: true }),
   previousSettings: text("previous_settings"),

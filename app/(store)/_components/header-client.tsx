@@ -110,6 +110,18 @@ export function HeaderClient({
     window.addEventListener("na-open-search", open);
     return () => window.removeEventListener("na-open-search", open);
   }, []);
+  // Focus goes back to the button that opened a panel however it was closed (Escape, scrim or a close button); once the panel is inert,
+  // focus left inside it would fall to <body> and a keyboard user would lose their place.
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const searchButtonRef = useRef<HTMLButtonElement>(null);
+  const wasOpen = useRef({ menu: false, search: false });
+  useEffect(() => {
+    const active = document.activeElement;
+    const lost = !active || active === document.body || (active instanceof HTMLElement && !!active.closest(".drawer, .search-overlay"));
+    if (wasOpen.current.menu && !menuOpen && lost) menuButtonRef.current?.focus();
+    if (wasOpen.current.search && !searchOpen && lost) searchButtonRef.current?.focus();
+    wasOpen.current = { menu: menuOpen, search: searchOpen };
+  }, [menuOpen, searchOpen]);
   const closeAll = () => {
     setMenuOpen(false);
     setSearchOpen(false);
@@ -122,6 +134,7 @@ export function HeaderClient({
       <header className="site-header">
         <div className="hdr-side">
           <button
+            ref={menuButtonRef}
             type="button"
             className="icon-btn"
             aria-label={menuOpen ? "Close menu" : "Open menu"}
@@ -130,7 +143,7 @@ export function HeaderClient({
           >
             {menuOpen ? Icon.close : Icon.menu}
           </button>
-          <button type="button" className="icon-btn hdr-search-btn" aria-label="Search" onClick={openSearch}>
+          <button ref={searchButtonRef} type="button" className="icon-btn hdr-search-btn" aria-label="Search" onClick={openSearch}>
             {Icon.search}
           </button>
           <button type="button" className="hdr-search-hint" onClick={openSearch}>
@@ -158,7 +171,7 @@ export function HeaderClient({
 
       {(menuOpen || searchOpen) && <button type="button" className="scrim" aria-label="Close panel" onClick={closeAll} />}
 
-      <aside className={`drawer ${menuOpen ? "is-open" : ""}`} inert={!menuOpen ? true : undefined} aria-label="Menu">
+      <aside className={`drawer ${menuOpen ? "is-open" : ""}`} inert={!menuOpen ? true : undefined} role="dialog" aria-modal="true" aria-label="Menu">
         <div className="drawer-top">
           <span className="drawer-title">Explore</span>
           <button
@@ -343,6 +356,7 @@ function SearchOverlay({
       className={`search-overlay ${open ? "is-open" : ""}`}
       inert={!open ? true : undefined}
       role="dialog"
+      aria-modal="true"
       aria-label="Search"
     >
       <form

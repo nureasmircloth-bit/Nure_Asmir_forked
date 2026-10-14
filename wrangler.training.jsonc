@@ -23,6 +23,5 @@
     "NEXT_PUBLIC_ADMIN_URL": "https://admin.nureasmir.com"
   },
   "observability": { "enabled": true },
-  "workers_dev": true,
-  "routes": [{ "pattern": "training.nureasmir.com", "custom_domain": true }]
+  "workers_dev": true
 }

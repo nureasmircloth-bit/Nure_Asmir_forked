@@ -1,4 +1,4 @@
-// Closes the three Cloudflare Workers that used to run the shop (the site now runs on Vercel and DNS is served by Vercel).
+// Closes the two Cloudflare Workers that used to run the shop and the admin (the site now runs on Vercel and DNS is served by Vercel).
 //
 //   CLOUDFLARE_API_TOKEN=… CLOUDFLARE_ACCOUNT_ID=… node scripts/retire-cloudflare-workers.mjs            # only LISTS what exists (safe)
 //   CLOUDFLARE_API_TOKEN=… CLOUDFLARE_ACCOUNT_ID=… node scripts/retire-cloudflare-workers.mjs --delete   # really deletes them
@@ -9,7 +9,8 @@
 const token = process.env.CLOUDFLARE_API_TOKEN;
 const account = process.env.CLOUDFLARE_ACCOUNT_ID;
 const really = process.argv.includes("--delete");
-const NAMES = ["nure-asmir", "nure-asmir-admin", "nure-asmir-training"];
+// nure-asmir-training is NOT here: the training lab still runs on Cloudflare (it has no timer).
+const NAMES = ["nure-asmir", "nure-asmir-admin"];
 if (!token || !account) {
   console.error("CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID are required.");
   process.exit(1);
@@ -17,7 +18,13 @@ if (!token || !account) {
 const API = "https://api.cloudflare.com/client/v4";
 const call = async (method, path) => {
   const response = await fetch(API + path, { method, headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
-  return response.json().catch(() => ({ success: false, errors: [{ message: `HTTP ${response.status}` }] }));
+  const text = await response.text();
+  if (!text.trim()) return response.ok ? { success: true, result: null } : { success: false, errors: [{ message: `HTTP ${response.status}` }] }; // a successful delete may have no body
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { success: response.ok, errors: response.ok ? [] : [{ message: `HTTP ${response.status}` }] };
+  }
 };
 const why = (result) => result.errors?.map((error) => error.message).join("; ") || "unknown error";
 
@@ -30,7 +37,11 @@ const existing = new Set((scripts.result ?? []).map((script) => script.id));
 console.log("Workers on the account:", [...existing].join(", ") || "(none)");
 
 const domains = await call("GET", `/accounts/${account}/workers/domains`);
-const domainList = domains.success ? domains.result ?? [] : [];
+if (!domains.success) {
+  console.error("::error::Could not list the custom domains: " + why(domains) + " - stopping so nothing is deleted with domains still attached.");
+  process.exit(1);
+}
+const domainList = domains.result ?? [];
 
 let failed = false;
 for (const name of NAMES) {

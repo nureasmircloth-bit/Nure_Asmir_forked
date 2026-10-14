@@ -784,6 +784,9 @@ export type PublicSettings = {
   fontFamily: string;
   bodyFontFamily: string;
   contactFontFamily: string;
+  shopDescription: string;
+  newsletterTitle: string;
+  newsletterText: string;
 };
 
 /** Applies buffered settings when their 5-minute safety delay has passed, revalidating cache on change. */
@@ -867,5 +870,8 @@ export const getPublicSettings = cache(async (): Promise<PublicSettings> => {
     fontFamily: row?.fontFamily || "Cormorant Garamond",
     bodyFontFamily: row?.bodyFontFamily || "Jost",
     contactFontFamily: row?.contactFontFamily || "Inter",
+    shopDescription: row?.shopDescription ?? "",
+    newsletterTitle: row?.newsletterTitle ?? "",
+    newsletterText: row?.newsletterText ?? "",
   };
 });

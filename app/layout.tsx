@@ -41,7 +41,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     metadataBase: new URL(origin),
     title: { default: `${title}. ${BRAND.tagline}.`, template: `%s | ${BRAND.name}` },
-    description: BRAND.description,
+    description: settings.shopDescription || BRAND.description,
     applicationName: BRAND.name,
     icons: {
       icon: [
@@ -53,7 +53,7 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     openGraph: {
       title: `${title} — ${BRAND.tagline}`,
-      description: BRAND.description,
+      description: settings.shopDescription || BRAND.description,
       type: "website",
       locale: "en_PK",
       siteName: BRAND.name,
@@ -62,7 +62,7 @@ export async function generateMetadata(): Promise<Metadata> {
     twitter: {
       card: "summary_large_image",
       title: `${title} — ${BRAND.tagline}`,
-      description: BRAND.description,
+      description: settings.shopDescription || BRAND.description,
       images: [shareUrl],
     },
     robots: { index: true, follow: true },

@@ -76,13 +76,14 @@ and marks the admin host `noindex`. Shoppers never download admin code or CSS (`
 
 * **Scheduled jobs** (reservation expiry, TCS sync, sale alerts, daily maintenance) are called by GitHub Actions (`.github/workflows/cron.yml`, every 30 minutes)
   with `CRON_SECRET`; there is no timer left on Cloudflare.
-* **The old Cloudflare Workers** (`nure-asmir`, `nure-asmir-admin`, `nure-asmir-training`) are retired. Their code (`wrangler*.jsonc`, `worker-entry.ts`,
+* **The old shop and admin Workers** (`nure-asmir`, `nure-asmir-admin`) are retired. Their code (`wrangler*.jsonc`, `worker-entry.ts`,
   `admin-entry.ts`, `open-next.config.ts`, the `cf:*` scripts) is kept in git for now but nothing deploys it. To close the live Workers, run Actions →
   "Retire Cloudflare Workers (one time)" (list first, then tick "delete").
-* **The training lab** (`/admin/training*`, lessons, six guided labs in `lib/labs.ts`, free practice) is the same Vercel project and the same build, deployed a second
-  time by `.github/workflows/deploy-training.yml` (after every successful production deploy, or by hand). That deployment is given `SANDBOX=1`, the practice database as
-  `DATABASE_URL`, `TRAINING_PASSWORD` and the picture-store keys only (never the real database or any email/WhatsApp/TCS/push/search/AI key), and `training.nureasmir.com`
-  is aliased to it. If the page asks for a Vercel login, switch off Deployment Protection for the project (Settings → Deployment Protection). See `docs/consultant/03-loading-and-indexing.html#sandbox`.
+* **The training lab** (`/admin/training*`, lessons, six guided labs in `lib/labs.ts`, free practice) stays on **Cloudflare** as its own Worker, `nure-asmir-training`
+  (the admin build in practice mode: `SANDBOX=1`, the practice database only, no email/WhatsApp/TCS/push/search/AI keys, no timer). `.github/workflows/deploy-training.yml`
+  deploys it after every successful production deploy (or by hand) and smoke-checks its login page. Because DNS is on Vercel, the Worker has no custom domain: it lives at
+  `https://nure-asmir-training.<your-subdomain>.workers.dev`, and `training.nureasmir.com` redirects to it when the `TRAINING_URL` variable is set on the Vercel project.
+  See `docs/consultant/03-loading-and-indexing.html#sandbox`.
 
 ## Shopper experience details
 
