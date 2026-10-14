@@ -13,5 +13,9 @@ test.describe("visitor country (for the currency selector)", () => {
       const res = await request.get(`${BASE}/api/geo/country`, { headers: { "x-vercel-ip-country": value } });
       expect((await res.json()).country, value).toBeNull();
     }
+    const mixed = await request.get(`${BASE}/api/geo/country`, {
+      headers: { "x-vercel-ip-country": "XX", "cf-ipcountry": "AE" },
+    });
+    expect((await mixed.json()).country).toBeNull();
   });
 });
