@@ -9,6 +9,7 @@ import { Icon } from "../../_ui/icons";
 import { Badge } from "../../_ui/ui";
 import { buildAnnouncements, isAnnouncementMode, isAnnouncementStyle, isDeliveryMode } from "@/lib/shop-rules";
 import { PhotoShrinker } from "./photo-shrinker";
+import { CHROME_DEFAULT_BG, textIsReadable } from "@/lib/theme-chrome";
 import { BODY_FONTS, CONTACT_FONTS, DISPLAY_FONTS, googleFontHref, withCurrent } from "@/lib/fonts";
 
 export type SettingsValues = {
@@ -158,6 +159,20 @@ export function SettingsForm({ initial, status, initialPending }: { initial: Set
     </div>
   );
 
+  // A text colour is only used by the shop when it is readable on its background (the chosen one, or the built-in one).
+  const lowContrast = (key: string) => {
+    const areas: Record<string, [string, string]> = {
+      themeHeaderTextColor: [form.themeHeaderColor, CHROME_DEFAULT_BG.header],
+      themeSidebarTextColor: [form.themeSidebarColor, CHROME_DEFAULT_BG.sidebar],
+      themeFooterTextColor: [form.themeFooterColor, CHROME_DEFAULT_BG.footer],
+      themeCurrencyTextColor: [form.themeCurrencyColor, CHROME_DEFAULT_BG.currency],
+      themeBottomBarTextColor: [form.themeBottomBarColor, /^#[0-9a-fA-F]{6}$/.test(form.themeBackgroundColor) ? form.themeBackgroundColor : "#ffffff"],
+    };
+    const area = areas[key];
+    const text = (form as unknown as Record<string, string>)[key];
+    return Boolean(area && text && /^#[0-9a-fA-F]{6}$/.test(text) && !textIsReadable(text, /^#[0-9a-fA-F]{6}$/.test(area[0]) ? area[0] : area[1]));
+  };
+
   const chromeField = (key: "themeHeaderColor" | "themeHeaderTextColor" | "themeSidebarColor" | "themeSidebarTextColor" | "themeFooterColor" | "themeFooterTextColor" | "themeCurrencyColor" | "themeCurrencyTextColor" | "themeBottomBarColor" | "themeBottomBarTextColor", label: string, hint: string) => (
     <div className="a-field">
       <label htmlFor={`s-${key}`}>
@@ -185,6 +200,11 @@ export function SettingsForm({ initial, status, initialPending }: { initial: Set
           </button>
         )}
       </div>
+      {lowContrast(key) && (
+        <span className="a-help" role="alert" style={{ color: "var(--red-text)" }}>
+          This colour is hard to read on the background it sits on, so the shop will not use it. Pick a lighter or darker one.
+        </span>
+      )}
     </div>
   );
 
