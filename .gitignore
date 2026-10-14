@@ -73,3 +73,6 @@ next-env.d.ts
 /wrangler.deploy.jsonc
 /wrangler.admin.deploy.jsonc
 /wrangler.training.deploy.jsonc
+
+# field-test results (contain public IPs)
+tools/field-kit/field-report-*/
