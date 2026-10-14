@@ -9,6 +9,8 @@ import { Icon } from "../../_ui/icons";
 import { Badge } from "../../_ui/ui";
 import { buildAnnouncements, isAnnouncementMode, isAnnouncementStyle, isDeliveryMode } from "@/lib/shop-rules";
 import { PhotoShrinker } from "./photo-shrinker";
+import { CHROME_DEFAULT_BG, textIsReadable } from "@/lib/theme-chrome";
+import { BODY_FONTS, CONTACT_FONTS, DISPLAY_FONTS, googleFontHref, withCurrent } from "@/lib/fonts";
 
 export type SettingsValues = {
   brandName: string;
@@ -53,6 +55,16 @@ export type SettingsValues = {
   bodyFontFamily: string;
   contactFontFamily: string;
   shopDescription: string;
+  themeBottomBarColor: string;
+  themeBottomBarTextColor: string;
+  themeHeaderColor: string;
+  themeHeaderTextColor: string;
+  themeSidebarColor: string;
+  themeSidebarTextColor: string;
+  themeFooterColor: string;
+  themeFooterTextColor: string;
+  themeCurrencyColor: string;
+  themeCurrencyTextColor: string;
   newsletterTitle: string;
   newsletterText: string;
 };
@@ -86,38 +98,6 @@ function formatSeconds(total: number) {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-const DISPLAY_FONT_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: "Cormorant Garamond", label: "Cormorant Garamond (Classic Luxury Serif — Default)" },
-  { value: "Playfair Display", label: "Playfair Display (High-Fashion Editorial)" },
-  { value: "Cinzel", label: "Cinzel (Royal Roman Serif)" },
-  { value: "Prata", label: "Prata (Refined Didone Serif)" },
-  { value: "Bodoni Moda", label: "Bodoni Moda (Haute Couture Luxury Serif)" },
-  { value: "Lora", label: "Lora (Contemporary Editorial Serif)" },
-  { value: "Marcellus", label: "Marcellus (Refined Roman Proportions)" },
-  { value: "Italiana", label: "Italiana (Italian Vogue Elegance)" },
-  { value: "Libre Baskerville", label: "Libre Baskerville (Prestigious Heritage Serif)" },
-  { value: "DM Serif Display", label: "DM Serif Display (Modern High-Contrast Serif)" },
-  { value: "Syne", label: "Syne (Avant-Garde Luxury Sans)" },
-  { value: "Inter", label: "Inter (Ultra-Clean Modern Sans)" },
-  { value: "Outfit", label: "Outfit (Minimalist Geometric Sans)" },
-  { value: "Plus Jakarta Sans", label: "Plus Jakarta Sans (Contemporary Premium Sans)" },
-  { value: "Montserrat", label: "Montserrat (Clean Architectural Sans)" },
-];
-
-const BODY_FONT_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: "Jost", label: "Jost (Clean geometric sans — Default)" },
-  { value: "Inter", label: "Inter (Crisp modern UI sans)" },
-  { value: "Outfit", label: "Outfit (Contemporary minimalist)" },
-  { value: "Plus Jakarta Sans", label: "Plus Jakarta Sans (Warm executive sans)" },
-  { value: "Montserrat", label: "Montserrat (Editorial sans)" },
-  { value: "Lato", label: "Lato (Classic neutral sans)" },
-  { value: "Poppins", label: "Poppins (Balanced modern geometric sans)" },
-  { value: "Raleway", label: "Raleway (Elegant light-feel sans)" },
-  { value: "Nunito Sans", label: "Nunito Sans (Clean soft sans)" },
-  { value: "Work Sans", label: "Work Sans (Grotesque editorial sans)" },
-  { value: "system-ui", label: "System native (Fastest, OS default)" },
-];
-
 export function SettingsForm({ initial, status, initialPending }: { initial: SettingsValues; status: SystemStatus; initialPending?: PendingSettings | null }) {
   const router = useRouter();
   const toast = useToast();
@@ -129,12 +109,6 @@ export function SettingsForm({ initial, status, initialPending }: { initial: Set
   const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, setPending] = useState<PendingSettings | null>(initialPending ?? null);
   const [countdown, setCountdown] = useState<number>(initialPending?.remainingSeconds ?? 0);
-  const [customDisplayOpen, setCustomDisplayOpen] = useState(
-    () => !DISPLAY_FONT_OPTIONS.some((o) => o.value === initial.fontFamily)
-  );
-  const [customBodyOpen, setCustomBodyOpen] = useState(
-    () => !BODY_FONT_OPTIONS.some((o) => o.value === initial.bodyFontFamily)
-  );
 
   useEffect(() => {
     if (!pending) return;
@@ -182,6 +156,55 @@ export function SettingsForm({ initial, status, initialPending }: { initial: Set
       </label>
       <input id={`s-${key}`} name={key} type={options.type ?? "text"} value={String(form[key])} onChange={set(key)} placeholder={options.placeholder} inputMode={typeof initial[key] === "number" ? "numeric" : undefined} />
       {options.help && <span className="a-help">{options.help}</span>}
+    </div>
+  );
+
+  // A text colour is only used by the shop when it is readable on its background (the chosen one, or the built-in one).
+  const lowContrast = (key: string) => {
+    const areas: Record<string, [string, string]> = {
+      themeHeaderTextColor: [form.themeHeaderColor, CHROME_DEFAULT_BG.header],
+      themeSidebarTextColor: [form.themeSidebarColor, CHROME_DEFAULT_BG.sidebar],
+      themeFooterTextColor: [form.themeFooterColor, CHROME_DEFAULT_BG.footer],
+      themeCurrencyTextColor: [form.themeCurrencyColor, CHROME_DEFAULT_BG.currency],
+      themeBottomBarTextColor: [form.themeBottomBarColor, /^#[0-9a-fA-F]{6}$/.test(form.themeBackgroundColor) ? form.themeBackgroundColor : "#ffffff"],
+    };
+    const area = areas[key];
+    const text = (form as unknown as Record<string, string>)[key];
+    return Boolean(area && text && /^#[0-9a-fA-F]{6}$/.test(text) && !textIsReadable(text, /^#[0-9a-fA-F]{6}$/.test(area[0]) ? area[0] : area[1]));
+  };
+
+  const chromeField = (key: "themeHeaderColor" | "themeHeaderTextColor" | "themeSidebarColor" | "themeSidebarTextColor" | "themeFooterColor" | "themeFooterTextColor" | "themeCurrencyColor" | "themeCurrencyTextColor" | "themeBottomBarColor" | "themeBottomBarTextColor", label: string, hint: string) => (
+    <div className="a-field">
+      <label htmlFor={`s-${key}`}>
+        {label} <Hint text={hint} />
+      </label>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+        <input
+          type="color"
+          aria-label={`${label} picker`}
+          value={/^#[0-9a-fA-F]{6}$/.test(form[key]) ? form[key] : "#ffffff"}
+          onChange={(e) => setValue(key, e.target.value)}
+          style={{ width: 38, height: 38, padding: 0, border: "1px solid var(--line)", borderRadius: 8, cursor: "pointer", background: "transparent" }}
+        />
+        <input
+          id={`s-${key}`}
+          type="text"
+          value={form[key]}
+          onChange={(e) => setValue(key, e.target.value.trim())}
+          placeholder="Built-in look"
+          style={{ width: 120, fontSize: 13, fontFamily: "monospace" }}
+        />
+        {form[key] && (
+          <button type="button" className="a-btn a-btn-quiet a-btn-sm" onClick={() => setValue(key, "")}>
+            Use built-in
+          </button>
+        )}
+      </div>
+      {lowContrast(key) && (
+        <span className="a-help" role="alert" style={{ color: "var(--red-text)" }}>
+          This colour is hard to read on the background it sits on, so the shop will not use it. Pick a lighter or darker one.
+        </span>
+      )}
     </div>
   );
 
@@ -439,8 +462,6 @@ export function SettingsForm({ initial, status, initialPending }: { initial: Set
                   key={p.id}
                   type="button"
                   onClick={() => {
-                    setCustomDisplayOpen(false);
-                    setCustomBodyOpen(false);
                     setValue("themePreset", p.id);
                     setValue("themeBackgroundColor", p.bg);
                     setValue("themeSurfaceColor", p.surface);
@@ -617,49 +638,16 @@ export function SettingsForm({ initial, status, initialPending }: { initial: Set
           <select
             id="s-fontFamily"
             name="fontFamily"
-            value={customDisplayOpen ? "custom" : (DISPLAY_FONT_OPTIONS.some((o) => o.value === form.fontFamily) ? form.fontFamily : "custom")}
+            value={form.fontFamily}
             onChange={(e) => {
-              if (e.target.value === "custom") {
-                setCustomDisplayOpen(true);
-                // Keep the current fontFamily value so user can edit it — but if it was a preset, clear to empty string
-                if (DISPLAY_FONT_OPTIONS.some((o) => o.value === form.fontFamily)) {
-                  setValue("fontFamily", "");
-                }
-              } else {
-                setCustomDisplayOpen(false);
-                setValue("themePreset", "custom");
-                setValue("fontFamily", e.target.value);
-              }
+              setValue("themePreset", "custom");
+              setValue("fontFamily", e.target.value);
             }}
           >
-            {DISPLAY_FONT_OPTIONS.map((o) => (
+            {withCurrent(DISPLAY_FONTS, form.fontFamily).map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
-            <option value="custom">Custom Google Font…</option>
           </select>
-          {customDisplayOpen && (
-            <div style={{ marginTop: 8 }}>
-              <label htmlFor="s-fontFamily-custom" className="sr-only">Custom heading font (Google Font name)</label>
-              <input
-                id="s-fontFamily-custom"
-                name="fontFamilyCustom"
-                type="text"
-                autoFocus
-                value={form.fontFamily}
-                onChange={(e) => {
-                  setValue("themePreset", "custom");
-                  setValue("fontFamily", e.target.value);
-                }}
-                placeholder="Paste exact Google Font name, e.g. Bodoni Moda"
-                style={{ width: "100%" }}
-              />
-              <small style={{ display: "block", marginTop: 4, opacity: 0.65, fontSize: 12 }}>
-                Find fonts at{" "}
-                <a href="https://fonts.google.com" target="_blank" rel="noopener noreferrer">fonts.google.com</a>
-                {" "}— paste the exact name shown there.
-              </small>
-            </div>
-          )}
         </div>
 
         <div className="a-field">
@@ -669,48 +657,16 @@ export function SettingsForm({ initial, status, initialPending }: { initial: Set
           <select
             id="s-bodyFontFamily"
             name="bodyFontFamily"
-            value={customBodyOpen ? "custom" : (BODY_FONT_OPTIONS.some((o) => o.value === form.bodyFontFamily) ? form.bodyFontFamily : "custom")}
+            value={form.bodyFontFamily}
             onChange={(e) => {
-              if (e.target.value === "custom") {
-                setCustomBodyOpen(true);
-                if (BODY_FONT_OPTIONS.some((o) => o.value === form.bodyFontFamily)) {
-                  setValue("bodyFontFamily", "");
-                }
-              } else {
-                setCustomBodyOpen(false);
-                setValue("themePreset", "custom");
-                setValue("bodyFontFamily", e.target.value);
-              }
+              setValue("themePreset", "custom");
+              setValue("bodyFontFamily", e.target.value);
             }}
           >
-            {BODY_FONT_OPTIONS.map((o) => (
+            {withCurrent(BODY_FONTS, form.bodyFontFamily).map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
-            <option value="custom">Custom Google Font…</option>
           </select>
-          {customBodyOpen && (
-            <div style={{ marginTop: 8 }}>
-              <label htmlFor="s-bodyFontFamily-custom" className="sr-only">Custom body font (Google Font name)</label>
-              <input
-                id="s-bodyFontFamily-custom"
-                name="bodyFontFamilyCustom"
-                type="text"
-                autoFocus
-                value={form.bodyFontFamily}
-                onChange={(e) => {
-                  setValue("themePreset", "custom");
-                  setValue("bodyFontFamily", e.target.value);
-                }}
-                placeholder="Paste exact Google Font name, e.g. Poppins"
-                style={{ width: "100%" }}
-              />
-              <small style={{ display: "block", marginTop: 4, opacity: 0.65, fontSize: 12 }}>
-                Find fonts at{" "}
-                <a href="https://fonts.google.com" target="_blank" rel="noopener noreferrer">fonts.google.com</a>
-                {" "}— paste the exact name shown there.
-              </small>
-            </div>
-          )}
         </div>
 
         <div className="a-field">
@@ -723,17 +679,33 @@ export function SettingsForm({ initial, status, initialPending }: { initial: Set
             value={form.contactFontFamily}
             onChange={(e) => setValue("contactFontFamily", e.target.value)}
           >
-            <option value="Inter">Inter (Simple & ultra-crisp sans-serif — Recommended)</option>
-            <option value="Outfit">Outfit (Clean, modern geometry)</option>
-            <option value="system-ui">System native (Fastest, matches device font)</option>
-            <option value="Cormorant Garamond">Cormorant Garamond (Match luxury serif)</option>
+            {withCurrent(CONTACT_FONTS, form.contactFontFamily).map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
           </select>
         </div>
 
+        <div className="wide">
+          <h3 style={{ margin: "6px 0 2px", fontSize: 14 }}>Header, side menu, footer and currency picker</h3>
+          <p className="a-help" style={{ margin: 0 }}>
+            Leave a colour on “Built-in look” to keep the standard design. If you only choose a background, the text colour is picked for you so it stays readable.
+          </p>
+        </div>
+        {chromeField("themeHeaderColor", "Header background", "The bar at the top of every page with the logo, search and bag.")}
+        {chromeField("themeHeaderTextColor", "Header icons and text", "Colour of the menu, search, heart and bag icons. The logo flips between dark and light on its own.")}
+        {chromeField("themeSidebarColor", "Side menu background", "The menu that slides in from the left (Shalwar Kameez, Shirts, Pants…).")}
+        {chromeField("themeSidebarTextColor", "Side menu text", "Colour of the links inside the side menu.")}
+        {chromeField("themeFooterColor", "Footer background", "The bottom of every page with the links and social icons.")}
+        {chromeField("themeFooterTextColor", "Footer text and links", "Colour of the footer headings, links and copyright line.")}
+        {chromeField("themeCurrencyColor", "Currency picker background", "The small PKR / USD box that floats at the bottom-right.")}
+        {chromeField("themeCurrencyTextColor", "Currency picker text", "Colour of the currency codes and names.")}
+        {chromeField("themeBottomBarColor", "Phone bottom bar background", "The Home / Shop / Search / Saved / Bag bar at the bottom of the screen on phones.")}
+        {chromeField("themeBottomBarTextColor", "Phone bottom bar icons and text", "Colour of the icons and labels in that bar.")}
+
         <div className="wide" style={{ border: "1px solid var(--line)", borderRadius: 12, padding: 18, background: form.themeBackgroundColor || "#ffffff", color: form.themeTextColor || "#111111" }}>
           <p style={{ margin: "0 0 10px", fontSize: 11, textTransform: "uppercase", letterSpacing: ".12em", opacity: 0.6 }}>Live storefront appearance preview:</p>
-          {form.fontFamily && <link rel="stylesheet" href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(form.fontFamily)}:wght@400;500;600;700&display=swap`} />}
-          {form.bodyFontFamily && form.bodyFontFamily !== "system-ui" && <link rel="stylesheet" href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(form.bodyFontFamily)}:wght@400;500;600&display=swap`} />}
+          {googleFontHref(form.fontFamily) && <link rel="stylesheet" href={googleFontHref(form.fontFamily)!} />}
+          {googleFontHref(form.bodyFontFamily) && <link rel="stylesheet" href={googleFontHref(form.bodyFontFamily)!} />}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16, alignItems: "center" }}>
             <div style={{ padding: 16, background: form.themeSurfaceColor || "#faf9f6", borderRadius: form.themeRadius === "sharp" ? 0 : form.themeRadius === "rounded" ? 12 : form.themeRadius === "pill" ? 22 : 4, border: "1px solid rgba(0,0,0,0.08)" }}>
               <span style={{ fontSize: 10, letterSpacing: ".12em", textTransform: "uppercase", opacity: 0.6, display: "block", marginBottom: 6 }}>Luxury Collection</span>
