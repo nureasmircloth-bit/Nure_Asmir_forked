@@ -11,8 +11,9 @@ import { useEffect } from "react";
 export function ChunkErrorHandler() {
   useEffect(() => {
     // Counts reloads for this tab, so a chunk that stays missing can never trap the visitor in a reload loop (at most 2 reloads a minute,
-    // never twice within 10 seconds). The count lives in sessionStorage; when storage is blocked it falls back to one reload per page load.
-    let reloadedThisLoad = false;
+    // never twice within 10 seconds). The count lives in sessionStorage; when storage is blocked, window.name (which survives a reload)
+    // carries a marker instead, so a missing chunk still ends after one reload.
+    const MARK = "na-chunk-reloaded";
     function reloadOnce() {
       try {
         const now = Date.now();
@@ -20,9 +21,9 @@ export function ChunkErrorHandler() {
         if (recent.length >= 2 || (recent.length > 0 && now - recent[recent.length - 1] < 10_000)) return;
         sessionStorage.setItem("na-chunk-reloads", JSON.stringify([...recent, now]));
       } catch {
-        if (reloadedThisLoad) return;
+        if (window.name.includes(MARK)) return;
+        window.name = `${window.name} ${MARK}`.trim();
       }
-      reloadedThisLoad = true;
       window.location.reload();
     }
     function isChunkFailure(name: string, message: string) {

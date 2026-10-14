@@ -29,6 +29,25 @@ type OrderOutcome = {
   message?: string;
 };
 
+/**
+ * One key per order, made from the order's own content plus today's date (and a counter for identical orders in the same file).
+ * Importing the same file again the same day, after an answer was lost, produces the SAME keys, so the server recognises orders it already
+ * placed instead of creating duplicates.
+ */
+async function stableOrderKeys(orders: PlaceOrderInput[]): Promise<string[]> {
+  const day = new Date().toISOString().slice(0, 10);
+  const seen = new Map<string, number>();
+  const keys: string[] = [];
+  for (const order of orders) {
+    const body = JSON.stringify(order);
+    const n = (seen.get(body) ?? 0) + 1;
+    seen.set(body, n);
+    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${day}|${n}|${body}`));
+    keys.push(Array.from(new Uint8Array(digest)).slice(0, 16).map((byte) => byte.toString(16).padStart(2, "0")).join(""));
+  }
+  return keys;
+}
+
 export function BulkOrderPlacer() {
   const toast = useToast();
   const reading = useLockedAction();
@@ -109,7 +128,7 @@ export function BulkOrderPlacer() {
           return;
         }
 
-        orderKeys.current = orders.map(() => crypto.randomUUID());
+        orderKeys.current = await stableOrderKeys(orders);
         setSkippedAccepted(false);
         setParsedOrders(orders);
 

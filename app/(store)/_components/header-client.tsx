@@ -115,11 +115,16 @@ export function HeaderClient({
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const searchButtonRef = useRef<HTMLButtonElement>(null);
   const wasOpen = useRef({ menu: false, search: false });
+  const openers = useRef<{ menu: HTMLElement | null; search: HTMLElement | null }>({ menu: null, search: null });
   useEffect(() => {
     const active = document.activeElement;
     const lost = !active || active === document.body || (active instanceof HTMLElement && !!active.closest(".drawer, .search-overlay"));
-    if (wasOpen.current.menu && !menuOpen && lost) menuButtonRef.current?.focus();
-    if (wasOpen.current.search && !searchOpen && lost) searchButtonRef.current?.focus();
+    // a panel that has just opened: remember the control that opened it (focus is still on it at this point)
+    if (!wasOpen.current.menu && menuOpen && active instanceof HTMLElement && active !== document.body) openers.current.menu = active;
+    if (!wasOpen.current.search && searchOpen && active instanceof HTMLElement && active !== document.body) openers.current.search = active;
+    const back = (opener: HTMLElement | null, fallback: HTMLElement | null) => (opener?.isConnected && opener.getClientRects().length > 0 ? opener : fallback)?.focus();
+    if (wasOpen.current.menu && !menuOpen && lost) back(openers.current.menu, menuButtonRef.current);
+    if (wasOpen.current.search && !searchOpen && lost) back(openers.current.search, searchButtonRef.current);
     wasOpen.current = { menu: menuOpen, search: searchOpen };
   }, [menuOpen, searchOpen]);
   const closeAll = () => {

@@ -1,6 +1,6 @@
 name: Retire Cloudflare Workers (one time)
 
-# The shop, the admin and the training lab now run on Vercel, and DNS is served by Vercel. The two old Cloudflare Workers
+# The shop and the admin now run on Vercel, and DNS is served by Vercel (the training lab stays on Cloudflare). The two old Cloudflare Workers
 # (nure-asmir and nure-asmir-admin; the training lab stays) are no longer reached by visitors, but their timers (every 3 minutes) keep
 # calling the site and use up allowance. Run this by hand: leave "delete" off first to only LIST them, then tick it to close them.
 # The code stays in git and the picture buckets are not touched. Needs the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets.

@@ -220,7 +220,8 @@ export async function PATCH(request: Request) {
   const [currentRow] = await db.select().from(siteSettings).where(eq(siteSettings.id, "store")).limit(1);
 
   // The safety buffer defaults to 5 minutes; SETTINGS_BUFFER_SECONDS=0 (used by the automated tests) makes every save apply at once.
-  const bufferSeconds = Number(process.env.SETTINGS_BUFFER_SECONDS ?? 300);
+  const configuredBuffer = Number(process.env.SETTINGS_BUFFER_SECONDS ?? 300);
+  const bufferSeconds = Number.isFinite(configuredBuffer) && configuredBuffer >= 0 ? configuredBuffer : 300; // a bad value falls back to the default
   if (raw?.immediate === true || bufferSeconds <= 0) {
     const fullValues = {
       ...values,
