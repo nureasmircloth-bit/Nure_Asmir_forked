@@ -246,6 +246,13 @@
       "when": 1791980601166,
       "tag": "0034_theme_chrome_colors",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1791983220500,
+      "tag": "0035_theme_bottom_bar",
+      "breakpoints": true
     }
   ]
 }

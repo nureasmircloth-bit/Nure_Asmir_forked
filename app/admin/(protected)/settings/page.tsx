@@ -75,6 +75,8 @@ async function loadSettingsData() {
     bodyFontFamily: row?.bodyFontFamily || "Jost",
     contactFontFamily: row?.contactFontFamily || "Inter",
     shopDescription: row?.shopDescription ?? "",
+    themeBottomBarColor: row?.themeBottomBarColor ?? "",
+    themeBottomBarTextColor: row?.themeBottomBarTextColor ?? "",
     themeHeaderColor: row?.themeHeaderColor ?? "",
     themeHeaderTextColor: row?.themeHeaderTextColor ?? "",
     themeSidebarColor: row?.themeSidebarColor ?? "",

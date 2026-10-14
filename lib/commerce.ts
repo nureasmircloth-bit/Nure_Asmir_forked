@@ -785,6 +785,8 @@ export type PublicSettings = {
   bodyFontFamily: string;
   contactFontFamily: string;
   shopDescription: string;
+  themeBottomBarColor: string;
+  themeBottomBarTextColor: string;
   themeHeaderColor: string;
   themeHeaderTextColor: string;
   themeSidebarColor: string;
@@ -879,6 +881,8 @@ export const getPublicSettings = cache(async (): Promise<PublicSettings> => {
     bodyFontFamily: row?.bodyFontFamily || "Jost",
     contactFontFamily: row?.contactFontFamily || "Inter",
     shopDescription: row?.shopDescription ?? "",
+    themeBottomBarColor: row?.themeBottomBarColor ?? "",
+    themeBottomBarTextColor: row?.themeBottomBarTextColor ?? "",
     themeHeaderColor: row?.themeHeaderColor ?? "",
     themeHeaderTextColor: row?.themeHeaderTextColor ?? "",
     themeSidebarColor: row?.themeSidebarColor ?? "",

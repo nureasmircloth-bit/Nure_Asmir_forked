@@ -54,6 +54,8 @@ export type SettingsValues = {
   bodyFontFamily: string;
   contactFontFamily: string;
   shopDescription: string;
+  themeBottomBarColor: string;
+  themeBottomBarTextColor: string;
   themeHeaderColor: string;
   themeHeaderTextColor: string;
   themeSidebarColor: string;
@@ -156,7 +158,7 @@ export function SettingsForm({ initial, status, initialPending }: { initial: Set
     </div>
   );
 
-  const chromeField = (key: "themeHeaderColor" | "themeHeaderTextColor" | "themeSidebarColor" | "themeSidebarTextColor" | "themeFooterColor" | "themeFooterTextColor" | "themeCurrencyColor" | "themeCurrencyTextColor", label: string, hint: string) => (
+  const chromeField = (key: "themeHeaderColor" | "themeHeaderTextColor" | "themeSidebarColor" | "themeSidebarTextColor" | "themeFooterColor" | "themeFooterTextColor" | "themeCurrencyColor" | "themeCurrencyTextColor" | "themeBottomBarColor" | "themeBottomBarTextColor", label: string, hint: string) => (
     <div className="a-field">
       <label htmlFor={`s-${key}`}>
         {label} <Hint text={hint} />
@@ -677,6 +679,8 @@ export function SettingsForm({ initial, status, initialPending }: { initial: Set
         {chromeField("themeFooterTextColor", "Footer text and links", "Colour of the footer headings, links and copyright line.")}
         {chromeField("themeCurrencyColor", "Currency picker background", "The small PKR / USD box that floats at the bottom-right.")}
         {chromeField("themeCurrencyTextColor", "Currency picker text", "Colour of the currency codes and names.")}
+        {chromeField("themeBottomBarColor", "Phone bottom bar background", "The Home / Shop / Search / Saved / Bag bar at the bottom of the screen on phones.")}
+        {chromeField("themeBottomBarTextColor", "Phone bottom bar icons and text", "Colour of the icons and labels in that bar.")}
 
         <div className="wide" style={{ border: "1px solid var(--line)", borderRadius: 12, padding: 18, background: form.themeBackgroundColor || "#ffffff", color: form.themeTextColor || "#111111" }}>
           <p style={{ margin: "0 0 10px", fontSize: 11, textTransform: "uppercase", letterSpacing: ".12em", opacity: 0.6 }}>Live storefront appearance preview:</p>

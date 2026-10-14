@@ -506,6 +506,8 @@ export const siteSettings = pgTable("site_settings", {
   shopDescription: text("shop_description").notNull().default(""),
   newsletterTitle: text("newsletter_title").notNull().default(""),
   newsletterText: text("newsletter_text").notNull().default(""),
+  themeBottomBarColor: text("theme_bottom_bar_color").notNull().default(""),
+  themeBottomBarTextColor: text("theme_bottom_bar_text_color").notNull().default(""),
   // Optional colours for the header, side menu, footer and currency picker (empty = the built-in look)
   themeHeaderColor: text("theme_header_color").notNull().default(""),
   themeHeaderTextColor: text("theme_header_text_color").notNull().default(""),

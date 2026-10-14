@@ -11,6 +11,8 @@ export const CHROME_KEYS = [
   "themeFooterTextColor",
   "themeCurrencyColor",
   "themeCurrencyTextColor",
+  "themeBottomBarColor",
+  "themeBottomBarTextColor",
 ] as const;
 export type ChromeKey = (typeof CHROME_KEYS)[number];
 export type ChromeColors = Partial<Record<ChromeKey, string | null | undefined>>;
@@ -72,6 +74,15 @@ export function chromeCss(colors: ChromeColors): string {
       `.currency-switcher .currency-main,.currency-switcher ul,.currency-switcher li button,.currency-switcher li button b{color:${curInk} !important}`,
       `.currency-switcher li button span,.currency-switcher .currency-note{color:color-mix(in srgb,${curInk} 65%,transparent) !important}`,
       `.currency-switcher li button:hover,.currency-switcher li button.active{background:color-mix(in srgb,${curInk} 10%,transparent) !important}`,
+    );
+  }
+  const barBg = pick("themeBottomBarColor");
+  const barInk = pick("themeBottomBarTextColor") || (barBg ? readableOn(barBg) : "");
+  if (barBg) rules.push(`.tab-bar{background:${barBg} !important;backdrop-filter:none !important}`, `.tab-search-bubble{border-color:${barBg} !important}`);
+  if (barInk) {
+    rules.push(
+      `.tab-bar a,.tab-bar button,.tab-search-label{color:${barInk} !important}`,
+      `.tab-bar a[aria-current="page"]::before{background:${barInk} !important}`,
     );
   }
   return rules.join("\n");

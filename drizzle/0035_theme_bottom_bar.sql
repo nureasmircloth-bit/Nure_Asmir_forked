@@ -1,0 +1,2 @@
+ALTER TABLE "site_settings" ADD COLUMN "theme_bottom_bar_color" text DEFAULT '' NOT NULL;--> statement-breakpoint
+ALTER TABLE "site_settings" ADD COLUMN "theme_bottom_bar_text_color" text DEFAULT '' NOT NULL;
