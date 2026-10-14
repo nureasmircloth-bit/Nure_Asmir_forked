@@ -224,7 +224,7 @@ test.describe("a bad connection, in the admin", () => {
     await login(page);
     await page.goto("/admin/settings");
     const section = page.locator("section#topbar");
-    await section.getByRole("radio", { name: /Scrolling, towards the right/ }).check();
+    await section.getByRole("radio", { name: /Slide from left/ }).check();
     let tries = 0;
     await page.route("**/api/admin/settings", (route) => {
       if (route.request().method() !== "PATCH") return route.continue();

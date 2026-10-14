@@ -97,19 +97,43 @@ export function HeaderClient({
 
   const waLink = whatsappNumber ? `https://wa.me/${whatsappNumber.replace(/[^\d]/g, "")}` : "/contact";
   // Open and focus in the same tap: on iOS the keyboard only appears for a focus() made inside the gesture.
+  const searchTrigger = useRef<HTMLElement | null>(null); // the control that had focus before search took it
+  const rememberTrigger = () => {
+    const active = document.activeElement;
+    searchTrigger.current = active instanceof HTMLElement && active !== document.body ? active : null;
+  };
   const openSearch = () => {
+    rememberTrigger();
     setSearchOpen(true);
     document.getElementById("site-search-input")?.focus();
   };
   // The bottom bar's Search button (phones) asks the header to open the search panel.
   useEffect(() => {
     const open = () => {
+      rememberTrigger();
       setSearchOpen(true);
       document.getElementById("site-search-input")?.focus();
     };
     window.addEventListener("na-open-search", open);
     return () => window.removeEventListener("na-open-search", open);
   }, []);
+  // Focus goes back to the button that opened a panel however it was closed (Escape, scrim or a close button); once the panel is inert,
+  // focus left inside it would fall to <body> and a keyboard user would lose their place.
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const searchButtonRef = useRef<HTMLButtonElement>(null);
+  const wasOpen = useRef({ menu: false, search: false });
+  const openers = useRef<{ menu: HTMLElement | null; search: HTMLElement | null }>({ menu: null, search: null });
+  useEffect(() => {
+    const active = document.activeElement;
+    const lost = !active || active === document.body || (active instanceof HTMLElement && !!active.closest(".drawer, .search-overlay"));
+    // a panel that has just opened: remember the control that opened it (focus is still on it at this point)
+    if (!wasOpen.current.menu && menuOpen && active instanceof HTMLElement && active !== document.body) openers.current.menu = active;
+    if (!wasOpen.current.search && searchOpen) openers.current.search = searchTrigger.current; // recorded before focus moved into the search box
+    const back = (opener: HTMLElement | null, fallback: HTMLElement | null) => (opener?.isConnected && opener.getClientRects().length > 0 ? opener : fallback)?.focus();
+    if (wasOpen.current.menu && !menuOpen && lost) back(openers.current.menu, menuButtonRef.current);
+    if (wasOpen.current.search && !searchOpen && lost) back(openers.current.search, searchButtonRef.current);
+    wasOpen.current = { menu: menuOpen, search: searchOpen };
+  }, [menuOpen, searchOpen]);
   const closeAll = () => {
     setMenuOpen(false);
     setSearchOpen(false);
@@ -122,6 +146,7 @@ export function HeaderClient({
       <header className="site-header">
         <div className="hdr-side">
           <button
+            ref={menuButtonRef}
             type="button"
             className="icon-btn"
             aria-label={menuOpen ? "Close menu" : "Open menu"}
@@ -130,7 +155,7 @@ export function HeaderClient({
           >
             {menuOpen ? Icon.close : Icon.menu}
           </button>
-          <button type="button" className="icon-btn hdr-search-btn" aria-label="Search" onClick={openSearch}>
+          <button ref={searchButtonRef} type="button" className="icon-btn hdr-search-btn" aria-label="Search" onClick={openSearch}>
             {Icon.search}
           </button>
           <button type="button" className="hdr-search-hint" onClick={openSearch}>
@@ -158,10 +183,18 @@ export function HeaderClient({
 
       {(menuOpen || searchOpen) && <button type="button" className="scrim" aria-label="Close panel" onClick={closeAll} />}
 
-      <aside className={`drawer ${menuOpen ? "is-open" : ""}`} aria-hidden={!menuOpen} aria-label="Menu">
+      <aside className={`drawer ${menuOpen ? "is-open" : ""}`} inert={!menuOpen ? true : undefined} role="dialog" aria-modal="true" aria-label="Menu">
         <div className="drawer-top">
           <span className="drawer-title">Explore</span>
-          <button type="button" className="icon-btn drawer-close-btn" aria-label="Close menu" onClick={() => setMenuOpen(false)}>
+          <button
+            type="button"
+            className="icon-btn drawer-close-btn"
+            aria-label="Close menu"
+            onClick={() => {
+              if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+              setMenuOpen(false);
+            }}
+          >
             {Icon.close}
           </button>
         </div>
@@ -323,8 +356,21 @@ function SearchOverlay({
   }, [hits]);
 
   const term = query.trim();
+  const handleClose = () => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    onClose();
+  };
+
   return (
-    <div className={`search-overlay ${open ? "is-open" : ""}`} aria-hidden={!open} role="dialog" aria-label="Search">
+    <div
+      className={`search-overlay ${open ? "is-open" : ""}`}
+      inert={!open ? true : undefined}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Search"
+    >
       <form
         className="search-bar"
         onSubmit={(event) => {
@@ -335,6 +381,7 @@ function SearchOverlay({
         {Icon.search}
         <input
           id="site-search-input"
+          name="q"
           ref={inputRef}
           type="search"
           value={query}
@@ -343,7 +390,7 @@ function SearchOverlay({
           aria-label="Search products"
           autoComplete="off"
         />
-        <button type="button" className="icon-btn" aria-label="Close search" onClick={onClose}>
+        <button type="button" className="icon-btn" aria-label="Close search" onClick={handleClose}>
           {Icon.close}
         </button>
       </form>

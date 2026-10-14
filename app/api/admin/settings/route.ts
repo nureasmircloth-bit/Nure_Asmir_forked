@@ -6,6 +6,7 @@ import { siteSettings } from "@/db/schema";
 import { getAdminUser } from "@/lib/auth/admin-auth";
 import { cleanPhone } from "@/lib/slug";
 import { auditLogEntry } from "@/lib/admin/audit";
+import { refreshStorefront } from "@/lib/storefront-cache";
 import { applyDuePendingSettings } from "@/lib/commerce";
 
 export const dynamic = "force-dynamic";
@@ -67,6 +68,9 @@ const updateSchema = z.object({
   themeRadius: z.enum(["sharp", "subtle", "rounded", "pill"]).optional(),
   fontFamily: z.string().regex(/^[a-zA-Z0-9\s\-',]+$/).max(80).or(z.literal("")).optional(),
   bodyFontFamily: z.string().regex(/^[a-zA-Z0-9\s\-',]+$/).max(80).or(z.literal("")).optional(),
+  shopDescription: z.string().trim().max(300).optional(),
+  newsletterTitle: z.string().trim().max(80).optional(),
+  newsletterText: z.string().trim().max(200).optional(),
   contactFontFamily: z.string().regex(/^[a-zA-Z0-9\s\-',]+$/).max(80).or(z.literal("")).optional(),
 });
 
@@ -155,6 +159,7 @@ export async function PATCH(request: Request) {
       return Response.json({ error: "Pending settings changed concurrently." }, { status: 409 });
     }
     await auditLogEntry({ actorEmail: admin.email, action: "settings.apply-immediate", entityType: "site-settings", entityId: "store", detail: changes });
+    refreshStorefront(true); // the shop shows the newly applied settings at once (the audit entry's refresh is rate-limited)
     return Response.json({ settings: updated, pending: null, applied: true });
   }
 
@@ -207,11 +212,19 @@ export async function PATCH(request: Request) {
     ...(data.fontFamily !== undefined ? { fontFamily: data.fontFamily } : {}),
     ...(data.bodyFontFamily !== undefined ? { bodyFontFamily: data.bodyFontFamily } : {}),
     ...(data.contactFontFamily !== undefined ? { contactFontFamily: data.contactFontFamily } : {}),
+    ...(data.shopDescription !== undefined ? { shopDescription: data.shopDescription } : {}),
+    ...(data.newsletterTitle !== undefined ? { newsletterTitle: data.newsletterTitle } : {}),
+    ...(data.newsletterText !== undefined ? { newsletterText: data.newsletterText } : {}),
   };
 
   const [currentRow] = await db.select().from(siteSettings).where(eq(siteSettings.id, "store")).limit(1);
 
-  if (raw?.immediate === true) {
+  // The safety buffer defaults to 5 minutes; SETTINGS_BUFFER_SECONDS=0 (used by the automated tests) makes every save apply at once.
+  const rawBuffer = (process.env.SETTINGS_BUFFER_SECONDS ?? "").trim();
+  const configuredBuffer = rawBuffer === "" ? Number.NaN : Number(rawBuffer);
+  // blank, non-numeric, negative or absurdly large (over a day) values fall back to the default 5 minutes
+  const bufferSeconds = Number.isFinite(configuredBuffer) && configuredBuffer >= 0 && configuredBuffer <= 86_400 ? configuredBuffer : 300;
+  if (raw?.immediate === true || bufferSeconds <= 0) {
     const fullValues = {
       ...values,
       pendingChanges: null,
@@ -230,7 +243,7 @@ export async function PATCH(request: Request) {
   }
 
   // 5-minute safety buffer before applying changes to live site
-  const bufferMs = 5 * 60 * 1000;
+  const bufferMs = bufferSeconds * 1000;
   const applyAt = new Date(Date.now() + bufferMs);
   const pendingData = JSON.stringify(values);
   let previousData: string | null = null;
@@ -269,7 +282,7 @@ export async function PATCH(request: Request) {
     pending: {
       changes: values,
       applyAt: applyAt.toISOString(),
-      remainingSeconds: 300,
+      remainingSeconds: bufferSeconds,
     },
   });
 }

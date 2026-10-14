@@ -1,0 +1,124 @@
+name: Deploy training lab (Cloudflare Worker)
+
+# Shop and admin run on Vercel. The TRAINING LAB stays on Cloudflare as its own Worker (nure-asmir-training): the same admin build in practice
+# mode (SANDBOX=1) that is given the PRACTICE database connection only, and none of the keys for email, WhatsApp, TCS, push, search or AI.
+# It has no timer. Its address is https://nure-asmir-training.<your-subdomain>.workers.dev; training.nureasmir.com (DNS is on Vercel) redirects
+# to it when the TRAINING_URL variable is set on the Vercel project (see middleware.ts).
+on:
+  workflow_run:
+    workflows: ["Deploy to Production (Vercel)"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-training
+  cancel-in-progress: false
+
+jobs:
+  training:
+    name: Deploy the training lab
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    # Only values that are public anyway (they end up inside the built pages) live here. Every secret is given to the one step that needs it.
+    env:
+      NEXT_PUBLIC_ADMIN_URL: https://admin.nureasmir.com
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Check what the lab needs
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PRACTICE_DATABASE_URL: ${{ secrets.PRACTICE_DATABASE_URL }}
+          TRAINING_PASSWORD: ${{ secrets.TRAINING_PASSWORD }}
+        run: |
+          for v in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID PRACTICE_DATABASE_URL TRAINING_PASSWORD; do
+            if [ -z "${!v:-}" ]; then echo "::error::$v is not set - the training lab cannot be deployed"; exit 1; fi
+          done
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Choose the Worker config (with or without the picture bucket)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if npx wrangler r2 bucket info nure-asmir-media-r2 >/dev/null 2>&1; then
+            echo "TRAINING_CONFIG=wrangler.training.jsonc" >> "$GITHUB_ENV"
+          else
+            echo "::warning::R2 is not available - deploying the lab without the picture bucket."
+            node scripts/without-r2.mjs wrangler.training.jsonc wrangler.training.deploy.jsonc
+            echo "TRAINING_CONFIG=wrangler.training.deploy.jsonc" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build (admin build)
+        env:
+          DATABASE_URL: ${{ secrets.PRACTICE_DATABASE_URL }}
+          NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+          NEXT_PUBLIC_STORE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+          NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
+          NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
+        run: npm run cf:build:admin
+
+      - name: Deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler deploy -c "$TRAINING_CONFIG"
+
+      # The lab gets only what it needs. Values arrive through env and are piped, never put into the script text.
+      - name: Give the lab its secrets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PRACTICE_DATABASE_URL: ${{ secrets.PRACTICE_DATABASE_URL }}
+          TRAINING_PASSWORD: ${{ secrets.TRAINING_PASSWORD }}
+          AWS_ENDPOINT_URL_S3: ${{ secrets.AWS_ENDPOINT_URL_S3 }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          CSP_NONCE: ${{ secrets.CSP_NONCE }}
+        run: |
+          set -euo pipefail
+          # DATABASE_URL first: it is the practice connection (also under that name, so no code path can reach the real database)
+          printf '%s' "$PRACTICE_DATABASE_URL" | npx wrangler secret put DATABASE_URL -c "$TRAINING_CONFIG"
+          for name in PRACTICE_DATABASE_URL TRAINING_PASSWORD AWS_ENDPOINT_URL_S3 AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_REGION CSP_NONCE; do
+            value="${!name:-}"
+            if [ -n "$value" ]; then
+              printf '%s' "$value" | npx wrangler secret put "$name" -c "$TRAINING_CONFIG" || { echo "::error::could not set $name on the training lab"; exit 1; }
+            elif [ "$name" != "PRACTICE_DATABASE_URL" ] && [ "$name" != "TRAINING_PASSWORD" ]; then
+              # an optional secret that was cleared in GitHub is removed from the Worker too, so no stale value stays behind
+              npx wrangler secret delete "$name" -c "$TRAINING_CONFIG" >/dev/null 2>&1 || true
+            fi
+          done
+
+      - name: Smoke check
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          sub=$(curl -sf -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{console.log(JSON.parse(d).result.subdomain||'')}catch{console.log('')}})")
+          [ -n "$sub" ] || { echo "::error::could not work out the workers.dev subdomain"; exit 1; }
+          url="https://nure-asmir-training.$sub.workers.dev/admin/training-login"
+          code="none"
+          for i in 1 2 3 4 5; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$url" || echo "none")
+            if [ "$code" = "200" ]; then echo "training login answered 200 at $url"; exit 0; fi
+            [ "$i" -lt 5 ] && sleep 6
+          done
+          echo "::error::the training login page did not answer 200 (last: $code) at $url"
+          exit 1

@@ -590,9 +590,11 @@ export default function CheckoutPage() {
                       </button>
                     ) : (
                       <div className="checkout-otp-verify">
-                        <label>
+                        <label htmlFor="checkout-otp">
                           <span>Enter the 6-digit code</span>
                           <input
+                            id="checkout-otp"
+                            autoComplete="one-time-code"
                             inputMode="numeric"
                             maxLength={6}
                             value={otpCode}
@@ -700,9 +702,11 @@ export default function CheckoutPage() {
                   </div>
                 ) : (
                   <div className="checkout-grid">
-                    <label className="field-wide">
+                    <label className="field-wide" htmlFor="checkout-coupon">
                       <span>Coupon code</span>
                       <input
+                        id="checkout-coupon"
+                        autoComplete="off"
                         value={couponInput}
                         onChange={(event) => setCouponInput(event.target.value.toUpperCase())}
                         placeholder="e.g. WELCOME10"
@@ -797,6 +801,10 @@ export default function CheckoutPage() {
               <p className="phone-otp-popup-title">Skip email verification</p>
               <p>Enter your WhatsApp number to avoid email OTP verification.</p>
               <input
+                id="checkout-customer-phone"
+                aria-label="WhatsApp number"
+                type="tel"
+                autoComplete="tel"
                 value={customerPhone}
                 onChange={(event) => setCustomerPhone(event.target.value)}
                 placeholder="+923001234567"

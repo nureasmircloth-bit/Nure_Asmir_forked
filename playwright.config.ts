@@ -53,6 +53,8 @@ const PROD_PORT = 3200;
 const serverEnv = {
   ...testEnv,
   NEXT_PUBLIC_SITE_URL: `http://localhost:${APP_PORT}`,
+  // Settings apply at once in tests (in production a save waits 5 minutes in a safety buffer).
+  SETTINGS_BUFFER_SECONDS: "0",
   // No third-party side effects from tests.
   ALGOLIA_ADMIN_KEY: "",
   NEXT_PUBLIC_ALGOLIA_SEARCH_KEY: "",

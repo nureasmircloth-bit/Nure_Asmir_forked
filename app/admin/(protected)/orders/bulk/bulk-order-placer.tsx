@@ -29,6 +29,39 @@ type OrderOutcome = {
   message?: string;
 };
 
+const hex = (bytes: ArrayBuffer, length: number) => Array.from(new Uint8Array(bytes)).slice(0, length).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+const sha256 = (text: string) => crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+const ATTEMPT_STORAGE_KEY = "na-bulk-attempt";
+
+/**
+ * One key per order: a hash of the order's own content, a counter for identical orders in the same file, and a browser-tab "attempt id".
+ * The attempt id is remembered until a placement has put EVERY parsed order in (and no row was left out). Until then, importing a file again
+ * (even after correcting a row that was left out, or after a lost answer) gives the orders that did not change the SAME keys, so the server
+ * recognises the ones it already placed instead of creating duplicates. Once everything is placed the id is dropped, so importing the same
+ * file again later is a new, intended placement with fresh keys.
+ */
+async function orderKeysFor(orders: PlaceOrderInput[]): Promise<string[]> {
+  const bodies = orders.map((order) => JSON.stringify(order));
+  let attempt = "";
+  try {
+    attempt = sessionStorage.getItem(ATTEMPT_STORAGE_KEY) ?? "";
+    if (!attempt) {
+      attempt = crypto.randomUUID();
+      sessionStorage.setItem(ATTEMPT_STORAGE_KEY, attempt);
+    }
+  } catch {
+    attempt = crypto.randomUUID(); // storage blocked: this upload still gets its own stable keys, it just cannot be recognised after a reload
+  }
+  const seen = new Map<string, number>();
+  const keys: string[] = [];
+  for (const body of bodies) {
+    const n = (seen.get(body) ?? 0) + 1;
+    seen.set(body, n);
+    keys.push(hex(await sha256(`${attempt}|${n}|${body}`), 16));
+  }
+  return keys;
+}
+
 export function BulkOrderPlacer() {
   const toast = useToast();
   const reading = useLockedAction();
@@ -46,6 +79,9 @@ export function BulkOrderPlacer() {
   const [dragOver, setDragOver] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // One key per order of an upload, made once, so pressing "Place" again after an uncertain answer cannot create a second order.
+  const orderKeys = useRef<string[]>([]);
+  const [skippedAccepted, setSkippedAccepted] = useState(false);
 
   useEffect(() => {
     fetch("/api/admin/orders/place/options", { cache: "no-store" })
@@ -106,6 +142,8 @@ export function BulkOrderPlacer() {
           return;
         }
 
+        orderKeys.current = await orderKeysFor(orders);
+        setSkippedAccepted(false);
         setParsedOrders(orders);
 
         // Run live pre-placement dry run check against catalogue and live inventory
@@ -158,8 +196,7 @@ export function BulkOrderPlacer() {
 
         setProgress({ done: i, total, label: `Placing order ${i + 1} of ${total}: ${orderName}…` });
 
-        // Deterministic idempotency key per upload session + order index to prevent duplicate charge
-        const idempotencyKey = `${Date.now()}-${orderIndex}-${Math.random().toString(36).slice(2, 10)}`;
+        const idempotencyKey = orderKeys.current[orderIndex];
 
         const response = await callApi<{ order: { id: string; orderNumber: string; total: number } }>(
           "/api/admin/orders/place",
@@ -187,6 +224,12 @@ export function BulkOrderPlacer() {
       setProgress({ done: total, total, label: "All orders processed!" });
       setOutcomes(results);
       setStep("done");
+      // everything placed: forget the attempt, so uploading this file again later is a new placement; otherwise keep it for the retry
+      if (results.length === parsedOrders.length && results.every((result) => result.ok) && parseErrors.length === 0) {
+        try {
+          sessionStorage.removeItem(ATTEMPT_STORAGE_KEY);
+        } catch {}
+      }
       toast(`Processed ${total} orders (${results.filter((r) => r.ok).length} placed successfully).`, "good");
     });
   }
@@ -258,9 +301,16 @@ export function BulkOrderPlacer() {
             <p className="a-muted" style={{ margin: "6px 0 16px", fontSize: 13.5 }}>
               or click to browse from your device (.xlsx, .csv, or .json)
             </p>
-            <span className="a-btn a-btn-sm">
+            <button
+              type="button"
+              className="a-btn a-btn-sm"
+              onClick={(event) => {
+                event.stopPropagation();
+                fileInputRef.current?.click();
+              }}
+            >
               <Icon name="upload" size={15} /> Select file
-            </span>
+            </button>
           </div>
 
           {reading.pending && (
@@ -303,6 +353,7 @@ export function BulkOrderPlacer() {
                   type="button"
                   className="a-btn a-btn-quiet"
                   onClick={() => {
+                    setParseErrors([]);
                     setStep("upload");
                     setPreviewRows([]);
                     setParsedOrders([]);
@@ -314,7 +365,7 @@ export function BulkOrderPlacer() {
                   type="button"
                   className="a-btn a-btn-primary"
                   onClick={runPlaceOrders}
-                  disabled={validCount === 0 || placing.pending}
+                  disabled={validCount === 0 || placing.pending || (parseErrors.length > 0 && !skippedAccepted)}
                 >
                   <Icon name="check" size={16} /> Place {validCount} valid order{validCount === 1 ? "" : "s"}
                 </button>
@@ -332,6 +383,23 @@ export function BulkOrderPlacer() {
               )}
             </div>
           </div>
+
+          {parseErrors.length > 0 && (
+            <div className="a-card a-card-pad" role="alert" style={{ borderColor: "var(--red-line)", background: "var(--red-surface)" }}>
+              <strong style={{ color: "var(--red-text)" }}>These spreadsheet rows were left out and will NOT be ordered:</strong>
+              <ul style={{ margin: "6px 0 10px", paddingLeft: 20, fontSize: 13.5 }}>
+                {parseErrors.map((err, i) => (
+                  <li key={i}>
+                    <strong>Row {err.row}:</strong> {err.message}
+                  </li>
+                ))}
+              </ul>
+              <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13.5 }}>
+                <input type="checkbox" checked={skippedAccepted} onChange={(event) => setSkippedAccepted(event.target.checked)} />
+                I understand, place the orders without these rows
+              </label>
+            </div>
+          )}
 
           <div className="a-card" style={{ overflowX: "auto" }}>
             <table className="a-table" style={{ width: "100%", fontSize: 13.5 }}>

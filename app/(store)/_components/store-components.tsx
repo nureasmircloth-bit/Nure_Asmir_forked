@@ -244,9 +244,9 @@ export function NewsletterForm() {
   return (
     <>
       <form className="newsletter-form" onSubmit={submit}>
-        <label>
+        <label htmlFor="newsletter-email">
           <span className="sr-only">Email address</span>
-          <input name="email" type="email" required placeholder="Email address" autoComplete="email" />
+          <input id="newsletter-email" name="email" type="email" required placeholder="Email address" autoComplete="email" />
         </label>
         <button type="submit" disabled={action.pending} aria-busy={action.pending}>
           {action.pending ? <span className="spinner spinner-light" aria-label="Subscribing" /> : "Subscribe"}

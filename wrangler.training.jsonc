@@ -1,9 +1,10 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  // The TRAINING LAB (training.nureasmir.com): a third Worker that runs the very same build as the admin panel (npm run cf:build:admin),
+  // The TRAINING LAB: a Worker that runs the very same build as the admin panel (npm run cf:build:admin),
   // but is switched into practice mode for good (SANDBOX=1). It is given the PRACTICE database connection only (the deploy workflow sets its
   // DATABASE_URL to the practice URL), and none of the keys for email, WhatsApp, TCS, push or search, so even a mistake cannot reach the
-  // real shop. It has no timer: it only wakes when somebody opens it.
+  // real shop. It has no timer: it only wakes when somebody opens it. It has no custom domain on purpose: DNS for nureasmir.com is on Vercel,
+  // so it lives on its workers.dev address and training.nureasmir.com redirects to it (TRAINING_URL, see middleware.ts).
   "name": "nure-asmir-training",
   "main": "admin-entry.ts",
   "compatibility_date": "2026-07-29",
@@ -23,6 +24,5 @@
     "NEXT_PUBLIC_ADMIN_URL": "https://admin.nureasmir.com"
   },
   "observability": { "enabled": true },
-  "workers_dev": true,
-  "routes": [{ "pattern": "training.nureasmir.com", "custom_domain": true }]
+  "workers_dev": true
 }

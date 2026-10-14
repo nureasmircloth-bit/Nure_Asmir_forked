@@ -15,6 +15,9 @@ export const metadata: Metadata = {
   alternates: { canonical: "/contact" },
 };
 
+/** A dialable number: digits and one leading "+" only. */
+const telHref = (phone: string) => `tel:${phone.trim().replace(/(?!^\+)[^\d]/g, "")}`;
+
 function formatPhone(phone: string): string {
   const digits = phone.replace(/\D/g, "");
   if (digits.length === 12 && digits.startsWith("923")) {
@@ -36,6 +39,7 @@ export default async function ContactPage() {
   const [settings, locations] = await Promise.all([getPublicSettings(), getStoreLocations()]);
   const whatsapp = String(settings.whatsappNumber ?? "").replace(/\D/g, "");
 
+  const whatsappHref = settings.whatsappChatUrl || `https://wa.me/${whatsapp}?text=${encodeURIComponent("Hello Nure Asmir, I would like some assistance.")}`;
   return (
     <main>
       <StoreJsonLd />
@@ -61,7 +65,7 @@ export default async function ContactPage() {
                 </p>
                 {shop.hours && <p style={{ color: "var(--muted)", fontSize: 13 }}>{shop.hours}</p>}
                 {shop.phone && (
-                  <a href={`tel:${shop.phone.replace(/\s/g, "")}`} className="contact-phone-link">
+                  <a href={telHref(shop.phone)} className="contact-phone-link">
                     {formatPhone(shop.phone)}
                   </a>
                 )}
@@ -78,9 +82,9 @@ export default async function ContactPage() {
             <div className="contact-card-content">
               {settings.whatsappChatUrl || whatsapp ? (
                 <>
-                  {settings.whatsappNumber && (
+                  {settings.whatsappNumber && /\d/.test(settings.whatsappNumber) && (
                     <a
-                      href={settings.whatsappChatUrl || `https://wa.me/${whatsapp}?text=${encodeURIComponent("Hello Nure Asmir, I would like some assistance.")}`}
+                      href={whatsappHref}
                       target="_blank"
                       rel="noreferrer"
                       className="contact-phone-link"
@@ -89,7 +93,7 @@ export default async function ContactPage() {
                     </a>
                   )}
                   <a
-                    href={settings.whatsappChatUrl || `https://wa.me/${whatsapp}?text=${encodeURIComponent("Hello Nure Asmir, I would like some assistance.")}`}
+                    href={whatsappHref}
                     target="_blank"
                     rel="noreferrer"
                     className="contact-action-link"
@@ -106,7 +110,7 @@ export default async function ContactPage() {
             <span>Direct Call</span>
             <div className="contact-card-content">
               {settings.supportPhone ? (
-                <a href={`tel:${settings.supportPhone.replace(/\s/g, "")}`} className="contact-phone-link">
+                <a href={telHref(settings.supportPhone)} className="contact-phone-link">
                   {formatPhone(settings.supportPhone)}
                 </a>
               ) : (

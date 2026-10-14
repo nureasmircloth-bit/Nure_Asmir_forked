@@ -108,6 +108,9 @@ export function CampaignCarousel({ slides }: { slides: CampaignSlide[] }) {
                   src={desktopSrc}
                   srcSet={buildSrcSet(item.imageUrl) || undefined}
                   sizes="100vw"
+                  width={1600}
+                  height={900}
+                  style={{ width: "100%", height: "100%", objectFit: "cover", aspectRatio: "16 / 9" }}
                   alt={index === active ? item.altText : ""}
                   loading={eager ? "eager" : "lazy"}
                   fetchPriority={eager ? "high" : "auto"}

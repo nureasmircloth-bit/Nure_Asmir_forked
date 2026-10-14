@@ -67,25 +67,23 @@ linked in `.neon` (git-ignored): project `blue-bread-34552165`, branch `producti
 product/variant/image/category routes re-index on change; a nightly workflow calls
 `/api/cron/search-reindex`. The browser only ever sees the **search-only** key.
 
-## Three Workers, two builds, one repo
+## Hosting: Vercel (one project, three hostnames)
 
-The customer storefront and the owner's admin panel are built and deployed as **separate Cloudflare Workers**
-(`scripts/build-target.mjs`): `nure-asmir` (storefront, no admin code in the bundle) and
-`nure-asmir-admin` (admin panel, own origin/cookies, `X-Robots-Tag: noindex`). Shoppers never download
-admin code or admin CSS (`app/admin/admin.css` is loaded only by the admin layout); the storefront footer
-links to the admin URL (`NEXT_PUBLIC_ADMIN_URL`) and nothing of it loads until that link is opened.
-`npm run dev`, tests and a plain `next build` still run the whole app on one origin.
+The whole app (shop, admin, training lab) is one Next.js project deployed to **Vercel** (project `nure-asmir`, region `sin1` in `vercel.json`), and the
+domain's nameservers are Vercel's (`ns1/ns2.vercel-dns.com`): Cloudflare no longer serves DNS or runs any code for this site. The same deployment answers
+`nureasmir.com` (shop), `admin.nureasmir.com` and `training.nureasmir.com`; `middleware.ts` sends the bare admin address (and any non-admin path) to `/admin`
+and marks the admin host `noindex`. Shoppers never download admin code or CSS (`app/admin/admin.css` is loaded only by the admin layout).
 
-A **third Worker, `nure-asmir-training`** (`wrangler.training.jsonc`, `training.nureasmir.com`), is the admin build deployed again
-in permanent practice mode (`SANDBOX=1`). It is given only the practice database connection (schema `practice`, role `practice_user`),
-the picture-store keys and the shared `TRAINING_PASSWORD`, and none of the email / WhatsApp / TCS / push / search / AI keys. It holds the
-lessons, six guided labs (`lib/labs.ts`, checked by read-only queries in `lib/lab-check-queries.ts`) and free practice; the real admin only
-links to it. One lab is shared by everyone with the password; "Start again" resets it for all. See `docs/consultant/03-loading-and-indexing.html#sandbox`.
-
-```bash
-npm run cf:build:store     # → .open-next, deploy with: npx wrangler deploy -c wrangler.jsonc
-npm run cf:build:admin     # → .open-next, deploy with: npx wrangler deploy -c wrangler.admin.jsonc
-```
+* **Scheduled jobs** (reservation expiry, TCS sync, sale alerts, daily maintenance) are called by GitHub Actions (`.github/workflows/cron.yml`, every 30 minutes)
+  with `CRON_SECRET`; there is no timer left on Cloudflare.
+* **The old shop and admin Workers** (`nure-asmir`, `nure-asmir-admin`) are retired. Their code (`wrangler*.jsonc`, `worker-entry.ts`,
+  `admin-entry.ts`, `open-next.config.ts`, the `cf:*` scripts) is kept in git for now but nothing deploys it. To close the live Workers, run Actions →
+  "Retire Cloudflare Workers (one time)" (list first, then tick "delete").
+* **The training lab** (`/admin/training*`, lessons, six guided labs in `lib/labs.ts`, free practice) stays on **Cloudflare** as its own Worker, `nure-asmir-training`
+  (the admin build in practice mode: `SANDBOX=1`, the practice database only, no email/WhatsApp/TCS/push/search/AI keys, no timer). `.github/workflows/deploy-training.yml`
+  deploys it after every successful production deploy (or by hand) and smoke-checks its login page. Because DNS is on Vercel, the Worker has no custom domain: it lives at
+  `https://nure-asmir-training.<your-subdomain>.workers.dev`, and `training.nureasmir.com` redirects to it when the `TRAINING_URL` variable is set on the Vercel project.
+  See `docs/consultant/03-loading-and-indexing.html#sandbox`.
 
 ## Shopper experience details
 
@@ -118,29 +116,23 @@ git-ignored `.env.development.local`); Algolia, email and WhatsApp are switched 
 notifications go to a local mock of Google's OAuth + FCM endpoints (`e2e/support/mock-fcm.mjs`) and TCS to a local mock
 (`e2e/support/mock-tcs.mjs`).
 
-## Deployment (GitHub Actions → Cloudflare)
+## Deployment (GitHub Actions → Vercel)
 
-* `development` → CI (`.github/workflows/ci.yml`: tsc, eslint, OpenNext build) and CodeRabbit review.
-* `main` → `.github/workflows/deploy.yml` builds and `wrangler deploy`s.
-* Required GitHub secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `DATABASE_URL`,
-  `NEXT_PUBLIC_SITE_URL`, `SESSION_SECRET`, `ADMIN_EMAIL`, `ADMIN_INITIAL_PASSWORD`, `CSP_NONCE`,
-  `CRON_SECRET`, `AWS_ENDPOINT_URL_S3`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`,
-  `ALGOLIA_APP_ID`, `ALGOLIA_ADMIN_KEY`, `ALGOLIA_INDEX_NAME`, `NEXT_PUBLIC_ALGOLIA_SEARCH_KEY`,
-  `NEXT_PUBLIC_SENTRY_DSN`, `NEXT_PUBLIC_POSTHOG_KEY` (the public PostHog EU project key; analytics stay off without it), `TRAINING_PASSWORD` (the shared training-lab password), `PRACTICE_DATABASE_URL` (practice schema connection, made by `scripts/practice-create.ts`), `NEXT_PUBLIC_CDN_URL` (optional), plus the Resend / WhatsApp / TCS (`TCS_USERNAME`, `TCS_PASSWORD`, `TCS_ACCOUNT_NO`, `TCS_COST_CENTER_CODE`, `TCS_ENV`) /
-  Firebase (`FIREBASE_SERVICE_ACCOUNT`, the whole service-account JSON) / Groq (`GROQ_API_KEY`) /
-  Turnstile ones listed in `.env.example`, and `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_ENDPOINT` (S3 credentials for the ISR cache bucket only, used by `scripts/purge-isr-cache.ts`).
-* The ISR page cache lives in a small Cloudflare R2 bucket, `nure-asmir-cache`
-  (`npx wrangler r2 bucket create nure-asmir-cache`; the workflow does this idempotently).
-* The Worker bundle must stay under Cloudflare's 3 MB gzip limit on the free plan (currently
-  ≈2.9 MB) — which is why storage uses `aws4fetch` instead of the AWS SDK and Sentry's full Node SDK
-  is not bundled server-side. Check with `npx wrangler deploy --dry-run` after adding dependencies.
+* `development` → CI (`.github/workflows/ci.yml`: tsc, eslint, build) and CodeRabbit review. Work goes through pull requests; nothing is pushed straight to `main`.
+* `main` → `.github/workflows/deploy.yml`: checks the Vercel secrets, applies database migrations (`drizzle-kit migrate`, then the practice tables with
+  `scripts/practice-migrate.ts`), then `vercel deploy --prod`.
+* GitHub secrets: `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `DATABASE_URL`, `CRON_SECRET`, `NEXT_PUBLIC_SITE_URL`, `PRACTICE_DATABASE_URL` (optional,
+  made by `scripts/practice-create.ts`) and the storage keys used by the practice seed. The app's own runtime settings (`SESSION_SECRET`, `ADMIN_EMAIL`,
+  `CSP_NONCE`, storage, Algolia, Firebase, Groq, Turnstile, Resend/Brevo, WhatsApp, TCS, `NEXT_PUBLIC_*`, …) live in the **Vercel project's environment variables**
+  (`vercel env ls`); the full list of names is in `.env.example`. Keep service tokens that the app does not read (for example any Cloudflare token) out of it.
+* Pictures: `/cdn/r2/…` is answered from Neon storage when the old Cloudflare R2 bucket is not there (`app/cdn/[...key]/route.ts`).
+* `.github/workflows/dns-watch.yml` is an optional manual check that every hostname resolves on public resolvers.
 
-## Cloudflare security (free plan)
+## Cloudflare (retired)
 
-`npx tsx scripts/cloudflare-harden.ts --zone <zone-id> [--apply]` (needs `CLOUDFLARE_API_TOKEN`)
-configures: Full (strict) TLS, always-HTTPS, TLS ≥ 1.2, HSTS, Bot Fight Mode, browser integrity
-check, managed WAF rules, a custom rule set, a login/checkout rate limit and the long-lived cache rule
-for `/cdn/*`. Without `--apply` it only prints what it would do.
+Cloudflare is not used for DNS or hosting any more. The zone for `nureasmir.com` may still exist on the account, unused; it can be deleted once the email
+records (Brevo `_domainkey`, `orders`, `rsend`) have been copied to Vercel DNS. Security headers and the CSP are set by the app (`middleware.ts`) and by
+`vercel.json`; guessing limits live in the app (`lib/auth/rate-limit.ts`).
 
 ## Content to confirm with the client
 

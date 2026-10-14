@@ -52,6 +52,9 @@ export type SettingsValues = {
   fontFamily: string;
   bodyFontFamily: string;
   contactFontFamily: string;
+  shopDescription: string;
+  newsletterTitle: string;
+  newsletterText: string;
 };
 export type PendingSettings = {
   changes: Partial<SettingsValues>;
@@ -83,6 +86,38 @@ function formatSeconds(total: number) {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+const DISPLAY_FONT_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "Cormorant Garamond", label: "Cormorant Garamond (Classic Luxury Serif — Default)" },
+  { value: "Playfair Display", label: "Playfair Display (High-Fashion Editorial)" },
+  { value: "Cinzel", label: "Cinzel (Royal Roman Serif)" },
+  { value: "Prata", label: "Prata (Refined Didone Serif)" },
+  { value: "Bodoni Moda", label: "Bodoni Moda (Haute Couture Luxury Serif)" },
+  { value: "Lora", label: "Lora (Contemporary Editorial Serif)" },
+  { value: "Marcellus", label: "Marcellus (Refined Roman Proportions)" },
+  { value: "Italiana", label: "Italiana (Italian Vogue Elegance)" },
+  { value: "Libre Baskerville", label: "Libre Baskerville (Prestigious Heritage Serif)" },
+  { value: "DM Serif Display", label: "DM Serif Display (Modern High-Contrast Serif)" },
+  { value: "Syne", label: "Syne (Avant-Garde Luxury Sans)" },
+  { value: "Inter", label: "Inter (Ultra-Clean Modern Sans)" },
+  { value: "Outfit", label: "Outfit (Minimalist Geometric Sans)" },
+  { value: "Plus Jakarta Sans", label: "Plus Jakarta Sans (Contemporary Premium Sans)" },
+  { value: "Montserrat", label: "Montserrat (Clean Architectural Sans)" },
+];
+
+const BODY_FONT_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "Jost", label: "Jost (Clean geometric sans — Default)" },
+  { value: "Inter", label: "Inter (Crisp modern UI sans)" },
+  { value: "Outfit", label: "Outfit (Contemporary minimalist)" },
+  { value: "Plus Jakarta Sans", label: "Plus Jakarta Sans (Warm executive sans)" },
+  { value: "Montserrat", label: "Montserrat (Editorial sans)" },
+  { value: "Lato", label: "Lato (Classic neutral sans)" },
+  { value: "Poppins", label: "Poppins (Balanced modern geometric sans)" },
+  { value: "Raleway", label: "Raleway (Elegant light-feel sans)" },
+  { value: "Nunito Sans", label: "Nunito Sans (Clean soft sans)" },
+  { value: "Work Sans", label: "Work Sans (Grotesque editorial sans)" },
+  { value: "system-ui", label: "System native (Fastest, OS default)" },
+];
+
 export function SettingsForm({ initial, status, initialPending }: { initial: SettingsValues; status: SystemStatus; initialPending?: PendingSettings | null }) {
   const router = useRouter();
   const toast = useToast();
@@ -94,6 +129,12 @@ export function SettingsForm({ initial, status, initialPending }: { initial: Set
   const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, setPending] = useState<PendingSettings | null>(initialPending ?? null);
   const [countdown, setCountdown] = useState<number>(initialPending?.remainingSeconds ?? 0);
+  const [customDisplayOpen, setCustomDisplayOpen] = useState(
+    () => !DISPLAY_FONT_OPTIONS.some((o) => o.value === initial.fontFamily)
+  );
+  const [customBodyOpen, setCustomBodyOpen] = useState(
+    () => !BODY_FONT_OPTIONS.some((o) => o.value === initial.bodyFontFamily)
+  );
 
   useEffect(() => {
     if (!pending) return;
@@ -120,8 +161,8 @@ export function SettingsForm({ initial, status, initialPending }: { initial: Set
     setDirty(true);
   };
   const choice = (key: "announcementMode" | "announcementStyle" | "deliveryMode", value: string, title: string, detail: string) => (
-    <label className="a-check" key={value}>
-      <input type="radio" name={`s-${key}`} checked={form[key] === value} onChange={() => setValue(key, value)} />
+    <label className="a-check" key={value} htmlFor={`s-${key}-${value}`}>
+      <input id={`s-${key}-${value}`} type="radio" name={`s-${key}`} checked={form[key] === value} onChange={() => setValue(key, value)} />
       <span>
         <strong>{title}</strong>
         <small className="a-help" style={{ display: "block" }}>{detail}</small>
@@ -139,7 +180,7 @@ export function SettingsForm({ initial, status, initialPending }: { initial: Set
       <label htmlFor={`s-${key}`}>
         {label} {options.hint && <Hint text={options.hint} />}
       </label>
-      <input id={`s-${key}`} type={options.type ?? "text"} value={String(form[key])} onChange={set(key)} placeholder={options.placeholder} inputMode={typeof initial[key] === "number" ? "numeric" : undefined} />
+      <input id={`s-${key}`} name={key} type={options.type ?? "text"} value={String(form[key])} onChange={set(key)} placeholder={options.placeholder} inputMode={typeof initial[key] === "number" ? "numeric" : undefined} />
       {options.help && <span className="a-help">{options.help}</span>}
     </div>
   );
@@ -303,6 +344,9 @@ export function SettingsForm({ initial, status, initialPending }: { initial: Set
         {text("instagramUrl", "Instagram page", { placeholder: "https://www.instagram.com/yourname" })}
         {text("facebookUrl", "Facebook page", { placeholder: "https://www.facebook.com/yourpage" })}
         {text("tiktokUrl", "TikTok page", { placeholder: "https://www.tiktok.com/@yourname" })}
+        {text("shopDescription", "Short description of your shop", { wide: true, hint: "One or two sentences under the logo in the footer and in Google results. Empty = the built-in text." })}
+        {text("newsletterTitle", "Newsletter heading", { hint: "The heading above the sign-up box. Empty = “Subscribe to our newsletter”." })}
+        {text("newsletterText", "Newsletter line", { wide: true, hint: "The line under that heading. Empty = “Sign up for new arrivals, offers and more.”" })}
       </Section>
 
       <Section id="appearance" title="Storefront theme & appearance" intro="Customize your whole website aesthetic — background, surfaces, typography, colors and corner radius. Updates apply globally across the storefront.">
@@ -395,6 +439,8 @@ export function SettingsForm({ initial, status, initialPending }: { initial: Set
                   key={p.id}
                   type="button"
                   onClick={() => {
+                    setCustomDisplayOpen(false);
+                    setCustomBodyOpen(false);
                     setValue("themePreset", p.id);
                     setValue("themeBackgroundColor", p.bg);
                     setValue("themeSurfaceColor", p.surface);
@@ -570,72 +616,100 @@ export function SettingsForm({ initial, status, initialPending }: { initial: Set
           </label>
           <select
             id="s-fontFamily"
-            value={["Cormorant Garamond", "Playfair Display", "Inter", "Outfit", "Plus Jakarta Sans", "Montserrat", "Cinzel", "Prata"].includes(form.fontFamily) ? form.fontFamily : "custom"}
+            name="fontFamily"
+            value={customDisplayOpen ? "custom" : (DISPLAY_FONT_OPTIONS.some((o) => o.value === form.fontFamily) ? form.fontFamily : "custom")}
             onChange={(e) => {
-              if (e.target.value !== "custom") {
+              if (e.target.value === "custom") {
+                setCustomDisplayOpen(true);
+                // Keep the current fontFamily value so user can edit it — but if it was a preset, clear to empty string
+                if (DISPLAY_FONT_OPTIONS.some((o) => o.value === form.fontFamily)) {
+                  setValue("fontFamily", "");
+                }
+              } else {
+                setCustomDisplayOpen(false);
                 setValue("themePreset", "custom");
                 setValue("fontFamily", e.target.value);
               }
             }}
           >
-            <option value="Cormorant Garamond">Cormorant Garamond (Classic Luxury Serif — Default)</option>
-            <option value="Playfair Display">Playfair Display (High-Fashion Editorial)</option>
-            <option value="Cinzel">Cinzel (Royal Roman Serif)</option>
-            <option value="Prata">Prata (Refined Didone Serif)</option>
-            <option value="Inter">Inter (Ultra-Clean Modern Sans)</option>
-            <option value="Outfit">Outfit (Minimalist Geometric Sans)</option>
-            <option value="Plus Jakarta Sans">Plus Jakarta Sans (Contemporary Premium Sans)</option>
-            <option value="Montserrat">Montserrat (Clean Architectural Sans)</option>
+            {DISPLAY_FONT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
             <option value="custom">Custom Google Font…</option>
           </select>
-          {!["Cormorant Garamond", "Playfair Display", "Inter", "Outfit", "Plus Jakarta Sans", "Montserrat", "Cinzel", "Prata"].includes(form.fontFamily) && (
-            <input
-              type="text"
-              value={form.fontFamily}
-              onChange={(e) => {
-                setValue("themePreset", "custom");
-                setValue("fontFamily", e.target.value);
-              }}
-              placeholder="e.g. Bodoni Moda, Lora, Marcellus"
-              style={{ marginTop: 8 }}
-            />
+          {customDisplayOpen && (
+            <div style={{ marginTop: 8 }}>
+              <label htmlFor="s-fontFamily-custom" className="sr-only">Custom heading font (Google Font name)</label>
+              <input
+                id="s-fontFamily-custom"
+                name="fontFamilyCustom"
+                type="text"
+                autoFocus
+                value={form.fontFamily}
+                onChange={(e) => {
+                  setValue("themePreset", "custom");
+                  setValue("fontFamily", e.target.value);
+                }}
+                placeholder="Paste exact Google Font name, e.g. Bodoni Moda"
+                style={{ width: "100%" }}
+              />
+              <small style={{ display: "block", marginTop: 4, opacity: 0.65, fontSize: 12 }}>
+                Find fonts at{" "}
+                <a href="https://fonts.google.com" target="_blank" rel="noopener noreferrer">fonts.google.com</a>
+                {" "}— paste the exact name shown there.
+              </small>
+            </div>
           )}
         </div>
 
         <div className="a-field">
           <label htmlFor="s-bodyFontFamily">
-            Brand body font (Paragraphs & UI) <Hint text="Used for product descriptions, navigation links, filters, and checkout." />
+            Brand body font (Paragraphs &amp; UI) <Hint text="Used for product descriptions, navigation links, filters, and checkout." />
           </label>
           <select
             id="s-bodyFontFamily"
-            value={["Jost", "Inter", "Outfit", "Plus Jakarta Sans", "Montserrat", "Lato", "system-ui"].includes(form.bodyFontFamily) ? form.bodyFontFamily : "custom"}
+            name="bodyFontFamily"
+            value={customBodyOpen ? "custom" : (BODY_FONT_OPTIONS.some((o) => o.value === form.bodyFontFamily) ? form.bodyFontFamily : "custom")}
             onChange={(e) => {
-              if (e.target.value !== "custom") {
+              if (e.target.value === "custom") {
+                setCustomBodyOpen(true);
+                if (BODY_FONT_OPTIONS.some((o) => o.value === form.bodyFontFamily)) {
+                  setValue("bodyFontFamily", "");
+                }
+              } else {
+                setCustomBodyOpen(false);
                 setValue("themePreset", "custom");
                 setValue("bodyFontFamily", e.target.value);
               }
             }}
           >
-            <option value="Jost">Jost (Clean geometric sans — Default)</option>
-            <option value="Inter">Inter (Crisp modern UI sans)</option>
-            <option value="Outfit">Outfit (Contemporary minimalist)</option>
-            <option value="Plus Jakarta Sans">Plus Jakarta Sans (Warm executive sans)</option>
-            <option value="Montserrat">Montserrat (Editorial sans)</option>
-            <option value="Lato">Lato (Classic neutral sans)</option>
-            <option value="system-ui">System native (Fastest, OS default)</option>
+            {BODY_FONT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
             <option value="custom">Custom Google Font…</option>
           </select>
-          {!["Jost", "Inter", "Outfit", "Plus Jakarta Sans", "Montserrat", "Lato", "system-ui"].includes(form.bodyFontFamily) && (
-            <input
-              type="text"
-              value={form.bodyFontFamily}
-              onChange={(e) => {
-                setValue("themePreset", "custom");
-                setValue("bodyFontFamily", e.target.value);
-              }}
-              placeholder="e.g. Raleway, Poppins, Nunito Sans"
-              style={{ marginTop: 8 }}
-            />
+          {customBodyOpen && (
+            <div style={{ marginTop: 8 }}>
+              <label htmlFor="s-bodyFontFamily-custom" className="sr-only">Custom body font (Google Font name)</label>
+              <input
+                id="s-bodyFontFamily-custom"
+                name="bodyFontFamilyCustom"
+                type="text"
+                autoFocus
+                value={form.bodyFontFamily}
+                onChange={(e) => {
+                  setValue("themePreset", "custom");
+                  setValue("bodyFontFamily", e.target.value);
+                }}
+                placeholder="Paste exact Google Font name, e.g. Poppins"
+                style={{ width: "100%" }}
+              />
+              <small style={{ display: "block", marginTop: 4, opacity: 0.65, fontSize: 12 }}>
+                Find fonts at{" "}
+                <a href="https://fonts.google.com" target="_blank" rel="noopener noreferrer">fonts.google.com</a>
+                {" "}— paste the exact name shown there.
+              </small>
+            </div>
           )}
         </div>
 
@@ -645,6 +719,7 @@ export function SettingsForm({ initial, status, initialPending }: { initial: Set
           </label>
           <select
             id="s-contactFontFamily"
+            name="contactFontFamily"
             value={form.contactFontFamily}
             onChange={(e) => setValue("contactFontFamily", e.target.value)}
           >

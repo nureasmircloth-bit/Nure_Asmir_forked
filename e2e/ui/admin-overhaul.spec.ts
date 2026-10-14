@@ -15,7 +15,15 @@ test.describe("admin: top bar, delivery, payment, questions", () => {
     await expect(page).toHaveURL(/\/admin$/, { timeout: 20_000 });
   }
   const toast = (page: Page) => page.locator(".a-toast");
-  const reset = () => sql`update site_settings set announcement_mode = 'auto', announcement_lines = '', delivery_mode = 'zones', flat_delivery_charge = 250, bank_deposit_enabled = false, free_delivery_threshold = 10000 where id = 'store'`;
+  // Saved settings wait in a 5-minute safety buffer before the shop sees them; the tests press "apply now" instead of waiting.
+  const applyNow = async (page: Page) => {
+    // makes sure the saved settings are live (tests run with the safety buffer off; production waits 5 minutes unless 'Apply immediately' is pressed)
+    await expect.poll(async () => {
+      const res = await page.request.patch(`${BASE}/api/admin/settings`, { data: { action: "apply-now" } });
+      return res.ok(); // with the buffer off in tests there is nothing waiting; this makes sure of it
+    }, { timeout: 20_000 }).toBe(true);
+  };
+  const reset = () => sql`update site_settings set announcement_mode = 'auto', announcement_lines = '', delivery_mode = 'zones', flat_delivery_charge = 250, bank_deposit_enabled = false, free_delivery_threshold = 10000, pending_changes = null, pending_apply_at = null where id = 'store'`;
 
   test.beforeAll(async ({ request }) => {
     await warmUp(request, ["/api/admin/login", "/admin/login", "/shop", "/faq"]);
@@ -44,6 +52,7 @@ test.describe("admin: top bar, delivery, payment, questions", () => {
     await expect(section.locator("ul")).not.toContainText("Free delivery on orders above");
     await page.getByRole("button", { name: "Save settings" }).click();
     await expect(toast(page).first()).toContainText("Settings saved", { timeout: 20_000 });
+    await applyNow(page);
     await expect.poll(async () => (await (await page.request.get(`${BASE}/shop`)).text()).includes("E2E Eid collection is live"), { timeout: 30_000 }).toBe(true);
 
     await section.getByRole("radio", { name: /Hide the top bar/ }).check();
@@ -51,6 +60,7 @@ test.describe("admin: top bar, delivery, payment, questions", () => {
     await expect(section).toContainText("The top bar is hidden.");
     await page.getByRole("button", { name: "Save settings" }).click();
     await expect(toast(page).last()).toContainText("Settings saved", { timeout: 20_000 });
+    await applyNow(page);
     await expect.poll(async () => (await (await page.request.get(`${BASE}/shop`)).text()).includes('class="announcement"'), { timeout: 30_000 }).toBe(false);
   });
 
@@ -60,6 +70,7 @@ test.describe("admin: top bar, delivery, payment, questions", () => {
     await page.getByLabel(/Free delivery above/).fill("6500");
     await page.getByRole("button", { name: "Save settings" }).click();
     await expect(toast(page).first()).toContainText("Settings saved", { timeout: 20_000 });
+    await applyNow(page);
     await expect.poll(async () => { const t = await (await page.request.get(`${BASE}/shop`)).text(); const i = t.indexOf("Free delivery"); return i < 0 ? "none" : t.slice(i, i + 60); }, { timeout: 30_000 }).toContain("Free delivery on orders above Rs. 6,500");
     await sql`insert into faqs (question, answer, sort_order) values ('E2E Free amount?', 'Free above Rs. {{freeAbove}}.', 998) on conflict do nothing`;
     await expect.poll(async () => (await (await page.request.get(`${BASE}/faq`)).text()).includes("Free above Rs. 6,500."), { timeout: 30_000 }).toBe(true);
@@ -67,6 +78,7 @@ test.describe("admin: top bar, delivery, payment, questions", () => {
     await page.getByLabel(/Free delivery above/).fill("0");
     await page.getByRole("button", { name: "Save settings" }).click();
     await expect(toast(page).last()).toContainText("Settings saved", { timeout: 20_000 });
+    await applyNow(page);
     await expect.poll(async () => (await (await page.request.get(`${BASE}/shop`)).text()).includes("Free delivery on orders above"), { timeout: 30_000 }).toBe(false);
   });
 
@@ -88,6 +100,7 @@ test.describe("admin: top bar, delivery, payment, questions", () => {
     await expect(delivery).toContainText("Customers can choose bank transfer");
     await page.getByRole("button", { name: "Save settings" }).click();
     await expect(toast(page).first()).toContainText("Settings saved", { timeout: 20_000 });
+    await applyNow(page);
     const [row] = (await sql`select delivery_mode as mode, flat_delivery_charge as flat, bank_deposit_enabled as bank from site_settings where id = 'store'`) as Array<Record<string, unknown>>;
     expect(row).toEqual({ mode: "flat", flat: 199, bank: true });
 
@@ -107,6 +120,7 @@ test.describe("admin: top bar, delivery, payment, questions", () => {
     await page.getByLabel("Email address").fill("support@nureasmir.com");
     await page.getByRole("button", { name: "Save settings" }).click();
     await expect(toast(page).first()).toContainText("Settings saved", { timeout: 20_000 });
+    await applyNow(page);
     await page.goto(`${BASE}/contact`);
     await expect(page.getByRole("link", { name: "support@nureasmir.com" }).first()).toBeVisible();
   });
