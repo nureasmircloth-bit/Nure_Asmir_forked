@@ -31,23 +31,23 @@ type OrderOutcome = {
 
 const hex = (bytes: ArrayBuffer, length: number) => Array.from(new Uint8Array(bytes)).slice(0, length).map((byte) => byte.toString(16).padStart(2, "0")).join("");
 const sha256 = (text: string) => crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-const attemptStorageKey = (fingerprint: string) => `na-bulk-attempt:${fingerprint}`;
+const ATTEMPT_STORAGE_KEY = "na-bulk-attempt";
 
 /**
- * One key per order. The keys depend on an "attempt id" that is remembered (per file content) for as long as the last placement did not
- * finish cleanly: re-importing the same file after a lost answer reuses the id, so the server recognises orders it already placed instead
- * of creating duplicates. Once a placement has finished with every order placed, the id is forgotten, so importing the same file again is a
- * new, intended placement and gets fresh keys.
+ * One key per order: a hash of the order's own content, a counter for identical orders in the same file, and a browser-tab "attempt id".
+ * The attempt id is remembered until a placement has put EVERY parsed order in (and no row was left out). Until then, importing a file again
+ * (even after correcting a row that was left out, or after a lost answer) gives the orders that did not change the SAME keys, so the server
+ * recognises the ones it already placed instead of creating duplicates. Once everything is placed the id is dropped, so importing the same
+ * file again later is a new, intended placement with fresh keys.
  */
-async function orderKeysFor(orders: PlaceOrderInput[]): Promise<{ keys: string[]; fingerprint: string }> {
+async function orderKeysFor(orders: PlaceOrderInput[]): Promise<string[]> {
   const bodies = orders.map((order) => JSON.stringify(order));
-  const fingerprint = hex(await sha256(bodies.join("|")), 16);
   let attempt = "";
   try {
-    attempt = sessionStorage.getItem(attemptStorageKey(fingerprint)) ?? "";
+    attempt = sessionStorage.getItem(ATTEMPT_STORAGE_KEY) ?? "";
     if (!attempt) {
       attempt = crypto.randomUUID();
-      sessionStorage.setItem(attemptStorageKey(fingerprint), attempt);
+      sessionStorage.setItem(ATTEMPT_STORAGE_KEY, attempt);
     }
   } catch {
     attempt = crypto.randomUUID(); // storage blocked: this upload still gets its own stable keys, it just cannot be recognised after a reload
@@ -59,7 +59,7 @@ async function orderKeysFor(orders: PlaceOrderInput[]): Promise<{ keys: string[]
     seen.set(body, n);
     keys.push(hex(await sha256(`${attempt}|${n}|${body}`), 16));
   }
-  return { keys, fingerprint };
+  return keys;
 }
 
 export function BulkOrderPlacer() {
@@ -81,7 +81,6 @@ export function BulkOrderPlacer() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   // One key per order of an upload, made once, so pressing "Place" again after an uncertain answer cannot create a second order.
   const orderKeys = useRef<string[]>([]);
-  const attemptFingerprint = useRef("");
   const [skippedAccepted, setSkippedAccepted] = useState(false);
 
   useEffect(() => {
@@ -143,9 +142,7 @@ export function BulkOrderPlacer() {
           return;
         }
 
-        const made = await orderKeysFor(orders);
-        orderKeys.current = made.keys;
-        attemptFingerprint.current = made.fingerprint;
+        orderKeys.current = await orderKeysFor(orders);
         setSkippedAccepted(false);
         setParsedOrders(orders);
 
@@ -228,9 +225,9 @@ export function BulkOrderPlacer() {
       setOutcomes(results);
       setStep("done");
       // everything placed: forget the attempt, so uploading this file again later is a new placement; otherwise keep it for the retry
-      if (results.every((result) => result.ok)) {
+      if (results.length === parsedOrders.length && results.every((result) => result.ok) && parseErrors.length === 0) {
         try {
-          sessionStorage.removeItem(attemptStorageKey(attemptFingerprint.current));
+          sessionStorage.removeItem(ATTEMPT_STORAGE_KEY);
         } catch {}
       }
       toast(`Processed ${total} orders (${results.filter((r) => r.ok).length} placed successfully).`, "good");
