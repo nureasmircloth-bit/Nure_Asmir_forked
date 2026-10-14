@@ -97,13 +97,20 @@ export function HeaderClient({
 
   const waLink = whatsappNumber ? `https://wa.me/${whatsappNumber.replace(/[^\d]/g, "")}` : "/contact";
   // Open and focus in the same tap: on iOS the keyboard only appears for a focus() made inside the gesture.
+  const searchTrigger = useRef<HTMLElement | null>(null); // the control that had focus before search took it
+  const rememberTrigger = () => {
+    const active = document.activeElement;
+    searchTrigger.current = active instanceof HTMLElement && active !== document.body ? active : null;
+  };
   const openSearch = () => {
+    rememberTrigger();
     setSearchOpen(true);
     document.getElementById("site-search-input")?.focus();
   };
   // The bottom bar's Search button (phones) asks the header to open the search panel.
   useEffect(() => {
     const open = () => {
+      rememberTrigger();
       setSearchOpen(true);
       document.getElementById("site-search-input")?.focus();
     };
@@ -121,7 +128,7 @@ export function HeaderClient({
     const lost = !active || active === document.body || (active instanceof HTMLElement && !!active.closest(".drawer, .search-overlay"));
     // a panel that has just opened: remember the control that opened it (focus is still on it at this point)
     if (!wasOpen.current.menu && menuOpen && active instanceof HTMLElement && active !== document.body) openers.current.menu = active;
-    if (!wasOpen.current.search && searchOpen && active instanceof HTMLElement && active !== document.body) openers.current.search = active;
+    if (!wasOpen.current.search && searchOpen) openers.current.search = searchTrigger.current; // recorded before focus moved into the search box
     const back = (opener: HTMLElement | null, fallback: HTMLElement | null) => (opener?.isConnected && opener.getClientRects().length > 0 ? opener : fallback)?.focus();
     if (wasOpen.current.menu && !menuOpen && lost) back(openers.current.menu, menuButtonRef.current);
     if (wasOpen.current.search && !searchOpen && lost) back(openers.current.search, searchButtonRef.current);

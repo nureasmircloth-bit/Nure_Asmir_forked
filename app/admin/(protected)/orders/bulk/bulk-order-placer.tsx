@@ -29,23 +29,37 @@ type OrderOutcome = {
   message?: string;
 };
 
+const hex = (bytes: ArrayBuffer, length: number) => Array.from(new Uint8Array(bytes)).slice(0, length).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+const sha256 = (text: string) => crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+const attemptStorageKey = (fingerprint: string) => `na-bulk-attempt:${fingerprint}`;
+
 /**
- * One key per order, made from the order's own content plus today's date (and a counter for identical orders in the same file).
- * Importing the same file again the same day, after an answer was lost, produces the SAME keys, so the server recognises orders it already
- * placed instead of creating duplicates.
+ * One key per order. The keys depend on an "attempt id" that is remembered (per file content) for as long as the last placement did not
+ * finish cleanly: re-importing the same file after a lost answer reuses the id, so the server recognises orders it already placed instead
+ * of creating duplicates. Once a placement has finished with every order placed, the id is forgotten, so importing the same file again is a
+ * new, intended placement and gets fresh keys.
  */
-async function stableOrderKeys(orders: PlaceOrderInput[]): Promise<string[]> {
-  const day = new Date().toISOString().slice(0, 10);
+async function orderKeysFor(orders: PlaceOrderInput[]): Promise<{ keys: string[]; fingerprint: string }> {
+  const bodies = orders.map((order) => JSON.stringify(order));
+  const fingerprint = hex(await sha256(bodies.join("|")), 16);
+  let attempt = "";
+  try {
+    attempt = sessionStorage.getItem(attemptStorageKey(fingerprint)) ?? "";
+    if (!attempt) {
+      attempt = crypto.randomUUID();
+      sessionStorage.setItem(attemptStorageKey(fingerprint), attempt);
+    }
+  } catch {
+    attempt = crypto.randomUUID(); // storage blocked: this upload still gets its own stable keys, it just cannot be recognised after a reload
+  }
   const seen = new Map<string, number>();
   const keys: string[] = [];
-  for (const order of orders) {
-    const body = JSON.stringify(order);
+  for (const body of bodies) {
     const n = (seen.get(body) ?? 0) + 1;
     seen.set(body, n);
-    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${day}|${n}|${body}`));
-    keys.push(Array.from(new Uint8Array(digest)).slice(0, 16).map((byte) => byte.toString(16).padStart(2, "0")).join(""));
+    keys.push(hex(await sha256(`${attempt}|${n}|${body}`), 16));
   }
-  return keys;
+  return { keys, fingerprint };
 }
 
 export function BulkOrderPlacer() {
@@ -67,6 +81,7 @@ export function BulkOrderPlacer() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   // One key per order of an upload, made once, so pressing "Place" again after an uncertain answer cannot create a second order.
   const orderKeys = useRef<string[]>([]);
+  const attemptFingerprint = useRef("");
   const [skippedAccepted, setSkippedAccepted] = useState(false);
 
   useEffect(() => {
@@ -128,7 +143,9 @@ export function BulkOrderPlacer() {
           return;
         }
 
-        orderKeys.current = await stableOrderKeys(orders);
+        const made = await orderKeysFor(orders);
+        orderKeys.current = made.keys;
+        attemptFingerprint.current = made.fingerprint;
         setSkippedAccepted(false);
         setParsedOrders(orders);
 
@@ -210,6 +227,12 @@ export function BulkOrderPlacer() {
       setProgress({ done: total, total, label: "All orders processed!" });
       setOutcomes(results);
       setStep("done");
+      // everything placed: forget the attempt, so uploading this file again later is a new placement; otherwise keep it for the retry
+      if (results.every((result) => result.ok)) {
+        try {
+          sessionStorage.removeItem(attemptStorageKey(attemptFingerprint.current));
+        } catch {}
+      }
       toast(`Processed ${total} orders (${results.filter((r) => r.ok).length} placed successfully).`, "good");
     });
   }
