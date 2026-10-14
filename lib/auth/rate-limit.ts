@@ -32,9 +32,16 @@ export async function isLoginRateLimited(email: string, ip: string): Promise<boo
   return byEmail || byIp;
 }
 
-/** The visitor's address as Cloudflare saw it (it overwrites CF-Connecting-IP, so a visitor cannot choose it), else the forwarded one. */
+/**
+ * The visitor's address. On Vercel the platform sets it (x-vercel-forwarded-for / x-real-ip); CF-Connecting-IP is NOT trusted there,
+ * because nothing overwrites it and a visitor could send any value to dodge the limits. On the Cloudflare training Worker, Cloudflare
+ * overwrites CF-Connecting-IP, so it is trusted there.
+ */
 export function requestIp(request: Request): string {
-  return request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const h = request.headers;
+  const forwarded = h.get("x-forwarded-for")?.split(",")[0]?.trim();
+  if (process.env.VERCEL) return h.get("x-vercel-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || forwarded || "unknown";
+  return h.get("cf-connecting-ip") || forwarded || "unknown";
 }
 
 /** Wrong guesses allowed per visitor address per 15 minutes before lookups of orders and coupons are paused. */
