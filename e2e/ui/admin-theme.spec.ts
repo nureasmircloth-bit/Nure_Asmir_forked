@@ -9,12 +9,12 @@ test.describe("admin theme → storefront", () => {
   test.skip(({ browserName, isMobile, viewport }) => browserName !== "chromium" || isMobile || (viewport?.width ?? 0) < 1000, "admin UI is exercised on desktop Chromium");
   test.describe.configure({ timeout: 240_000 });
 
-  type Saved = { theme_preset: string; theme_accent_color: string; theme_background_color: string; theme_text_color: string; theme_surface_color: string; theme_radius: string; font_family: string; shop_description: string; newsletter_title: string; newsletter_text: string };
+  type Saved = { theme_preset: string; theme_accent_color: string; theme_background_color: string; theme_text_color: string; theme_surface_color: string; theme_radius: string; font_family: string; shop_description: string; newsletter_title: string; newsletter_text: string; theme_header_color: string; theme_header_text_color: string; theme_sidebar_color: string; theme_sidebar_text_color: string; theme_footer_color: string; theme_footer_text_color: string; theme_currency_color: string; theme_currency_text_color: string };
   let original: Saved | undefined;
   const reset = async () => {
     const o = original;
     if (!o) return;
-    await sql`update site_settings set theme_preset = ${o.theme_preset}, theme_accent_color = ${o.theme_accent_color}, theme_background_color = ${o.theme_background_color}, theme_text_color = ${o.theme_text_color}, theme_surface_color = ${o.theme_surface_color}, theme_radius = ${o.theme_radius}, font_family = ${o.font_family}, shop_description = ${o.shop_description}, newsletter_title = ${o.newsletter_title}, newsletter_text = ${o.newsletter_text}, pending_changes = null, pending_apply_at = null where id = 'store'`;
+    await sql`update site_settings set theme_preset = ${o.theme_preset}, theme_accent_color = ${o.theme_accent_color}, theme_background_color = ${o.theme_background_color}, theme_text_color = ${o.theme_text_color}, theme_surface_color = ${o.theme_surface_color}, theme_radius = ${o.theme_radius}, font_family = ${o.font_family}, shop_description = ${o.shop_description}, newsletter_title = ${o.newsletter_title}, newsletter_text = ${o.newsletter_text}, theme_header_color = ${o.theme_header_color}, theme_header_text_color = ${o.theme_header_text_color}, theme_sidebar_color = ${o.theme_sidebar_color}, theme_sidebar_text_color = ${o.theme_sidebar_text_color}, theme_footer_color = ${o.theme_footer_color}, theme_footer_text_color = ${o.theme_footer_text_color}, theme_currency_color = ${o.theme_currency_color}, theme_currency_text_color = ${o.theme_currency_text_color}, pending_changes = null, pending_apply_at = null where id = 'store'`;
   };
 
   async function login(page: Page) {
@@ -29,14 +29,14 @@ test.describe("admin theme → storefront", () => {
 
   test.beforeAll(async ({ request }) => {
     await warmUp(request, ["/api/admin/login", "/admin/login", "/admin/settings", "/contact", "/shop"]);
-    const [row] = (await sql`select theme_preset, theme_accent_color, theme_background_color, theme_text_color, theme_surface_color, theme_radius, font_family, shop_description, newsletter_title, newsletter_text from site_settings where id = 'store'`) as Saved[];
+    const [row] = (await sql`select theme_preset, theme_accent_color, theme_background_color, theme_text_color, theme_surface_color, theme_radius, font_family, shop_description, newsletter_title, newsletter_text, theme_header_color, theme_header_text_color, theme_sidebar_color, theme_sidebar_text_color, theme_footer_color, theme_footer_text_color, theme_currency_color, theme_currency_text_color from site_settings where id = 'store'`) as Saved[];
     original = row;
   });
   test.afterAll(async () => {
     await reset();
   });
 
-  test("colours, corner radius and a custom Google font chosen in the admin reach every shop page", async ({ page }) => {
+  test("colours, corner radius and a heading font chosen in the admin reach every shop page", async ({ page }) => {
     await login(page);
     await page.goto("/admin/settings");
     const appearance = page.locator("section#appearance");
@@ -46,8 +46,8 @@ test.describe("admin theme → storefront", () => {
     await appearance.locator("#s-themeTextColor").fill("#1a1a40");
     await appearance.locator("#s-themeAccentColor").fill("#2e8b57");
     await appearance.locator("#s-themeRadius").selectOption("rounded");
-    await appearance.locator("#s-fontFamily").selectOption("custom"); // the custom-font box opens and can be typed in
-    await appearance.locator("#s-fontFamily-custom").fill("Bodoni Moda");
+    await appearance.locator("#s-fontFamily").selectOption("Bodoni Moda"); // fonts are chosen from the list (no free typing)
+    await expect(appearance.getByText("Custom Google Font")).toHaveCount(0);
 
     await page.getByRole("button", { name: "Save settings" }).click();
     await expect(page.locator(".a-toast").first()).toContainText("Settings saved", { timeout: 20_000 });
@@ -104,5 +104,41 @@ test.describe("admin theme → storefront", () => {
     }
     await page.goto(`${BASE}/`); // pages with their own description keep it; the home page uses the shop description
     await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", "E2E Tailoring from Lahore, delivered everywhere.");
+  });
+  test("header, side menu, footer and currency picker colours chosen in the admin reach the shop", async ({ page }) => {
+    await login(page);
+    await page.goto("/admin/settings");
+    const appearance = page.locator("section#appearance");
+    await appearance.locator("#s-themeHeaderColor").fill("#14213d");
+    await appearance.locator("#s-themeSidebarColor").fill("#fff3d6");
+    await appearance.locator("#s-themeFooterColor").fill("#f4f1ea");
+    await appearance.locator("#s-themeCurrencyColor").fill("#0b3d2e");
+    await appearance.locator("#s-themeCurrencyTextColor").fill("#fde68a");
+    await page.getByRole("button", { name: "Save settings" }).click();
+    await expect(page.locator(".a-toast").first()).toContainText("Settings saved", { timeout: 20_000 });
+    await expect.poll(async () => {
+      const res = await page.request.patch(`${BASE}/api/admin/settings`, { data: { action: "apply-now" } });
+      return res.ok();
+    }, { timeout: 20_000 }).toBe(true);
+
+    await page.goto(`${BASE}/shop`);
+    const color = (selector: string, prop: "backgroundColor" | "color") => page.locator(selector).first().evaluate((el, p) => getComputedStyle(el)[p as "color"], prop);
+    expect(await color(".site-header", "backgroundColor")).toBe("rgb(20, 33, 61)");
+    expect(await color(".site-header .icon-btn", "color")).toBe("rgb(255, 255, 255)"); // text colour picked for a dark header
+    expect(await color(".drawer", "backgroundColor")).toBe("rgb(255, 243, 214)");
+    expect(await color(".footer", "backgroundColor")).toBe("rgb(244, 241, 234)");
+    expect(await color(".footer-links a", "color")).toBe("rgb(17, 17, 17)"); // dark text on a light footer
+    expect(await color(".currency-switcher .currency-main", "backgroundColor")).toBe("rgb(11, 61, 46)");
+    expect(await color(".currency-switcher .currency-main", "color")).toBe("rgb(253, 230, 138)");
+
+    // back to the built-in look: an empty value removes the override
+    await page.goto("/admin/settings");
+    for (const key of ["Header", "Sidebar", "Footer", "Currency"]) await page.locator(`#s-theme${key}Color`).fill("");
+    await page.locator("#s-themeCurrencyTextColor").fill("");
+    await page.getByRole("button", { name: "Save settings" }).click();
+    await expect(page.locator(".a-toast").first()).toContainText("Settings saved", { timeout: 20_000 });
+    await page.request.patch(`${BASE}/api/admin/settings`, { data: { action: "apply-now" } });
+    await page.goto(`${BASE}/shop`);
+    expect(await color(".footer", "backgroundColor")).toBe("rgb(13, 13, 13)");
   });
 });

@@ -1,3 +1,5 @@
+import { googleFontHref } from "@/lib/fonts";
+import { chromeCss } from "@/lib/theme-chrome";
 import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, Jost } from "next/font/google";
 import "./globals.css";
@@ -107,28 +109,20 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
     ],
   };
 
+  // Google fonts chosen in Settings (the built-in heading and body fonts come with the site and are not requested).
+  const fontNames = new Set<string>();
+  if (settings.fontFamily && settings.fontFamily !== "Cormorant Garamond") fontNames.add(settings.fontFamily.trim());
+  if (settings.bodyFontFamily && settings.bodyFontFamily !== "Jost") fontNames.add(settings.bodyFontFamily.trim());
+  if (settings.contactFontFamily) fontNames.add(settings.contactFontFamily.trim());
+  const fontHrefs = [...fontNames].map((name) => googleFontHref(name)).filter((href): href is string => Boolean(href));
+
   return (
     <html lang="en-PK" suppressHydrationWarning className={`${display.variable} ${sans.variable}`}>
       <head>
         <script type="application/ld+json" nonce={nonce} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-        {settings.fontFamily && settings.fontFamily !== "Cormorant Garamond" && (
-          <link
-            rel="stylesheet"
-            href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(settings.fontFamily.trim())}:wght@400;500;600;700&display=swap`}
-          />
-        )}
-        {settings.bodyFontFamily && settings.bodyFontFamily !== "Jost" && settings.bodyFontFamily !== "system-ui" && (
-          <link
-            rel="stylesheet"
-            href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(settings.bodyFontFamily.trim())}:wght@300;400;500;600;700&display=swap`}
-          />
-        )}
-        {settings.contactFontFamily && settings.contactFontFamily !== "system-ui" && settings.contactFontFamily !== settings.fontFamily && settings.contactFontFamily !== settings.bodyFontFamily && (
-          <link
-            rel="stylesheet"
-            href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(settings.contactFontFamily.trim())}:wght@400;500;600&display=swap`}
-          />
-        )}
+        {fontHrefs.map((href) => (
+          <link key={href} rel="stylesheet" href={href} />
+        ))}
         <style
           nonce={nonce}
           dangerouslySetInnerHTML={{
@@ -164,6 +158,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                 font-weight: 600;
                 letter-spacing: -0.02em;
               }
+              ${chromeCss(settings)}
             `,
           }}
         />

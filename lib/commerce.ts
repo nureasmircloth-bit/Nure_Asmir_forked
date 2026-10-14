@@ -785,6 +785,14 @@ export type PublicSettings = {
   bodyFontFamily: string;
   contactFontFamily: string;
   shopDescription: string;
+  themeHeaderColor: string;
+  themeHeaderTextColor: string;
+  themeSidebarColor: string;
+  themeSidebarTextColor: string;
+  themeFooterColor: string;
+  themeFooterTextColor: string;
+  themeCurrencyColor: string;
+  themeCurrencyTextColor: string;
   newsletterTitle: string;
   newsletterText: string;
 };
@@ -871,6 +879,14 @@ export const getPublicSettings = cache(async (): Promise<PublicSettings> => {
     bodyFontFamily: row?.bodyFontFamily || "Jost",
     contactFontFamily: row?.contactFontFamily || "Inter",
     shopDescription: row?.shopDescription ?? "",
+    themeHeaderColor: row?.themeHeaderColor ?? "",
+    themeHeaderTextColor: row?.themeHeaderTextColor ?? "",
+    themeSidebarColor: row?.themeSidebarColor ?? "",
+    themeSidebarTextColor: row?.themeSidebarTextColor ?? "",
+    themeFooterColor: row?.themeFooterColor ?? "",
+    themeFooterTextColor: row?.themeFooterTextColor ?? "",
+    themeCurrencyColor: row?.themeCurrencyColor ?? "",
+    themeCurrencyTextColor: row?.themeCurrencyTextColor ?? "",
     newsletterTitle: row?.newsletterTitle ?? "",
     newsletterText: row?.newsletterText ?? "",
   };
