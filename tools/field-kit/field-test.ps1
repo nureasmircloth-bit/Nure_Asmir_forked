@@ -129,7 +129,7 @@ if (-not $Watch) {
   $r53 = try { (Resolve-DnsName "ns-941.awsdns-53.net" -Type A -DnsOnly -ErrorAction Stop | Where-Object QueryType -eq A | Select-Object -First 1).IPAddress } catch { $null }
   if ($r53) { $null = Series "Route 53 ($r53, for comparison)" "outfitters.com.pk" $r53 12 } else { Say "Route 53: could not find an address to test" }
   # Other providers that could host our DNS (each is asked about a name it hosts; the answer content does not matter, the round trip does)
-  foreach ($c in @(@("Gcore", "ns1.gcorelabs.net", "gcore.com"), @("ClouDNS", "ns1.cloudns.net", "cloudns.net"), @("Hurricane Electric", "ns1.he.net", "he.net"), @("deSEC", "ns1.desec.io", "desec.io"))) {
+  foreach ($c in @(@("Gcore ns1 (our zone is already there)", "ns1.gcorelabs.net", "nureasmir.com"), @("Gcore ns2 (our zone is already there)", "ns2.gcdn.services", "nureasmir.com"), @("ClouDNS", "ns1.cloudns.net", "cloudns.net"), @("Hurricane Electric", "ns1.he.net", "he.net"), @("deSEC", "ns1.desec.io", "desec.io"))) {
     $cip = try { (Resolve-DnsName $c[1] -Type A -DnsOnly -ErrorAction Stop | Where-Object QueryType -eq A | Select-Object -First 1).IPAddress } catch { $null }
     if ($cip) { $null = Series ("{0} ({1}, candidate)" -f $c[0], $cip) $c[2] $cip 12 } else { Say ("{0}: could not find an address to test" -f $c[0]) }
   }
