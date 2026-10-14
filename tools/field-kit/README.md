@@ -15,6 +15,11 @@ connection itself. Run it **when the problem is happening** if you can; the time
 | A router that gives up after about 2 s turns that into "Server failed" / "site not found", then works on the next try (answer cached) | customer paste: first `nslookup` failed, second worked |
 | Earlier on Cloudflare DNS the same customer line failed **drastically**, so "just go back to Cloudflare" is not proven to help | ticket notes, 7 Oct measurements |
 
+Nameserver round-trip times from the developer's line (median): Cloudflare 10 ms, **Gcore 27 ms**, Route 53 127 ms, deSEC 141 ms, ClouDNS 148 ms,
+Hurricane Electric 212 ms, Vercel 224 ms. Price is not the deciding factor: the provider that answers fastest **from the customer's line** wins, which is why the
+kit now also times Gcore, ClouDNS, Hurricane Electric and deSEC. (Route 53 was named first only because the customer's own earlier test showed it resolving cold in
+25-40 ms on the failing router; it is not special otherwise.) Check each free plan's limits and terms before choosing one.
+
 So the open question is **why the first packet to 198.51.44.13 is slow**, and whether the customer's provider has the same problem (or worse) on the way to
 Vercel's, Cloudflare's or Amazon's nameservers.
 

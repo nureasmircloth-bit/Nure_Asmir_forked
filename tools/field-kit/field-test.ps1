@@ -128,6 +128,11 @@ if (-not $Watch) {
   $null = Series "Cloudflare (for comparison)" "nureasmir.com" "108.162.193.1" 12
   $r53 = try { (Resolve-DnsName "ns-941.awsdns-53.net" -Type A -DnsOnly -ErrorAction Stop | Where-Object QueryType -eq A | Select-Object -First 1).IPAddress } catch { $null }
   if ($r53) { $null = Series "Route 53 ($r53, for comparison)" "outfitters.com.pk" $r53 12 } else { Say "Route 53: could not find an address to test" }
+  # Other providers that could host our DNS (each is asked about a name it hosts; the answer content does not matter, the round trip does)
+  foreach ($c in @(@("Gcore", "ns1.gcorelabs.net", "gcore.com"), @("ClouDNS", "ns1.cloudns.net", "cloudns.net"), @("Hurricane Electric", "ns1.he.net", "he.net"), @("deSEC", "ns1.desec.io", "desec.io"))) {
+    $cip = try { (Resolve-DnsName $c[1] -Type A -DnsOnly -ErrorAction Stop | Where-Object QueryType -eq A | Select-Object -First 1).IPAddress } catch { $null }
+    if ($cip) { $null = Series ("{0} ({1}, candidate)" -f $c[0], $cip) $c[2] $cip 12 } else { Say ("{0}: could not find an address to test" -f $c[0]) }
+  }
 
   if ($Idle) {
     Section "5b. First question after 40 s of silence, 4 rounds (the stall we saw on the developer's own connection)"
