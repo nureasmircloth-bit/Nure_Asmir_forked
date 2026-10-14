@@ -1,5 +1,6 @@
 {
   "framework": "nextjs",
+  "buildCommand": "next build --webpack",
   "regions": ["sin1"],
   "headers": [
     {
