@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { customerPushDevices, orders } from "@/db/schema";
 import { pushConfigured } from "@/lib/push/fcm";
+import { requestIp } from "@/lib/auth/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,7 @@ const digits = (value: string) => value.replace(/\D/g, "");
 
 /** Registers/updates a shopper device for order updates and sale alerts. */
 export async function POST(request: Request) {
-  const ip = request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const ip = requestIp(request);
   if (throttled(ip)) return Response.json({ error: "Too many requests." }, { status: 429 });
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
