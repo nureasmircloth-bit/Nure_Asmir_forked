@@ -81,12 +81,15 @@ try {
 Say "IPv6 on this connection: $(if ((Get-NetIPAddress -AddressFamily IPv6 -ErrorAction SilentlyContinue | Where-Object { $_.PrefixOrigin -ne 'WellKnown' -and $_.IPAddress -notlike 'fe80*' -and $_.IPAddress -ne '::1' })) { 'yes (global address present)' } else { 'no global IPv6 address' })"
 
 if ($Capture) {
-  try {
-    pktmon filter remove 2>&1 | Out-Null
-    pktmon filter add DNS -p 53 2>&1 | Out-Null
-    pktmon start --capture --pkt-size 0 --file-name (Join-Path $out "dns.etl") 2>&1 | Out-Null
-    Say "pktmon: capturing DNS packets (port 53) to dns.etl"
-  } catch { Say "pktmon could not start (run PowerShell as Administrator): $($_.Exception.Message)" }
+  $script:capturing = $false
+  pktmon filter remove 2>&1 | Out-Null
+  pktmon filter add DNS -p 53 2>&1 | Out-Null
+  if ($LASTEXITCODE -ne 0) { Say "pktmon: could not add the DNS filter (exit $LASTEXITCODE). Run PowerShell as Administrator. No capture is being made." }
+  else {
+    $started = pktmon start --capture --pkt-size 0 --file-name (Join-Path $out "dns.etl") 2>&1 | Out-String
+    if ($LASTEXITCODE -ne 0) { Say "pktmon: could not start (exit $LASTEXITCODE): $($started.Trim()). Run PowerShell as Administrator. No capture is being made." }
+    else { $script:capturing = $true; Say "pktmon: capturing DNS packets (port 53) to dns.etl" }
+  }
 }
 
 # ---- 2. link to the router --------------------------------------------------------------------------------------------------
@@ -102,7 +105,11 @@ if (-not $Watch) {
   }
 
   # ---- 3. DNS through the router (what the customer's browser really experiences) -----------------------------------------------
-  Section "3. DNS the way a customer's browser sees it (the computer's own DNS = the router), never-seen names so nothing is cached"
+  $configured = if ($cfg) { @(($cfg.DnsServer | Where-Object AddressFamily -eq 2).ServerAddresses) } else { @() }
+  $viaRouter = $gw -and ($configured -contains $gw)
+  Section "3. DNS the way a customer's browser sees it (the computer's own DNS: $($configured -join ', ')), never-seen names so nothing is cached"
+  if ($viaRouter) { Say "This computer asks the router ($gw), so this section measures the router's DNS relay plus the provider behind it." }
+  else { Say "NOTE: this computer does NOT ask the router; it asks $($configured -join ', '). This section therefore measures THAT resolver, not the router's relay (section 4 tests the router explicitly)." }
   $null = Series "nureasmir.com (our site)" "nureasmir.com" "" 20
   $null = Series "codersden.dev (works for you?)" "codersden.dev" "" 20
   $null = Series "cloudflare.com (control)" "cloudflare.com" "" 20
@@ -116,7 +123,7 @@ if (-not $Watch) {
 
   # ---- 4. who is slow: router, provider, or public resolvers --------------------------------------------------------------------
   Section "4. Same questions straight to different DNS servers (skips the router's own DNS relay)"
-  if ($gw) { $null = Series "router $gw" "nureasmir.com" $gw 12 }
+  if ($gw) { $null = Series "router $gw (asked explicitly)" "nureasmir.com" $gw 12 }
   foreach ($srv in @(@("Cloudflare 1.1.1.1", "1.1.1.1"), @("Google 8.8.8.8", "8.8.8.8"), @("Quad9 9.9.9.9", "9.9.9.9"))) { $null = Series $srv[0] "nureasmir.com" $srv[1] 12 }
   $dnsServers = if ($cfg) { ($cfg.DnsServer | Where-Object AddressFamily -eq 2).ServerAddresses } else { @() }
   foreach ($d in ($dnsServers | Where-Object { $_ -ne $gw } | Select-Object -First 2)) { $null = Series "provider DNS $d" "nureasmir.com" $d 12 }
@@ -125,7 +132,7 @@ if (-not $Watch) {
   Section "5. Straight to the servers that own the answer (where our domain's DNS lives)"
   $null = Series "Vercel ns1 198.51.44.13" "nureasmir.com" "198.51.44.13" 12
   $null = Series "Vercel ns2 198.51.45.13" "nureasmir.com" "198.51.45.13" 12
-  $null = Series "Cloudflare (for comparison)" "nureasmir.com" "108.162.193.1" 12
+  $null = Series "Cloudflare ivan (codersden.dev, comparison)" "codersden.dev" "108.162.193.120" 12
   $r53 = try { (Resolve-DnsName "ns-941.awsdns-53.net" -Type A -DnsOnly -ErrorAction Stop | Where-Object QueryType -eq A | Select-Object -First 1).IPAddress } catch { $null }
   if ($r53) { $null = Series "Route 53 ($r53, for comparison)" "outfitters.com.pk" $r53 12 } else { Say "Route 53: could not find an address to test" }
   # Other providers that could host our DNS (each is asked about a name it hosts; the answer content does not matter, the round trip does)
@@ -141,7 +148,7 @@ if (-not $Watch) {
       Start-Sleep -Seconds 40
       $rows["Vercel ns1"] += AskDns (RandomName "nureasmir.com") "A" "198.51.44.13"
       $rows["Vercel ns2"] += AskDns (RandomName "nureasmir.com") "A" "198.51.45.13"
-      $rows["Cloudflare"] += AskDns (RandomName "nureasmir.com") "A" "108.162.193.1"
+      $rows["Cloudflare"] += AskDns (RandomName "codersden.dev") "A" "108.162.193.120" # a zone Cloudflare really serves
       $rows["router"] += AskDns (RandomName "nureasmir.com") "A" ""
     }
     foreach ($k in $rows.Keys) { Say ("{0,-12} {1}" -f $k, (($rows[$k] | ForEach-Object { if ($null -eq $_) { "FAIL" } else { "$_" } }) -join "  ")) }
@@ -149,7 +156,7 @@ if (-not $Watch) {
 
   # ---- 6. paths and packet size -------------------------------------------------------------------------------------------------
   Section "6. Route to the nameservers and to the site (tracert; stars in the middle are normal, stars at the END are not)"
-  foreach ($target in "198.51.44.13", "198.51.45.13", "108.162.193.1", "216.198.79.1") {
+  foreach ($target in "198.51.44.13", "198.51.45.13", "92.223.100.253", "108.162.193.120", "216.198.79.1") {
     Say "--- tracert $target"
     (tracert -d -h 20 -w 1500 $target 2>&1) | ForEach-Object { Say "   $_" }
   }
@@ -191,7 +198,15 @@ if ($Watch) {
   Say ("Timeline finished: {0} questions, {1} slow (>=1 s), {2} failed.   {3}" -f $n, $slow, $failed, (Summarise $all))
 }
 
-if ($Capture) { try { pktmon stop 2>&1 | Out-Null; pktmon etl2txt (Join-Path $out "dns.etl") --out (Join-Path $out "dns.txt") 2>&1 | Out-Null; pktmon filter remove 2>&1 | Out-Null; Say "pktmon: capture saved (dns.etl, dns.txt)" } catch { Say "pktmon stop failed: $($_.Exception.Message)" } }
+if ($Capture -and $script:capturing) {
+  pktmon stop 2>&1 | Out-Null
+  if ($LASTEXITCODE -ne 0) { Say "pktmon: stop failed (exit $LASTEXITCODE); the capture file may be incomplete." }
+  else {
+    pktmon etl2txt (Join-Path $out "dns.etl") --out (Join-Path $out "dns.txt") 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) { Say "pktmon: dns.etl saved, but converting it to text failed (open dns.etl in Wireshark)." } else { Say "pktmon: capture saved (dns.etl, dns.txt)" }
+  }
+  pktmon filter remove 2>&1 | Out-Null
+}
 
 Section "Done"
 Say "Folder to send back: $out"
