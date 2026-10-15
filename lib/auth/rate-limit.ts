@@ -9,6 +9,7 @@ export async function recordLoginAttempt(email: string, ip: string, success: boo
   await db.insert(loginAttempts).values({ email: email.toLowerCase(), ip, success });
 }
 
+/** True once too many failed sign-in attempts have come in for this e-mail or this visitor address within the window. */
 export async function isLoginRateLimited(email: string, ip: string): Promise<boolean> {
   const since = new Date(Date.now() - WINDOW_MS);
   const failed = await db

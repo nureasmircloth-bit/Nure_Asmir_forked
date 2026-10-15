@@ -28,6 +28,7 @@ function throttled(ip: string): boolean {
   return recent.length > 20;
 }
 
+/** Strips everything but digits, so phone numbers can be compared regardless of formatting. */
 const digits = (value: string) => value.replace(/\D/g, "");
 
 /** Registers/updates a shopper device for order updates and sale alerts. */
