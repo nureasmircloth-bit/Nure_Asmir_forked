@@ -4,6 +4,11 @@
   "regions": ["sin1"],
   "headers": [
     {
+      "source": "/(.*)",
+      "has": [{ "type": "host", "value": "probe.nureasmir.com" }],
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow, noarchive" }]
+    },
+    {
       "source": "/cdn/(.*)",
       "headers": [
         {

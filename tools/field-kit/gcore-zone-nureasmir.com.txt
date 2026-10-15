@@ -1,0 +1,32 @@
+; nureasmir.com for Gcore Managed DNS (Import records). Built from the live Vercel DNS records on 2026-10-14.
+; Apex and www/admin/training/probe point at Vercel's anycast addresses; email records (Brevo, Resend) are copied unchanged.
+; NS and SOA are managed by Gcore and are deliberately not in this file.
+$ORIGIN nureasmir.com.
+
+@                      21600  IN A      216.198.79.1
+@                      21600  IN A      64.29.17.1
+www                    21600  IN A      216.198.79.65
+www                    21600  IN A      64.29.17.65
+admin                  1800   IN A      216.198.79.65
+admin                  1800   IN A      64.29.17.65
+training               1800   IN A      216.198.79.65
+training               1800   IN A      64.29.17.65
+probe                  120    IN A      216.198.79.1
+probe                  120    IN A      64.29.17.1
+*                      300    IN A      216.198.79.1
+*                      300    IN A      64.29.17.1
+@                      3600   IN CAA    0 issue "pki.goog"
+@                      3600   IN CAA    0 issue "sectigo.com"
+@                      3600   IN CAA    0 issue "letsencrypt.org"
+@                      3600   IN TXT    "brevo-code:16b7fe8c9f576e5813c907257537acaf"
+@                      3600   IN TXT    "resend-domain-verification=ffcc3552febd4e30ba2ebdef884d78c6"
+_dmarc                 3600   IN TXT    "v=DMARC1; p=none; rua=mailto:rua@dmarc.brevo.com"
+brevo1._domainkey      3600   IN CNAME  b1.nureasmir-com.dkim.brevo.com.
+brevo2._domainkey      3600   IN CNAME  b2.nureasmir-com.dkim.brevo.com.
+img.orders             3600   IN CNAME  orders-nureasmir-com.img.brand.brevosend.com.
+orders                 3600   IN CNAME  orders-nureasmir-com.brand.brevosend.com.
+r.orders               3600   IN CNAME  orders-nureasmir-com.r.brand.brevosend.com.
+resend._domainkey      3600   IN TXT    "p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC73no4IlFFzyuribi5gQ0Jvys1okNa2Ym949AaZy6JvEqJWX1Rw16wPy7WHMS7iU9kpagy2fhKfWXmFUAqkcGlzByuyWj51jD5rzpZV0iNmbcd52hINoQR5hZA8Lslez5CSaz2MEgjVYraIxyyMLsifb0YFDRlTjnP59enDeEZuwIDAQAB"
+resend._domainkey      3600   IN TXT    "p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCluLcCTBR6Pe+B35+TQESH7bkpthejjFNMy1gUVlHxLzrddE/01nkv8JssEqdXi7Oxv2h+WCXSi68EXJOhoMSl2/BaJkC2SrcMu0uHhmLalG7k8MREMbRPVOMFqOaMZZN+pVug2mPSrERLix9Oou/1op8hM7E8YWClj63BuXb6CwIDAQAB"
+rsend                  3600   IN CNAME  rsend-apne1.forge.rmta.net.
+send                   3600   IN CNAME  send.forge.rmta.net.
