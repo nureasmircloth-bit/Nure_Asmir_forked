@@ -168,6 +168,17 @@ if (-not $Watch) {
   }
 }
 
+if (-not $Watch) {
+  Section "7b. First contact: does the FIRST packet to a new address get lost or delayed on this line? (TCP connect and one DNS question, same 26 addresses)"
+  $first = @("198.41.0.4","170.247.170.2","192.33.4.12","199.7.91.13","192.203.230.10","192.5.5.241","192.112.36.4","198.97.190.53","192.36.148.17","192.58.128.30","193.0.14.129","199.7.83.42","202.12.27.33",
+             "192.5.6.30","192.33.14.30","192.26.92.30","192.31.80.30","192.12.94.30","192.35.51.30","192.42.93.30","192.54.112.30","192.43.172.30","192.48.79.30","192.52.178.30","192.41.162.30","192.55.83.30")
+  $tcp = foreach ($ip in $first) { $sw = [Diagnostics.Stopwatch]::StartNew(); $c = New-Object Net.Sockets.TcpClient; try { $ok = $c.ConnectAsync($ip, 53).Wait(6000) } catch { $ok = $false }; $sw.Stop(); try { $c.Close() } catch {}; if ($ok) { [int]$sw.ElapsedMilliseconds } else { -1 } }
+  $udp = foreach ($ip in $first) { $sw = [Diagnostics.Stopwatch]::StartNew(); try { Resolve-DnsName "com" -Type NS -Server $ip -DnsOnly -NoHostsFile -ErrorAction Stop | Out-Null } catch {}; $sw.Stop(); [int]$sw.ElapsedMilliseconds }
+  Say ("TCP connect ms: " + ($tcp -join " "))
+  Say ("DNS question ms: " + ($udp -join " "))
+  Say ("Stalls of 1 s or more: TCP {0}/26, DNS {1}/26.  Several stalls at 1 s / 3 s means the first packet to a new address is being lost (the line, the router's NAT or the provider), whichever DNS provider we use." -f @($tcp | Where-Object { $_ -ge 1000 -or $_ -lt 0 }).Count, @($udp | Where-Object { $_ -ge 1000 }).Count)
+}
+
 # ---- 8. the website itself, cold every time (probe has a 60 second DNS life) -----------------------------------------------------
 function CurlTiming([string]$url) {
   $fmt = "dns=%{time_namelookup}s connect=%{time_connect}s tls=%{time_appconnect}s first-byte=%{time_starttransfer}s total=%{time_total}s code=%{http_code}"
