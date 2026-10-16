@@ -1,3 +1,4 @@
+import { googleFontHref } from "@/lib/fonts";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { StoreFooter } from "../_components/store-footer";
@@ -40,8 +41,12 @@ export default async function ContactPage() {
   const whatsapp = String(settings.whatsappNumber ?? "").replace(/\D/g, "");
 
   const whatsappHref = settings.whatsappChatUrl || `https://wa.me/${whatsapp}?text=${encodeURIComponent("Hello Nure Asmir, I would like some assistance.")}`;
+  // The font for this page only; a font that every page already loads (the chosen heading or body font) is not asked for twice.
+  const globallyLoaded = [settings.fontFamily !== "Cormorant Garamond" ? settings.fontFamily : "", settings.bodyFontFamily !== "Jost" ? settings.bodyFontFamily : ""];
+  const contactFontHref = globallyLoaded.includes(settings.contactFontFamily) ? null : googleFontHref(settings.contactFontFamily);
   return (
     <main>
+      {contactFontHref && <link rel="stylesheet" href={contactFontHref} precedence="default" />}
       <StoreJsonLd />
       <div className="crumb-bar"><Breadcrumbs trail={[{ name: "Contact" }]} path="/contact" pageType="ContactPage" /></div>
       <section className="contact-page">
