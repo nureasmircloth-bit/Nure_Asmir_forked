@@ -21,12 +21,13 @@ test.describe("price on request, delivery times and international orders", () =>
   test.beforeAll(async ({ request }) => {
     const variant = await variantBySku(SKU);
     productId = variant.productId;
-    const [row] = (await sql`select slug, name, price_on_request, fulfilment from products where id = ${productId}`) as Array<{ slug: string; name: string; price_on_request: boolean; fulfilment: string }>;
+    const [row] = (await sql`select slug, name from products where id = ${productId}`) as Array<{ slug: string; name: string }>;
     slug = row.slug;
     name = row.name;
-    original = { price_on_request: row.price_on_request, fulfilment: row.fulfilment };
-    const [s] = (await sql`select ready_delivery_text, bespoke_delivery_text from site_settings where id = 'store'`) as Array<{ ready_delivery_text: string; bespoke_delivery_text: string }>;
-    originalSettings = s;
+    original = { price_on_request: false, fulfilment: "ready" }; // the seed values, not whatever an interrupted run left behind
+    originalSettings = { ready_delivery_text: "", bespoke_delivery_text: "" };
+    await sql`update products set price_on_request = false, fulfilment = 'ready' where id = ${productId}`;
+    await sql`update site_settings set ready_delivery_text = '', bespoke_delivery_text = '' where id = 'store'`;
     await warmUp(request, [`/products/${slug}`, "/shop", "/checkout", "/policies/returns", "/"]);
   });
   test.afterAll(async () => {
@@ -80,7 +81,7 @@ test.describe("price on request, delivery times and international orders", () =>
     expect(decodeURIComponent((await abroad.getAttribute("href")) ?? "")).toContain("outside Pakistan");
   });
 
-  test("checkout: one quiet line for Pakistan, and a WhatsApp route for a shopper abroad", async ({ page }) => {
+  test("checkout: one quiet line for Pakistan, and a WhatsApp route for a shopper abroad", async ({ page, request }) => {
     const variant = await variantBySku(SKU);
     await page.goto("/");
     await page.evaluate((v) => {
@@ -99,6 +100,13 @@ test.describe("price on request, delivery times and international orders", () =>
     await expect(notice).toContainText("DHL");
     const href = (await notice.getByRole("link", { name: "Continue on WhatsApp" }).getAttribute("href")) ?? "";
     expect(decodeURIComponent(href)).toContain("E2E Abroad Shirt");
+    // the checkout form itself is not offered abroad
+    await expect(page.locator("form.checkout-layout")).toHaveCount(0);
+
+    // and the order API refuses a shopper abroad even if the form is bypassed (Vercel sets this header from the connection)
+    const refused = await request.post(`${BASE}/api/orders`, { headers: { "x-vercel-ip-country": "AE", "Idempotency-Key": `e2e-abroad-${Date.now()}`, "x-forwarded-for": `10.9.${Date.now() % 250}.7` }, data: { items: [{ variantId: variant.id, quantity: 1 }] } });
+    expect(refused.status()).toBe(403);
+    expect(String(((await refused.json()) as { error?: string }).error)).toMatch(/WhatsApp/);
   });
 
   test("returns policy names what is never refunded; shipping explains international orders; no strip under the banner", async ({ page }) => {

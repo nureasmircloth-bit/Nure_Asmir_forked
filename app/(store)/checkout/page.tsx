@@ -63,6 +63,8 @@ const PROVINCES = [
 /** Manages cart checkout, delivery selection, email verification, payment details and the resulting order. */
 export default function CheckoutPage() {
   const [items, setItems] = useState<CartItem[]>([]);
+  // A shopper outside Pakistan is sent to WhatsApp instead of this form (the order API refuses them as well).
+  const [abroad, setAbroad] = useState(false);
   const [zones, setZones] = useState<Zone[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
   // The delivery area is DERIVED, not stored in several places: a place the shopper picked (GPS, search, map) chooses its area, an area they
@@ -525,11 +527,12 @@ export default function CheckoutPage() {
         {cartNotice && <p className="cart-stock-notice">{cartNotice}</p>}
         {items.length > 0 && (
           <InternationalNotice
+            onAbroad={setAbroad}
             whatsappNumber={settings?.whatsappNumber}
             message={`Assalam o Alaikum. I would like to order from outside Pakistan: ${items.map((item) => `${item.name}${item.variantName ? ` (${item.variantName})` : ""} x${item.quantity}`).join(", ")}.`}
           />
         )}
-        {!items.length ? (
+        {abroad ? null : !items.length ? (
           <div className="cart-empty">
             <h2>Your bag is empty.</h2>
             <Link className="button button-dark" href="/shop">

@@ -3,6 +3,7 @@ import { isPracticeRequest } from "@/lib/practice-context";
 import { siteOrigin } from "@/lib/brand";
 
 let lastAt = 0;
+let trailing = false;
 
 /**
  * Tells the public shop to throw away its cached pages (price, photo and banner changes show up right away).
@@ -11,11 +12,26 @@ let lastAt = 0;
 export function refreshStorefront(force = false): void {
   if (isPracticeRequest()) return; // practice changes never reach the real website
   const secret = process.env.CRON_SECRET;
-  if (!secret || (!force && Date.now() - lastAt < 4000)) return;
-  lastAt = Date.now();
+  if (!secret) return;
+  const send = () =>
+    fetch(`${siteOrigin()}/api/revalidate`, { method: "POST", headers: { Authorization: `Bearer ${secret}` }, signal: AbortSignal.timeout(8000) }).then(() => undefined);
+  const wait = 4000 - (Date.now() - lastAt);
+  if (force || wait <= 0) {
+    lastAt = Date.now();
+    runInBackground(send(), "refreshStorefront");
+    return;
+  }
+  // Inside the 4-second window (a bulk upload saving many products): one refresh is queued for the end of the window instead of being
+  // dropped, so the last change is never left behind for the whole page-cache period.
+  if (trailing) return;
+  trailing = true;
   runInBackground(
-    fetch(`${siteOrigin()}/api/revalidate`, { method: "POST", headers: { Authorization: `Bearer ${secret}` }, signal: AbortSignal.timeout(8000) }).then(() => undefined),
-    "refreshStorefront",
+    new Promise((resolve) => setTimeout(resolve, wait)).then(() => {
+      trailing = false;
+      lastAt = Date.now();
+      return send();
+    }),
+    "refreshStorefront (queued)",
   );
 }
 

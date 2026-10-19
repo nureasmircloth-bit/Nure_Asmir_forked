@@ -1,3 +1,4 @@
+import { expireReservations } from "@/lib/orders";
 import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { productVariants, products } from "@/db/schema";
@@ -19,6 +20,9 @@ export async function POST(request: Request) {
     return Response.json({ error: "Invalid request." }, { status: 400 });
   }
 
+  // Expired holds are released here too, so a shopper's bag never shows stock as taken by an order that has already run out of time
+  // (the scheduled sweep only runs every few hours).
+  await expireReservations().catch(() => undefined);
   const [rows, sales] = await Promise.all([
     db
       .select({

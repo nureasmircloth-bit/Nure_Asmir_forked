@@ -30,7 +30,7 @@ export function buildLocalIndex(docs: SearchDoc[]): MiniSearch<SearchDoc> {
   const index = new MiniSearch<SearchDoc>({
     idField: "objectID",
     fields: ["name", "type", "category", "color", "description", "sizesText"],
-    storeFields: ["name", "slug", "price", "imageUrl", "category"],
+    storeFields: ["name", "slug", "price", "priceOnRequest", "imageUrl", "category"],
     extractField: (doc, field) => (field === "sizesText" ? doc.sizes.join(" ") : String((doc as unknown as Record<string, unknown>)[field] ?? "")),
     processTerm: (term) => fold(term.toLowerCase()),
     searchOptions: { boost: { name: 3, type: 2, category: 1.5 }, prefix: true, fuzzy: 0.2, combineWith: "AND" },
@@ -59,6 +59,7 @@ export function searchLocal(index: MiniSearch<SearchDoc>, query: string, limit: 
     name: String(result.name),
     slug: String(result.slug),
     price: Number(result.price),
+    priceOnRequest: Boolean(result.priceOnRequest),
     imageUrl: (result.imageUrl as string | null) ?? null,
     category: String(result.category),
     highlight: highlight(String(result.name), terms),

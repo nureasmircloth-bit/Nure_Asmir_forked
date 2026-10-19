@@ -131,6 +131,11 @@ export async function POST(request: Request) {
     return Response.json({ error: "Too many checkout attempts. Please wait a moment and try again." }, { status: 429 });
   }
 
+  // Orders from outside Pakistan are arranged on WhatsApp (DHL, freight quoted per order), never through the website checkout.
+  const visitorCountry = (request.headers.get("x-vercel-ip-country") ?? "").toUpperCase();
+  if (/^[A-Z]{2}$/.test(visitorCountry) && visitorCountry !== "PK") {
+    return Response.json({ error: "Orders from outside Pakistan are arranged on WhatsApp. Please contact us there and we will quote the delivery.", international: true }, { status: 403 });
+  }
   await expireReservations();
 
   let body: Record<string, unknown>;
