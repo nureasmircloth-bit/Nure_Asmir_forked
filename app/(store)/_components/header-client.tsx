@@ -427,7 +427,7 @@ function SearchOverlay({
                       <Price amount={deals[hit.objectID].compareAtPrice} />
                     </s>
                   )}
-                  <Price amount={deals[hit.objectID]?.price ?? hit.price} />
+                  {hit.price > 0 ? <Price amount={deals[hit.objectID]?.price ?? hit.price} /> : <span className="price-request">Price on request</span>}
                 </p>
               </Link>
             ))}

@@ -10,6 +10,7 @@ import { Price } from "../../_components/currency";
 import { Portal } from "../../_components/portal";
 import { SizeGuideLink } from "./size-guide";
 import { track } from "@/lib/analytics";
+import { whatsappMessageLink } from "@/lib/wa-link";
 
 type Added = { variantId: string; variantName: string; price: number; inBag: number };
 
@@ -24,6 +25,10 @@ export function ProductPurchase({
   fixedSize,
   selected,
   onSize,
+  whatsappNumber,
+  whatsappChatUrl,
+  deliveryText,
+  productUrl,
 }: {
   product: CatalogProduct;
   colors: string[];
@@ -37,6 +42,10 @@ export function ProductPurchase({
   /** The chosen variant, or null while a size still has to be picked. */
   selected: CatalogVariant | null;
   onSize: (variantId: string) => void;
+  whatsappNumber: string;
+  whatsappChatUrl: string;
+  deliveryText: string;
+  productUrl: string;
 }) {
   const router = useRouter();
   const sizeRow = useRef<HTMLDivElement>(null);
@@ -124,6 +133,9 @@ export function ProductPurchase({
   }
 
   const allSoldOut = colorVariants.every((variant) => variant.available < 1);
+  const choiceText = [colors.length > 1 ? `colour ${color}` : "", selected?.size ? `size ${selected.size}` : ""].filter(Boolean).join(", ");
+  const askPrice = whatsappMessageLink(whatsappNumber, whatsappChatUrl, `Assalam o Alaikum. Could you tell me the price of ${product.name}${choiceText ? ` (${choiceText})` : ""}? ${productUrl}`);
+  const askAbroad = whatsappMessageLink(whatsappNumber, whatsappChatUrl, `Assalam o Alaikum. I would like to order ${product.name}${choiceText ? ` (${choiceText})` : ""} from outside Pakistan. ${productUrl}`);
   const blocked = allSoldOut || phase !== "idle" || (selected !== null && selected.available < 1);
 
   return (
@@ -186,50 +198,63 @@ export function ProductPurchase({
         </div>
       ) : null}
 
-      {selected && selected.available < 1 ? (
+      {!product.priceOnRequest && (selected && selected.available < 1 ? (
         <p className="stock-badge stock-badge-out">Sold out</p>
       ) : selected && selected.available < 5 ? (
         <p className="stock-badge stock-badge-low">Only {selected.available} left in stock</p>
       ) : allSoldOut ? (
         <p className="stock-badge stock-badge-out">Sold out</p>
-      ) : null}
+      ) : null)}
 
-      <button className={`add-button${phase === "done" ? " is-done" : ""}`} type="button" disabled={blocked} onClick={() => add()} aria-busy={phase === "adding"}>
-        {allSoldOut ? (
-          "Sold out"
-        ) : phase === "adding" ? (
-          <span className="busy-label">
-            <i className="spinner spinner-light" aria-hidden="true" /> Adding…
-          </span>
-        ) : phase === "done" ? (
-          <span className="busy-label">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true">
-              <path d="M5 12.5l4.5 4.5L19 7.5" />
-            </svg>
-            Added to bag
-          </span>
-        ) : (
-          "Add to bag"
-        )}
-      </button>
-      <button className="buy-button" type="button" disabled={blocked} onClick={() => add(true)} aria-busy={phase === "buying"}>
-        {phase === "buying" ? (
-          <span className="busy-label">
-            <i className="spinner" aria-hidden="true" /> Opening your bag…
-          </span>
-        ) : (
-          "Buy it now"
-        )}
-      </button>
+      {product.priceOnRequest ? (
+        <a className="add-button ask-price" href={askPrice} target="_blank" rel="noopener noreferrer" onClick={() => track("price_request", { product: product.slug })}>
+          Ask for the price on WhatsApp
+        </a>
+      ) : (
+        <>
+        <button className={`add-button${phase === "done" ? " is-done" : ""}`} type="button" disabled={blocked} onClick={() => add()} aria-busy={phase === "adding"}>
+          {allSoldOut ? (
+            "Sold out"
+          ) : phase === "adding" ? (
+            <span className="busy-label">
+              <i className="spinner spinner-light" aria-hidden="true" /> Adding…
+            </span>
+          ) : phase === "done" ? (
+            <span className="busy-label">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true">
+                <path d="M5 12.5l4.5 4.5L19 7.5" />
+              </svg>
+              Added to bag
+            </span>
+          ) : (
+            "Add to bag"
+          )}
+        </button>
+        <button className="buy-button" type="button" disabled={blocked} onClick={() => add(true)} aria-busy={phase === "buying"}>
+          {phase === "buying" ? (
+            <span className="busy-label">
+              <i className="spinner" aria-hidden="true" /> Opening your bag…
+            </span>
+          ) : (
+            "Buy it now"
+          )}
+        </button>
+        </>
+      )}
       {message && (
         <p className="purchase-message" role="alert">
           {message}
         </p>
       )}
-      <div className="purchase-benefits">
-        <span>Cash on delivery</span>
-        <span>Nationwide delivery</span>
-        <Link href="/policies/returns">Easy exchanges</Link>
+      <div className="purchase-notes">
+        <p>
+          <strong>{product.fulfilment === "bespoke" ? "Made to order" : "Ready to wear"}</strong>
+          <span>{product.fulfilment === "bespoke" ? `Ready in ${deliveryText}` : `Delivered in ${deliveryText}`}</span>
+        </p>
+        <p>
+          <strong>Outside Pakistan</strong>
+          <a href={askAbroad} target="_blank" rel="noopener noreferrer">Order on WhatsApp</a>
+        </p>
       </div>
       {added && (
         <Portal>

@@ -44,6 +44,8 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
           careInstructions: product.careInstructions ?? "",
           status: product.status as "draft" | "published" | "archived",
           featured: product.featured,
+          priceOnRequest: product.priceOnRequest,
+          fulfilment: product.fulfilment === "bespoke" ? "bespoke" : "ready",
           badge: product.badge ?? "",
           seoTitle: product.seoTitle,
           seoKeywords: product.seoKeywords,

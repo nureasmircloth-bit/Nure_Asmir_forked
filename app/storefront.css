@@ -101,9 +101,6 @@
 .banner-next { right: 16px; }
 
 /* ---------- trust strip ---------- */
-.service-strip { padding: 14px 3vw; display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--line); }
-.service-strip p { margin: 0; padding: 4px 12px; text-align: center; border-right: 1px solid var(--line); font-size: 10px; font-weight: 500; letter-spacing: .18em; text-transform: uppercase; }
-.service-strip p:last-child { border: 0; }
 
 /* ---------- category tiles ---------- */
 .cat-section { padding: clamp(40px, 5vw, 72px) clamp(12px, 2vw, 28px) 0; }
@@ -261,7 +258,6 @@
 .buy-button:hover:not(:disabled) { background: #f3f3f2; }
 .add-button:disabled, .buy-button:disabled { opacity: .45; cursor: not-allowed; }
 .purchase-message { min-height: 18px; margin: 10px 0 0; color: #8d2929; font-size: 12px; }
-.purchase-benefits { display: flex; flex-wrap: wrap; gap: 8px 22px; padding: 16px 0 22px; color: var(--muted); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
 .product-accordions { border-top: 1px solid var(--line); }
 .product-accordions details { border-bottom: 1px solid var(--line); }
 .product-accordions summary { padding: 18px 0; display: flex; justify-content: space-between; font-size: 12px; font-weight: 500; letter-spacing: .16em; text-transform: uppercase; cursor: pointer; list-style: none; }
@@ -314,9 +310,6 @@
   .hdr-search-hint { display: none; }
   .banner-track { aspect-ratio: 4 / 5; }
   .banner-arrow { display: none; }
-  .service-strip { grid-template-columns: repeat(2, 1fr); gap: 10px 0; padding: 12px 8px; }
-  .service-strip p { font-size: 9px; }
-  .service-strip p:nth-child(2) { border-right: 0; }
   .cat-grid { grid-template-columns: repeat(2, 1fr); gap: 20px 8px; }
   .cat-tile h3 { font-size: 11px; letter-spacing: .16em; }
   .rail > .pcard { flex-basis: 46%; }
@@ -611,7 +604,6 @@
   .icon-btn { width: 44px; height: 44px; }
   .hdr-side { gap: 0; }
   .site-header { gap: 4px; padding: 0 8px; }
-  .service-strip p { font-size: 11px; letter-spacing: .12em; }
   .cat-tile h3 { font-size: 13px; }
   .pcard-title { font-size: 13px; }
   .pcard-price { font-size: 14px; }
@@ -622,7 +614,6 @@
   .drawer-foot { font-size: 14px; }
   .choice-row { font-size: 12px; }
   .stock-badge { font-size: 12px; }
-  .purchase-benefits { font-size: 12px; }
   .product-accordions summary { font-size: 13px; padding: 20px 0; }
   .product-accordions details p, .product-facts { font-size: 15px; }
   .search-hit-title { font-size: 12px; }
@@ -740,3 +731,26 @@ p, .pcard-title { text-wrap: pretty; }
 .slide-arrow[data-busy] { animation: arrow-wait .9s ease-in-out infinite; }
 @keyframes arrow-wait { 50% { opacity: .4; transform: scale(.92); } }
 @media (prefers-reduced-motion: reduce) { .slide-arrow[data-busy] { animation: none; opacity: .6; } }
+
+/* ---- Premium refinements: type sizes benchmarked against HSY, Ismail Farid, Nomi Ansari and Humayun Alamgir (product names 17-24px in
+   normal case, quiet 12-14px navigation, light prices) ---- */
+.drawer nav a, .drawer-nav-item, .drawer-cat-link { padding: 11px 12px; font-size: 12px; font-weight: 400; letter-spacing: .16em; }
+.drawer-sub-link { font-size: 12px; }
+.drawer-sub-link.is-all { font-size: 10.5px; }
+.drawer-title { font-size: 10px; }
+.drawer-foot { gap: 10px; font-size: 11.5px; }
+.product-buy h1 { font: 400 clamp(22px, 1.9vw, 27px)/1.25 var(--display); letter-spacing: .01em; text-transform: none; }
+.product-price { font-size: 17px; font-weight: 300; letter-spacing: .03em; }
+.price-request { font-style: italic; letter-spacing: .03em; color: var(--muted); }
+.product-price.price-request { font-size: 16px; }
+.add-button.ask-price { text-decoration: none; letter-spacing: .14em; }
+.purchase-notes { margin: 22px 0 18px; border-top: 1px solid var(--line); }
+.purchase-notes p { margin: 0; padding: 12px 0; display: flex; justify-content: space-between; align-items: baseline; gap: 16px; border-bottom: 1px solid var(--line); font-size: 13px; }
+.purchase-notes strong { font-size: 11px; font-weight: 500; letter-spacing: .16em; text-transform: uppercase; }
+.purchase-notes span { color: var(--muted); }
+.purchase-notes a { color: var(--ink); text-underline-offset: 3px; }
+.intl-notice { margin: 0 0 18px; font-size: 13px; color: var(--muted); }
+.intl-notice a { color: var(--ink); text-underline-offset: 3px; }
+.intl-notice.is-abroad { margin-bottom: 24px; padding: 18px 20px; display: grid; gap: 10px; justify-items: start; border: 1px solid var(--line); background: var(--silk, #faf9f6); color: var(--ink); }
+.intl-notice-title { margin: 0; font: 500 19px var(--display); }
+.intl-notice.is-abroad p { margin: 0; line-height: 1.6; }

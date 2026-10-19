@@ -55,6 +55,8 @@ export type SettingsValues = {
   bodyFontFamily: string;
   contactFontFamily: string;
   shopDescription: string;
+  readyDeliveryText: string;
+  bespokeDeliveryText: string;
   themeBottomBarColor: string;
   themeBottomBarTextColor: string;
   themeHeaderColor: string;
@@ -848,6 +850,8 @@ export function SettingsForm({ initial, status, initialPending }: { initial: Set
       </Section>
 
       <Section id="delivery" title="Delivery, payment and refunds">
+        {text("readyDeliveryText", "Delivery time: ready to wear", { placeholder: "3–5 working days", hint: "Shown on every ready-to-wear product page. Empty = “3–5 working days”." })}
+        {text("bespokeDeliveryText", "Delivery time: made to order (bespoke)", { placeholder: "12–14 working days", hint: "Shown on products marked “Made to order”. Empty = “12–14 working days”." })}
         {text("freeDeliveryThreshold", "Free delivery above (PKR)", { hint: "Orders worth more than this get free delivery. Put 0 to switch free delivery off." })}
         <fieldset className="wide" style={{ border: 0, margin: 0, padding: 0, display: "grid", gap: 10 }}>
           <legend style={{ fontWeight: 600, marginBottom: 6 }}>What customers pay for delivery <Hint text="This is what the CUSTOMER is charged. TCS bills you separately for carrying the parcel – the two do not have to be equal. Free delivery above the amount is always applied, whichever way you choose." /></legend>

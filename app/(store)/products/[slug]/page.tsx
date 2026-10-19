@@ -7,9 +7,10 @@ import { ProductRail } from "../../_components/store-components";
 import { StoreFooter } from "../../_components/store-footer";
 import { ProductView } from "./product-view";
 
-// Short ISR window: a flash sale that goes live (or ends) shows up within about a minute. Orders are
-// always priced on the server regardless of what a cached page displays.
-export const revalidate = 60;
+// Pages are kept for 10 minutes. Anything the owner changes in the admin refreshes them at once (lib/storefront-cache.ts →
+// /api/revalidate); only a flash sale that starts or ends on its own schedule can take up to 10 minutes to show. Orders are always priced
+// on the server. A longer life also means far fewer database wake-ups from visitors and search-engine crawlers.
+export const revalidate = 600;
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
@@ -87,7 +88,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
             color: variant.color,
             ...(variant.size ? { size: variant.size } : {}),
             image: [photoFor(variant.color)],
-            offers: offer(variant.price, variant.available),
+            ...(product.priceOnRequest ? {} : { offers: offer(variant.price, variant.available) }),
           })),
         }
       : {
@@ -99,7 +100,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           ...(keywordList ? { keywords: keywordList } : {}),
           sku: product.sku,
           brand: { "@type": "Brand", name: BRAND.name },
-          offers: offer(product.price, product.stock),
+          ...(product.priceOnRequest ? {} : { offers: offer(product.price, product.stock) }),
         };
 
   return (
@@ -113,6 +114,10 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           codReservationHours={settings.codReservationHours}
           freeDeliveryThreshold={settings.freeDeliveryThreshold}
           refundWindowDays={settings.refundWindowDays}
+          whatsappNumber={settings.whatsappNumber}
+          whatsappChatUrl={settings.whatsappChatUrl}
+          deliveryText={product.fulfilment === "bespoke" ? settings.bespokeDeliveryText : settings.readyDeliveryText}
+          productUrl={canonicalUrl}
         />
       </section>
       {related.length > 0 && (

@@ -15,6 +15,7 @@ export async function buildSearchDocs(productId?: string): Promise<SearchDoc[]> 
       badge: products.badge,
       description: products.shortDescription,
       featured: products.featured,
+      priceOnRequest: products.priceOnRequest,
       publishedAt: products.publishedAt,
       createdAt: products.createdAt,
       categoryName: categories.name,
@@ -59,7 +60,7 @@ export async function buildSearchDocs(productId?: string): Promise<SearchDoc[]> 
       type: row.type,
       color: [...new Set(variants.map((v) => v.color.trim()).filter(Boolean))].join(", "), // every colour, so "navy" finds a product whose default colour is olive
       sizes: [...new Set(variants.map((v) => v.size).filter((s): s is string => !!s))],
-      price: lead?.price ?? 0,
+      price: row.priceOnRequest ? 0 : (lead?.price ?? 0), // 0 = price on request (the results then say so)
       inStock: variants.some((v) => v.stockQuantity - v.reservedQuantity > 0),
       badge: row.badge ?? "",
       description: row.description ?? "",

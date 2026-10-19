@@ -1,4 +1,5 @@
 "use client";
+import { InternationalNotice } from "../_components/international-notice";
 import { LocationPicker, type PickedPlace } from "@/components/location-picker";
 
 import Link from "next/link";
@@ -522,6 +523,12 @@ export default function CheckoutPage() {
           </div>
         </header>
         {cartNotice && <p className="cart-stock-notice">{cartNotice}</p>}
+        {items.length > 0 && (
+          <InternationalNotice
+            whatsappNumber={settings?.whatsappNumber}
+            message={`Assalam o Alaikum. I would like to order from outside Pakistan: ${items.map((item) => `${item.name}${item.variantName ? ` (${item.variantName})` : ""} x${item.quantity}`).join(", ")}.`}
+          />
+        )}
         {!items.length ? (
           <div className="cart-empty">
             <h2>Your bag is empty.</h2>

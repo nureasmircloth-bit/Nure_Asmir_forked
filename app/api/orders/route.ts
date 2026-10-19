@@ -201,6 +201,7 @@ export async function POST(request: Request) {
       variantStatus: productVariants.status,
       productName: products.name,
       productStatus: products.status,
+      priceOnRequest: products.priceOnRequest,
     })
     .from(productVariants)
     .innerJoin(products, eq(products.id, productVariants.productId))
@@ -220,6 +221,9 @@ export async function POST(request: Request) {
     const variant = variantById.get(item.variantId);
     if (!variant) {
       return Response.json({ error: "One of the selected products is no longer available." }, { status: 409 });
+    }
+    if (variant.priceOnRequest) {
+      return Response.json({ error: `${variant.productName} is priced on request. Please ask us for the price on WhatsApp.` }, { status: 409 });
     }
     const available = variant.stockQuantity - variant.reservedQuantity;
     if (variant.productStatus !== "published" || variant.variantStatus !== "active" || available < item.quantity) {
