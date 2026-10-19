@@ -1,10 +1,11 @@
-name: Reservation expiry cron + DB keep-alive
+name: Scheduled jobs (reservations, TCS, sales, housekeeping)
 
-# Calls /api/cron/expire-reservations on a schedule to release expired inventory holds
-# and send reminder notifications. Also pings /api/health to keep Neon DB active.
+# Runs every 3 hours. It no longer pings the database to keep it awake: Neon's free plan counts every awake minute against the monthly
+# compute allowance, and waking it twice an hour (plus the old Cloudflare timers) used most of that allowance. Holds are 6 hours, so a
+# 3-hourly sweep still releases expired ones in time; admin changes refresh the shop immediately and do not depend on this job.
 on:
   schedule:
-    - cron: "*/30 * * * *"
+    - cron: "7 */3 * * *"
   workflow_dispatch: {}
 
 permissions: {}
@@ -16,10 +17,6 @@ jobs:
       SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL || 'https://nureasmir.com' }}
       CRON_SECRET: ${{ secrets.CRON_SECRET }}
     steps:
-      - name: Keep the database warm
-        continue-on-error: true
-        run: curl -sf --retry 2 --retry-delay 2 "$SITE_URL/api/health"
-
       - name: Call expire-reservations endpoint
         run: |
           curl -sf --retry 2 --retry-delay 2 -X GET "$SITE_URL/api/cron/expire-reservations" \

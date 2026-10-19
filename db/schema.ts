@@ -123,6 +123,10 @@ export const products = pgTable("products", {
   // SEO / feed fields
   status: text("status").notNull().default("draft"),
   featured: boolean("featured").notNull().default(false),
+  // "Price on request": the price is not shown, the product cannot go in the bag, and the shopper asks for the price on WhatsApp.
+  priceOnRequest: boolean("price_on_request").notNull().default(false),
+  // "ready" (ready to wear) or "bespoke" (made to order): decides which delivery time the product page shows.
+  fulfilment: text("fulfilment").notNull().default("ready"),
   badge: text("badge"),
   seoTitle: text("seo_title"),
   seoDescription: text("seo_description"),
@@ -506,6 +510,9 @@ export const siteSettings = pgTable("site_settings", {
   shopDescription: text("shop_description").notNull().default(""),
   newsletterTitle: text("newsletter_title").notNull().default(""),
   newsletterText: text("newsletter_text").notNull().default(""),
+  // Delivery time shown on product pages (empty = the built-in wording)
+  readyDeliveryText: text("ready_delivery_text").notNull().default(""),
+  bespokeDeliveryText: text("bespoke_delivery_text").notNull().default(""),
   themeBottomBarColor: text("theme_bottom_bar_color").notNull().default(""),
   themeBottomBarTextColor: text("theme_bottom_bar_text_color").notNull().default(""),
   // Optional colours for the header, side menu, footer and currency picker (empty = the built-in look)

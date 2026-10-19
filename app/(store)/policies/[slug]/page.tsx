@@ -37,7 +37,11 @@ const policies: Record<string, Policy> = {
       ],
       [
         "Delivery timing",
-        "Estimated delivery timing is shown for your selected zone at checkout. Most deliveries within Pakistan are expected within a few working days of order confirmation; remote areas may require additional time. We will let you know if a delay is expected.",
+        "Ready-to-wear pieces are delivered in the time shown on their product page. Made-to-order (bespoke and customised) pieces are tailored for you and take longer; their time is also shown on the product page and confirmed with you on WhatsApp. Remote areas may need a little more time, and we will tell you if a delay is expected."
+      ],
+      [
+        "International orders",
+        "Orders from outside Pakistan are arranged personally on WhatsApp, not through the website checkout. International delivery is by DHL; the freight depends on the destination and the parcel, so we quote it for each order and confirm everything with you before you pay.",
       ],
       [
         "Payment methods",
@@ -67,7 +71,7 @@ const policies: Record<string, Policy> = {
       ],
       [
         "Non-returnable items",
-        "Items showing wear, marks, scent, alteration or missing packaging cannot be accepted. Final-sale items and any personalised items are not returnable unless they arrive defective.",
+        "We cannot refund or exchange a piece that comes back with any sign of wear and tear, any spot or stain, or any perfume or other scent on it, or that has been altered or is missing its packaging and tags. Made-to-order (bespoke and customised) pieces and final-sale items are not returnable unless they arrive defective.",
       ],
       [
         "Leather accessories",

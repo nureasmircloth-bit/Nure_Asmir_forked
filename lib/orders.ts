@@ -22,6 +22,13 @@ const REMINDER_WINDOW_HOURS = 3;
  * double-release the same order.
  */
 export async function expireReservations(): Promise<void> {
+  // Every overdue batch, not just the first 50 (bounded, so one run never loops forever).
+  for (let round = 0; round < 20; round++) {
+    if ((await expireReservationBatch()) < 50) return;
+  }
+}
+
+async function expireReservationBatch(): Promise<number> {
   const now = new Date();
   const expired = await db
     .select({ id: orders.id })
@@ -48,6 +55,7 @@ export async function expireReservations(): Promise<void> {
     await releaseOrderReservation(order.id, "Reservation expired", "system", now);
     announceOrderEvent(order.id, "cancelled", "system");
   }
+  return expired.length;
 }
 
 /**

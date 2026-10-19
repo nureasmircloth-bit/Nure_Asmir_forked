@@ -9,7 +9,10 @@ import { BRAND } from "@/lib/brand";
 
 // Short ISR window: a flash sale that goes live (or ends) shows up within about a minute. Orders are
 // always priced on the server regardless of what a cached page displays.
-export const revalidate = 60;
+// Pages are kept for 10 minutes. Anything the owner changes in the admin refreshes them at once (lib/storefront-cache.ts →
+// /api/revalidate); only a flash sale that starts or ends on its own schedule can take up to 10 minutes to show. Orders are always priced
+// on the server. A longer life also means far fewer database wake-ups from visitors and search-engine crawlers.
+export const revalidate = 600;
 
 // One address per page, so Google never treats "/?utm=…" or "/?ref=…" as separate pages.
 export const metadata = { alternates: { canonical: "/" } };
@@ -37,12 +40,6 @@ export default async function Home() {
       <StoreJsonLd />
       <CampaignCarousel slides={campaignSlides} />
 
-      <section className="service-strip" aria-label="Store benefits">
-        <p>Nationwide delivery</p>
-        <p>Cash on delivery</p>
-        <p>Easy exchanges</p>
-        <p>WhatsApp assistance</p>
-      </section>
 
       {categories.length > 0 && (
         <section className="cat-section" aria-label="Shop by category">

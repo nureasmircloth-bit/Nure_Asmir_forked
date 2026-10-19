@@ -7,7 +7,10 @@ import { CATALOG_PAGE_SIZE, countCatalogProducts, getActiveCategories, getCatalo
 
 // Short ISR window: a flash sale that goes live (or ends) shows up within about a minute. Orders are
 // always priced on the server regardless of what a cached page displays.
-export const revalidate = 60;
+// Pages are kept for 10 minutes. Anything the owner changes in the admin refreshes them at once (lib/storefront-cache.ts →
+// /api/revalidate); only a flash sale that starts or ends on its own schedule can take up to 10 minutes to show. Orders are always priced
+// on the server. A longer life also means far fewer database wake-ups from visitors and search-engine crawlers.
+export const revalidate = 600;
 
 export const metadata: Metadata = {
   title: "Shop all — new arrivals",

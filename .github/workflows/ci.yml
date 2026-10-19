@@ -20,7 +20,11 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      # Builds run against the e2e TEST database (migrated below to this branch's schema), never production: production only gets a
+      # pull request's new columns when it is deployed, so building against it fails for every PR that adds one. Falls back to the
+      # production URL only while the E2E_DATABASE_URL secret has not been set.
+      DATABASE_URL: ${{ secrets.E2E_DATABASE_URL || secrets.DATABASE_URL }}
+      USING_TEST_DB: ${{ secrets.E2E_DATABASE_URL != '' }}
       NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
     steps:
       - uses: actions/checkout@v4
@@ -40,6 +44,10 @@ jobs:
 
       - name: Unit tests
         run: npx playwright test --project=unit
+
+      - name: Migrate the test database to this branch's schema
+        if: ${{ env.USING_TEST_DB == 'true' }}
+        run: npx drizzle-kit migrate
 
       # Production build – verifies Next.js compilation, type-checking and static generation
       - name: Production build – Next.js (Vercel)

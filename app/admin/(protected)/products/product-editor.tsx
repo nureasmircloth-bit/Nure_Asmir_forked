@@ -26,6 +26,8 @@ export type EditorProduct = {
   careInstructions: string;
   status: "draft" | "published" | "archived";
   featured: boolean;
+  priceOnRequest?: boolean;
+  fulfilment?: "ready" | "bespoke";
   badge: string;
   /** Drafted automatically when the product is saved; shown only in the Google preview. */
   seoTitle?: string | null;
@@ -92,6 +94,8 @@ export function ProductEditor({ categories, product, variants: initialVariants, 
     careInstructions: product?.careInstructions ?? "",
     status: (product?.status ?? "published") as "draft" | "published" | "archived",
     featured: product?.featured ?? false,
+    priceOnRequest: product?.priceOnRequest ?? false,
+    fulfilment: (product?.fulfilment ?? "ready") as "ready" | "bespoke",
     badge: product?.badge ?? "",
   });
   const [seo, setSeo] = useState<SeoDraft>(() => ({ title: product?.seoTitle ?? "", description: product?.seoDescription ?? "", keywords: product?.seoKeywords ?? "", edited: false, locked: product?.seoLocked ?? false }));
@@ -293,7 +297,7 @@ export function ProductEditor({ categories, product, variants: initialVariants, 
       const sizes = new Set<string>();
       c.variants.forEach((v, index) => {
         const label = `${where}${v.size ? `Size ${v.size}` : `Row ${index + 1}`}`;
-        if (!v.price || Number(v.price) < 1) problems.push(`${label}: please enter a price.`);
+        if (!form.priceOnRequest && (!v.price || Number(v.price) < 1)) problems.push(`${label}: please enter a price (or tick “Price on request”).`);
         if (v.compareAt && Number(v.compareAt) <= Number(v.price)) problems.push(`${label}: the old price must be higher than the selling price (or leave it empty).`);
         if (!v.sku.trim()) problems.push(`${label}: the product code is missing.`);
         const key = v.size.trim().toLowerCase();
@@ -334,6 +338,8 @@ export function ProductEditor({ categories, product, variants: initialVariants, 
         careInstructions: form.careInstructions.trim() || null,
         status: form.status,
         featured: form.featured,
+        priceOnRequest: form.priceOnRequest,
+        fulfilment: form.fulfilment,
         badge: form.badge || null,
         seoKeywords: seo.keywords.trim() || null,
         // The Google text is only sent when the owner wrote it (or cleared it to hand it back to the helper); otherwise it is drafted automatically.
@@ -739,6 +745,24 @@ export function ProductEditor({ categories, product, variants: initialVariants, 
               </span>
             </label>
             {form.status === "archived" && <p className="a-note warn">This product is archived (hidden). Choose one of the options above to bring it back.</p>}
+          </fieldset>
+          <label className="a-check">
+            <input type="checkbox" checked={form.priceOnRequest} onChange={(event) => { setForm((c) => ({ ...c, priceOnRequest: event.target.checked })); touch(); }} />
+            <span>
+              <strong>Price on request</strong>
+              <small className="a-help" style={{ display: "block" }}>The price is not shown. Customers press “Ask for the price on WhatsApp” instead of adding it to the bag. The price boxes below can stay empty.</small>
+            </span>
+          </label>
+          <fieldset className="a-field">
+            <legend>How it is made <Hint text="Decides the delivery time customers see on the product page. You set both times in Settings → Delivery, payment and refunds." /></legend>
+            <label className="a-check">
+              <input type="radio" name="pe-fulfilment" checked={form.fulfilment === "ready"} onChange={() => { setForm((c) => ({ ...c, fulfilment: "ready" })); touch(); }} />
+              <span>Ready to wear</span>
+            </label>
+            <label className="a-check">
+              <input type="radio" name="pe-fulfilment" checked={form.fulfilment === "bespoke"} onChange={() => { setForm((c) => ({ ...c, fulfilment: "bespoke" })); touch(); }} />
+              <span>Made to order (bespoke / customised)</span>
+            </label>
           </fieldset>
           <label className="a-check">
             <input type="checkbox" checked={form.featured} onChange={(event) => { setForm((c) => ({ ...c, featured: event.target.checked })); touch(); }} />

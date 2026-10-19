@@ -131,6 +131,11 @@ export async function POST(request: Request) {
     return Response.json({ error: "Too many checkout attempts. Please wait a moment and try again." }, { status: 429 });
   }
 
+  // Orders from outside Pakistan are arranged on WhatsApp (DHL, freight quoted per order), never through the website checkout.
+  const visitorCountry = (request.headers.get("x-vercel-ip-country") ?? "").toUpperCase();
+  if (/^[A-Z]{2}$/.test(visitorCountry) && visitorCountry !== "PK") {
+    return Response.json({ error: "Orders from outside Pakistan are arranged on WhatsApp. Please contact us there and we will quote the delivery.", international: true }, { status: 403 });
+  }
   await expireReservations();
 
   let body: Record<string, unknown>;
@@ -201,6 +206,7 @@ export async function POST(request: Request) {
       variantStatus: productVariants.status,
       productName: products.name,
       productStatus: products.status,
+      priceOnRequest: products.priceOnRequest,
     })
     .from(productVariants)
     .innerJoin(products, eq(products.id, productVariants.productId))
@@ -220,6 +226,9 @@ export async function POST(request: Request) {
     const variant = variantById.get(item.variantId);
     if (!variant) {
       return Response.json({ error: "One of the selected products is no longer available." }, { status: 409 });
+    }
+    if (variant.priceOnRequest) {
+      return Response.json({ error: `${variant.productName} is priced on request. Please ask us for the price on WhatsApp.` }, { status: 409 });
     }
     const available = variant.stockQuantity - variant.reservedQuantity;
     if (variant.productStatus !== "published" || variant.variantStatus !== "active" || available < item.quantity) {

@@ -170,14 +170,18 @@ export function ProductCard({ product, priority = false, sizes, swipe = true }: 
         <Link href={`/products/${product.slug}`} className="pcard-title">
           {product.name}
         </Link>
-        <p className={`pcard-price${saleLabel ? " is-sale" : ""}`}>
-          {product.compareAtPrice && product.compareAtPrice > product.price && (
-            <s>
-              <Price amount={product.compareAtPrice} />
-            </s>
-          )}
-          <Price amount={product.price} />
-        </p>
+        {product.priceOnRequest ? (
+          <p className="pcard-price price-request">Price on request</p>
+        ) : (
+          <p className={`pcard-price${saleLabel ? " is-sale" : ""}`}>
+            {product.compareAtPrice && product.compareAtPrice > product.price && (
+              <s>
+                <Price amount={product.compareAtPrice} />
+              </s>
+            )}
+            <Price amount={product.price} />
+          </p>
+        )}
       </div>
     </article>
   );

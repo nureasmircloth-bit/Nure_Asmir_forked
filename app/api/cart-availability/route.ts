@@ -1,3 +1,4 @@
+import { expireReservations } from "@/lib/orders";
 import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { productVariants, products } from "@/db/schema";
@@ -19,6 +20,9 @@ export async function POST(request: Request) {
     return Response.json({ error: "Invalid request." }, { status: 400 });
   }
 
+  // Expired holds are released here too, so a shopper's bag never shows stock as taken by an order that has already run out of time
+  // (the scheduled sweep only runs every few hours).
+  await expireReservations().catch(() => undefined);
   const [rows, sales] = await Promise.all([
     db
       .select({
@@ -29,6 +33,7 @@ export async function POST(request: Request) {
         reservedQuantity: productVariants.reservedQuantity,
         status: productVariants.status,
         productStatus: products.status,
+        priceOnRequest: products.priceOnRequest,
       })
       .from(productVariants)
       .innerJoin(products, eq(products.id, productVariants.productId))
@@ -39,7 +44,7 @@ export async function POST(request: Request) {
   const byId = new Map(rows.map((row) => [row.id, row]));
   const availability = variantIds.map((id) => {
     const row = byId.get(id);
-    const live = !!row && row.status === "active" && row.productStatus === "published";
+    const live = !!row && row.status === "active" && row.productStatus === "published" && !row.priceOnRequest; // priced on request: never in a bag
     return {
       variantId: id,
       available: live ? Math.max(0, row.stockQuantity - row.reservedQuantity) : 0,

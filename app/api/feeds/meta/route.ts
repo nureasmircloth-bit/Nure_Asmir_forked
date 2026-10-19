@@ -2,7 +2,9 @@ import { siteOrigin } from "@/lib/brand";
 import { getFeedProducts } from "@/lib/commerce";
 import { buildProductFeedXml } from "@/lib/feed";
 
-export const revalidate = 3600;
+// Built on request (not at build time, so a build never depends on the live database already having the newest columns) and kept
+// for an hour at Vercel's edge, so the feed fetchers cost one database read an hour.
+export const dynamic = "force-dynamic";
 
 const SITE_ORIGIN = siteOrigin();
 
@@ -17,7 +19,7 @@ export async function GET() {
   return new Response(xml, {
     headers: {
       "Content-Type": "application/xml; charset=utf-8",
-      "Cache-Control": "public, max-age=3600",
+      "Cache-Control": "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400",
     },
   });
 }

@@ -20,12 +20,21 @@ export function ProductView({
   codReservationHours,
   freeDeliveryThreshold,
   refundWindowDays,
+  whatsappNumber,
+  whatsappChatUrl,
+  deliveryText,
+  productUrl,
 }: {
   product: CatalogProduct;
   fallback: string;
   codReservationHours: number;
   freeDeliveryThreshold: number;
   refundWindowDays: number;
+  whatsappNumber: string;
+  whatsappChatUrl: string;
+  /** How long this product takes to reach the customer (ready to wear or made to order), from Settings. */
+  deliveryText: string;
+  productUrl: string;
 }) {
   const variants = useMemo<CatalogVariant[]>(
     () =>
@@ -80,15 +89,19 @@ export function ProductView({
           <Link href={`/collections/${product.category}`}>{product.type}</Link>
         </nav>
         <h1>{product.name}</h1>
-        <p className="product-price">
-          {shown.compareAtPrice && shown.compareAtPrice > shown.price && (
-            <span className="product-price-compare">
-              <Price amount={shown.compareAtPrice} />
-            </span>
-          )}
-          <Price amount={shown.price} />
-        </p>
-        {shown.saleEndsAt && (
+        {product.priceOnRequest ? (
+          <p className="product-price price-request">Price on request</p>
+        ) : (
+          <p className="product-price">
+            {shown.compareAtPrice && shown.compareAtPrice > shown.price && (
+              <span className="product-price-compare">
+                <Price amount={shown.compareAtPrice} />
+              </span>
+            )}
+            <Price amount={shown.price} />
+          </p>
+        )}
+        {!product.priceOnRequest && shown.saleEndsAt && (
           <div className="sale-banner">
             <span className="sale-tag">{discountLabel(shown.price, shown.compareAtPrice) ?? "Sale"}</span>
             <SaleCountdown endsAt={shown.saleEndsAt} />
@@ -108,6 +121,10 @@ export function ProductView({
           fixedSize={!choosesSize ? sizeOptions[0]?.size : undefined}
           selected={selected}
           onSize={setSizeId}
+          whatsappNumber={whatsappNumber}
+          whatsappChatUrl={whatsappChatUrl}
+          deliveryText={deliveryText}
+          productUrl={productUrl}
         />
         <WishlistButton productId={product.id} name={product.name} variant="inline" />
         <div className="product-accordions">
@@ -135,7 +152,7 @@ export function ProductView({
             </summary>
             <ul className="product-facts">
               <li>
-                <strong>Delivery all over Pakistan</strong> with TCS, usually in a few working days. The exact charge and timing for your city are shown at checkout.
+                <strong>{product.fulfilment === "bespoke" ? `Made to order: ready in ${deliveryText}` : `Ready to wear: delivered in ${deliveryText}`}</strong>, all over Pakistan with TCS. The exact charge for your city is shown at checkout.
               </li>
               <li>
                 <strong>
@@ -147,6 +164,9 @@ export function ProductView({
                     "Delivery charged by your area."
                   )}
                 </strong> Cash on delivery: pay the rider when your parcel arrives.
+              </li>
+              <li>
+                <strong>Outside Pakistan?</strong> International orders are arranged on WhatsApp; delivery (DHL) is quoted for each order.
               </li>
               <li>
                 <strong>Easy exchange within {refundWindowDays} days</strong> of delivery if the piece is unworn, unwashed and has its tags. <Link href="/policies/returns">Read the full policy</Link>.
