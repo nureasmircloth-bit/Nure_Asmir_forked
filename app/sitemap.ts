@@ -2,6 +2,10 @@ import type { MetadataRoute } from "next";
 import { getActiveCategories, getActiveCollections, getCatalogProducts } from "@/lib/commerce";
 import { siteOrigin } from "@/lib/brand";
 
+// Built on request, so it always lists the products live right now (it used to be frozen at build time until the next deploy) and a
+// build never depends on the live database schema. Search engines fetch it only now and then.
+export const dynamic = "force-dynamic";
+
 const POLICY_SLUGS = ["shipping", "returns", "privacy", "terms"];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
