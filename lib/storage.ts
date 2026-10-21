@@ -157,11 +157,17 @@ export async function putObject(
     }
     return;
   }
+  const payload =
+    body.byteOffset === 0 && body.byteLength === body.buffer.byteLength
+      ? body
+      : new Uint8Array(body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength));
+
   const response = await aws().fetch(objectUrl(key, visibility), {
     method: "PUT",
-    body: body as unknown as BodyInit,
+    body: payload as unknown as BodyInit,
     headers: {
       "Content-Type": contentType,
+      "Content-Length": String(payload.byteLength),
       // Keys are random UUIDs and never overwritten in place, so the CDN may cache them forever.
       ...(visibility === "public" ? { "Cache-Control": "public, max-age=31536000, immutable" } : {}),
     },
