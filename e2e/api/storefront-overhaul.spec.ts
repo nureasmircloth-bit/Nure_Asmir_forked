@@ -139,7 +139,7 @@ test.describe("admin settings for the top bar, delivery and payment", () => {
     const ok = await request.patch(`${BASE}/api/admin/settings`, { data: { announcementMode: "custom", announcementLines: "  Eid sale   is live \n\n Free gift\n", deliveryMode: "flat", flatDeliveryCharge: 199, bankDepositEnabled: true } });
     expect(ok.status()).toBe(200);
     const [row] = (await sql`select announcement_mode as mode, announcement_lines as lines, delivery_mode as dm, flat_delivery_charge as flat, bank_deposit_enabled as bank from site_settings where id = 'store'`) as Array<Record<string, unknown>>;
-    expect(row).toEqual({ mode: "custom", lines: "Eid sale is live\nFree gift", dm: "flat", flat: 199, bank: true });
+    expect(row).toEqual({ mode: "custom", lines: "Eid sale is live\nFree gift", dm: "flat", flat: 199, bank: 1 });
     for (const bad of [{ announcementMode: "loud" }, { deliveryMode: "drone" }, { flatDeliveryCharge: -5 }, { flatDeliveryCharge: 99999999 }, { bankDepositEnabled: "yes" }, { announcementLines: "x".repeat(2000) }]) {
       expect((await request.patch(`${BASE}/api/admin/settings`, { data: bad })).status(), JSON.stringify(bad).slice(0, 40)).toBe(400);
     }

@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
+import { daysAgoMs, nowMs } from "@/db/sql-compat";
 import { auditLogEntry } from "@/lib/admin/audit";
 
 type Rows<T> = { rows: T[] };
@@ -19,14 +20,15 @@ export async function getSoldoutDays(): Promise<number> {
  * Used both to hide them and to find old photos that can be squeezed harder.
  */
 export function idleSoldOutProducts(days: number) {
+  const cutoff = daysAgoMs(days);
   return sql`
     select p.id, p.name from products p
     where p.status in ('published', 'archived')
       and exists (select 1 from product_variants v where v.product_id = p.id and v.status = 'active')
       and not exists (select 1 from product_variants v where v.product_id = p.id and v.status = 'active' and v.stock_quantity - v.reserved_quantity > 0)
-      and not exists (select 1 from product_variants v where v.product_id = p.id and v.updated_at > now() - make_interval(days => ${days}))
-      and not exists (select 1 from order_items oi join orders o on o.id = oi.order_id where oi.product_id = p.id and o.created_at > now() - make_interval(days => ${days}))
-      and p.updated_at < now() - make_interval(days => ${days})`;
+      and not exists (select 1 from product_variants v where v.product_id = p.id and v.updated_at > ${cutoff})
+      and not exists (select 1 from order_items oi join orders o on o.id = oi.order_id where oi.product_id = p.id and o.created_at > ${cutoff})
+      and p.updated_at < ${cutoff}`;
 }
 
 /** Hides (archives) products that have been sold out for the owner's chosen number of days. Nothing is deleted, and the owner can show them again any time. */
@@ -35,7 +37,7 @@ export async function hideLongSoldOut(): Promise<{ days: number; hidden: Array<{
   if (!days) return { days, hidden: [] };
   const hidden = rowsOf<{ id: string; name: string }>(
     await db.execute(sql`
-      update products set status = 'archived', updated_at = now()
+      update products set status = 'archived', updated_at = ${nowMs}
       where status = 'published' and id in (select id from (${idleSoldOutProducts(days)}) as idle)
       returning id, name`),
   );

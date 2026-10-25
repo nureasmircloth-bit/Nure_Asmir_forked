@@ -1,5 +1,6 @@
 import { and, eq, gt, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
+import { nowMs } from "@/db/sql-compat";
 import { inventoryMovements, orderItems, orderStatusHistory, orders, productVariants } from "@/db/schema";
 import { sendReservationReminderEmail } from "@/lib/email/resend";
 import { getPublicSettings } from "@/lib/commerce";
@@ -61,7 +62,7 @@ async function expireReservationBatch(): Promise<number> {
 /**
  * Releases the reserved stock a single order is holding, e.g. after it's manually cancelled or
  * returned by an admin (see app/api/admin/orders/[id]/status/route.ts) — mirrors the release loop
- * expireReservations() runs for auto-cancelled orders. `greatest(0, ...)` guards against this
+ * expireReservations() runs for auto-cancelled orders. `max(0, ...)` guards against this
  * running twice for the same order (e.g. a cancel racing the expiry cron) ever driving the count
  * negative.
  */
@@ -81,7 +82,7 @@ export async function releaseOrderReservation(
     await db
       .update(productVariants)
       .set({
-        reservedQuantity: sql`greatest(0, ${productVariants.reservedQuantity} - ${item.quantity})`,
+        reservedQuantity: sql`max(0, ${productVariants.reservedQuantity} - ${item.quantity})`,
         updatedAt: now,
       })
       .where(eq(productVariants.id, item.variantId));
@@ -118,8 +119,8 @@ export async function fulfillOrderReservation(orderId: string, actorEmail: strin
     await db
       .update(productVariants)
       .set({
-        stockQuantity: sql`greatest(0, ${productVariants.stockQuantity} - ${item.quantity})`,
-        reservedQuantity: sql`greatest(0, ${productVariants.reservedQuantity} - ${item.quantity})`,
+        stockQuantity: sql`max(0, ${productVariants.stockQuantity} - ${item.quantity})`,
+        reservedQuantity: sql`max(0, ${productVariants.reservedQuantity} - ${item.quantity})`,
         updatedAt: now,
       })
       .where(eq(productVariants.id, item.variantId));
@@ -244,12 +245,12 @@ export async function sendReservationReminders(): Promise<void> {
  * "corrected" underneath itself). Safe to run repeatedly.
  */
 export async function reconcileReservedStock(): Promise<{ repaired: number }> {
-  const idleBefore = new Date(Date.now() - 10 * 60 * 1000);
+  const idleBefore = Date.now() - 10 * 60 * 1000;
   const result = await db.execute(sql`
-    UPDATE product_variants v
-    SET reserved_quantity = x.expected, updated_at = now()
+    UPDATE product_variants AS v
+    SET reserved_quantity = x.expected, updated_at = ${nowMs}
     FROM (
-      SELECT pv.id, coalesce(held.quantity, 0)::int AS expected
+      SELECT pv.id, coalesce(held.quantity, 0) AS expected
       FROM product_variants pv
       LEFT JOIN (
         SELECT oi.variant_id, sum(oi.quantity) AS quantity
@@ -260,7 +261,7 @@ export async function reconcileReservedStock(): Promise<{ repaired: number }> {
       ) held ON held.variant_id = pv.id
     ) x
     WHERE v.id = x.id AND v.reserved_quantity <> x.expected AND v.updated_at < ${idleBefore}
-    RETURNING v.id
+    RETURNING id
   `);
   const rows = (result as unknown as { rows?: unknown[] }).rows ?? [];
   if (rows.length) console.warn(`reconcileReservedStock repaired ${rows.length} variant(s)`);

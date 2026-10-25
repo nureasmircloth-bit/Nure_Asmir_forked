@@ -4,8 +4,8 @@ import crypto from "node:crypto";
 import { defineConfig, devices } from "@playwright/test";
 
 /**
- * End-to-end suite. Everything runs against a disposable Neon branch ("e2e-test", a child of
- * production), never production data: DATABASE_URL / AWS_ENDPOINT_URL_S3 come from
+ * End-to-end suite. Everything runs against a disposable local SQLite file (.local-db/e2e.sqlite, the stand-in for Cloudflare D1, created
+ * and filled by `npm run e2e:db`), never production data. Pictures go to the test storage bucket: AWS_ENDPOINT_URL_S3 comes from
  * .env.development.local (git-ignored). For the servers started below, Algolia / email / WhatsApp
  * credentials are blanked and TCS points at a local mock. Push notifications are tested against a local mock of
  * Google's OAuth + FCM endpoints (e2e/support/mock-fcm.mjs).
@@ -35,8 +35,9 @@ const unitOnly = process.env.E2E_UNIT_ONLY === "1" || (process.argv.some((arg) =
 // Playwright's worker processes load this file again without the command line – pass the decision on.
 if (unitOnly) process.env.E2E_UNIT_ONLY = "1";
 
-if (!unitOnly && !/ep-restless-art|e2e/.test(testEnv.DATABASE_URL ?? "") && !process.env.E2E_ALLOW_ANY_DB) {
-  throw new Error("Refusing to run: DATABASE_URL is not the e2e-test branch. Create .env.development.local first (see README).");
+const E2E_DB = path.resolve(process.env.E2E_LOCAL_DB ?? ".local-db/e2e.sqlite");
+if (!unitOnly && !fs.existsSync(E2E_DB)) {
+  throw new Error(`The test database ${E2E_DB} does not exist yet. Create it with: npm run e2e:db`);
 }
 
 // One RSA key pair per run: the app signs with the private half, the mock verifies with the public half.
@@ -52,6 +53,8 @@ const PROD_PORT = 3200;
 
 const serverEnv = {
   ...testEnv,
+  // The app under test reads and writes this SQLite file instead of a Cloudflare D1 binding (see db/index.ts).
+  LOCAL_DB_PATH: E2E_DB,
   NEXT_PUBLIC_SITE_URL: `http://localhost:${APP_PORT}`,
   // Settings apply at once in tests (in production a save waits 5 minutes in a safety buffer).
   SETTINGS_BUFFER_SECONDS: "0",
@@ -83,13 +86,12 @@ const serverEnv = {
   SALES_MEMO_MS: "0",
 };
 // Expose to the test processes too.
-// Test-process access to lib/* modules that import the db client (always the e2e branch).
-if (testEnv.DATABASE_URL) process.env.DATABASE_URL = testEnv.DATABASE_URL; // (CI's unit run keeps its own value; it never queries)
+// Test-process access to lib/* modules that import the db client (always the local test file).
+if (!unitOnly) process.env.LOCAL_DB_PATH = E2E_DB;
 process.env.E2E_BASE_URL = `http://localhost:${APP_PORT}`;
 process.env.E2E_PROD_URL = `http://localhost:${PROD_PORT}`;
 process.env.E2E_MOCK_FCM = `http://127.0.0.1:${MOCK_PORT}`;
 process.env.E2E_MOCK_TCS = `http://127.0.0.1:${TCS_PORT}`;
-if (testEnv.DATABASE_URL) process.env.E2E_DATABASE_URL = testEnv.DATABASE_URL;
 process.env.E2E_S3_ENDPOINT = testEnv.AWS_ENDPOINT_URL_S3;
 process.env.E2E_CRON_SECRET = serverEnv.CRON_SECRET;
 process.env.E2E_ADMIN_EMAIL = testEnv.ADMIN_EMAIL || "admin@nureasmir.com";

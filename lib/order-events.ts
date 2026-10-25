@@ -1,5 +1,6 @@
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/db";
+import { jsonArrayHas } from "@/db/sql-compat";
 import { customerPushDevices, orderEventsSent, orders } from "@/db/schema";
 import { siteOrigin } from "@/lib/brand";
 import { runInBackground } from "@/lib/background";
@@ -71,7 +72,7 @@ async function deliver(orderId: string, event: OrderEventKind, actor: "admin" | 
   const devices = await db
     .select({ token: customerPushDevices.token })
     .from(customerPushDevices)
-    .where(sql`${customerPushDevices.orderNumbers} @> ${JSON.stringify([order.orderNumber])}::jsonb`);
+    .where(jsonArrayHas(customerPushDevices.orderNumbers, order.orderNumber));
 
   await Promise.all([
     sendToCustomerTokens(

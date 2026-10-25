@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
+import { nowMs } from "@/db/sql-compat";
 import { measureStore, r2Bucket, STORAGE_LIMITS, type Backend } from "@/lib/storage";
 
 export type StoreReading = { backend: Backend; bytes: number; objects: number; limitBytes: number; at: string; error?: string };
@@ -20,7 +21,7 @@ export async function refreshStorageStats(): Promise<StoreReading[]> {
     // A failed reading must not tell uploads "this store is empty": keep the previous numbers and only note the problem.
     if (!reading.error) {
       const value = JSON.stringify(reading);
-      await db.execute(sql`insert into service_stats (key, value, updated_at) values (${`storage:${backend}`}, ${value}::jsonb, now()) on conflict (key) do update set value = ${value}::jsonb, updated_at = now()`);
+      await db.execute(sql`insert into service_stats (key, value, updated_at) values (${`storage:${backend}`}, ${value}, ${nowMs}) on conflict (key) do update set value = ${value}, updated_at = ${nowMs}`);
     }
   }
   return readings;

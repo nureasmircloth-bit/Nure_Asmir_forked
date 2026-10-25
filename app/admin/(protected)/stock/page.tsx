@@ -34,9 +34,9 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
   const like = `%${q.replace(/[%_\\]/g, "")}%`;
 
   // A variant "matches" when it passes the search and the Running low / Sold out tab. A product is listed when any variant matches.
-  const variantMatch = sql`v.status = 'active' ${q ? sql`and (p.name ilike ${like} or v.sku ilike ${like} or v.size ilike ${like} or v.color ilike ${like})` : sql``}
+  const variantMatch = sql`v.status = 'active' ${q ? sql`and (p.name like ${like} or v.sku like ${like} or v.size like ${like} or v.color like ${like})` : sql``}
     ${show === "low" ? sql`and v.stock_quantity - v.reserved_quantity between 1 and v.low_stock_threshold` : show === "out" ? sql`and v.stock_quantity - v.reserved_quantity <= 0` : sql``}`;
-  const productFilter = sql`p.status <> 'archived' ${cat ? sql`and p.category_id = ${cat}::uuid` : sql``}
+  const productFilter = sql`p.status <> 'archived' ${cat ? sql`and p.category_id = ${cat}` : sql``}
     and exists (select 1 from product_variants v where v.product_id = p.id and ${variantMatch})`;
 
   const [productsResult, countResult, totalsResult, categoriesResult] = await Promise.all([
@@ -48,15 +48,15 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
       where ${productFilter}
       order by p.name, p.id
       limit ${PAGE_SIZE} offset ${(page - 1) * PAGE_SIZE}`),
-    db.execute(sql`select count(*)::int as n from products p where ${productFilter}`),
+    db.execute(sql`select count(*) as n from products p where ${productFilter}`),
     db.execute(sql`
-      select count(*) filter (where v.stock_quantity - v.reserved_quantity between 1 and v.low_stock_threshold)::int as low,
-             count(*) filter (where v.stock_quantity - v.reserved_quantity <= 0)::int as out,
-             count(distinct p.id)::int as all
+      select count(*) filter (where v.stock_quantity - v.reserved_quantity between 1 and v.low_stock_threshold) as low,
+             count(*) filter (where v.stock_quantity - v.reserved_quantity <= 0) as out,
+             count(distinct p.id) as "all"
       from product_variants v join products p on p.id = v.product_id
-      where v.status = 'active' and p.status <> 'archived' ${cat ? sql`and p.category_id = ${cat}::uuid` : sql``}`),
+      where v.status = 'active' and p.status <> 'archived' ${cat ? sql`and p.category_id = ${cat}` : sql``}`),
     db.execute(sql`
-      select c.id, c.name, count(distinct p.id)::int as n
+      select c.id, c.name, count(distinct p.id) as n
       from categories c join products p on p.category_id = c.id and p.status <> 'archived'
       join product_variants v on v.product_id = p.id and v.status = 'active'
       group by c.id, c.name order by c.name`),
@@ -71,7 +71,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
   // Second, small query: every colour and size of just the products on this page.
   let variants: VariantRaw[] = [];
   if (productRows.length) {
-    const ids = sql.join(productRows.map((row) => sql`${row.id}::uuid`), sql`, `);
+    const ids = sql.join(productRows.map((row) => sql`${row.id}`), sql`, `);
     variants = rowsOf<VariantRaw>(
       await db.execute(sql`
         select v.id, v.product_id as "productId", v.color, v.size, v.sku, v.price, v.stock_quantity as stock, v.reserved_quantity as reserved,

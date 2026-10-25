@@ -46,7 +46,7 @@ export async function POST(request: Request) {
   let messageId = parsed.data.messageId;
   let total = 0;
   if (!messageId) {
-    const [{ count }] = await db.select({ count: sql<number>`count(*)::int` }).from(table).where(audienceFilter);
+    const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(table).where(audienceFilter);
     total = count;
     const [row] = await db.insert(adminMessages).values({ kind: "push", audience, title, body, link: url, recipients: total, delivered: 0, createdBy: admin.email }).returning({ id: adminMessages.id });
     messageId = row.id;

@@ -50,26 +50,26 @@ export default async function DeveloperPage() {
   const [usageResult, errorResult, errorTotals, statsResult, dbSize, imageTotals, countsResult, shrinkResult] = await Promise.all([
     db.execute(sql`
       select service,
-             coalesce(sum(calls) filter (where day = ${today}::date), 0)::int as "today",
-             coalesce(sum(errors) filter (where day = ${today}::date), 0)::int as "errorsToday",
-             coalesce(sum(calls) filter (where day >= ${monthStart}::date), 0)::int as "month",
-             coalesce(sum(errors) filter (where day >= ${monthStart}::date), 0)::int as "errorsMonth",
+             coalesce(sum(calls) filter (where day = ${today}), 0) as "today",
+             coalesce(sum(errors) filter (where day = ${today}), 0) as "errorsToday",
+             coalesce(sum(calls) filter (where day >= ${monthStart}), 0) as "month",
+             coalesce(sum(errors) filter (where day >= ${monthStart}), 0) as "errorsMonth",
              max(last_at) as "lastAt",
-             (array_agg(last_error order by last_at desc) filter (where last_error <> ''))[1] as "lastError"
+             (select e.last_error from api_usage e where e.service = api_usage.service and e.last_error <> '' order by e.last_at desc limit 1) as "lastError"
       from api_usage group by service`),
     db.execute(sql`select id, source, message, path, stack, count, first_seen_at as "firstSeen", last_seen_at as "lastSeen" from error_log order by last_seen_at desc limit 40`),
-    db.execute(sql`select coalesce(sum(count) filter (where day = ${today}::date), 0)::int as "today", coalesce(sum(count) filter (where day >= (${today}::date - 6)), 0)::int as "week", count(*)::int as kinds from error_log`),
+    db.execute(sql`select coalesce(sum(count) filter (where day = ${today}), 0) as "today", coalesce(sum(count) filter (where day >= date(${today}, '-6 days')), 0) as "week", count(*) as kinds from error_log`),
     db.execute(sql`select key, value, updated_at as "at" from service_stats where key like 'storage:%' or key like 'limits:%'`),
-    db.execute(sql`select pg_database_size(current_database())::bigint as bytes`),
-    db.execute(sql`select count(*)::int as n, coalesce(sum(byte_size), 0)::bigint as bytes, count(*) filter (where compacted_at is not null)::int as shrunk from product_images where status = 'active'`),
-    db.execute(sql`select (select count(*) from orders)::int as orders, (select count(*) from products)::int as products`),
-    db.execute(sql`select count(*)::int as n, coalesce(sum(i.byte_size), 0)::bigint as bytes from product_images i where i.status = 'active' and i.compacted_at is null and i.product_id in (select id from (${idleSoldOutProducts(soldoutDays)}) as idle)`),
+    db.execute(sql`select (select page_count from pragma_page_count) * (select page_size from pragma_page_size) as bytes`).catch(() => ({ rows: [] as Array<{ bytes: number }> })),
+    db.execute(sql`select count(*) as n, coalesce(sum(byte_size), 0) as bytes, count(*) filter (where compacted_at is not null) as shrunk from product_images where status = 'active'`),
+    db.execute(sql`select (select count(*) from orders) as orders, (select count(*) from products) as products`),
+    db.execute(sql`select count(*) as n, coalesce(sum(i.byte_size), 0) as bytes from product_images i where i.status = 'active' and i.compacted_at is null and i.product_id in (select id from (${idleSoldOutProducts(soldoutDays)}) as idle)`),
   ]);
 
   const usage = new Map(rowsOf<{ service: ServiceName; today: number; errorsToday: number; month: number; errorsMonth: number; lastAt: string; lastError: string | null }>(usageResult).map((row) => [row.service, row]));
   const errors = rowsOf<{ id: string; source: string; message: string; path: string; stack: string; count: number; firstSeen: string; lastSeen: string }>(errorResult);
   const errTotals = rowsOf<{ today: number; week: number; kinds: number }>(errorTotals)[0] ?? { today: 0, week: 0, kinds: 0 };
-  const stats = rowsOf<{ key: string; value: Record<string, unknown>; at: string }>(statsResult);
+  const stats = rowsOf<{ key: string; value: Record<string, unknown> | string; at: string }>(statsResult).map((row) => ({ ...row, value: typeof row.value === "string" ? (JSON.parse(row.value) as Record<string, unknown>) : row.value }));
   const stat = (key: string) => stats.find((row) => row.key === key);
   const dbBytes = Number(rowsOf<{ bytes: string | number }>(dbSize)[0]?.bytes ?? 0);
   const images = rowsOf<{ n: number; bytes: string | number; shrunk: number }>(imageTotals)[0] ?? { n: 0, bytes: 0, shrunk: 0 };

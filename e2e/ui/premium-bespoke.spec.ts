@@ -98,7 +98,9 @@ test.describe("price on request, delivery times and international orders", () =>
     const notice = page.locator(".intl-notice.is-abroad");
     await expect(notice).toBeVisible();
     await expect(notice).toContainText("DHL");
-    const href = (await notice.getByRole("link", { name: "Continue on WhatsApp" }).getAttribute("href")) ?? "";
+    const link = notice.getByRole("link", { name: "Continue on WhatsApp" });
+    await expect(link).toHaveAttribute("href", /wa\.me/); // the shop settings load a moment after the page
+    const href = (await link.getAttribute("href")) ?? "";
     expect(decodeURIComponent(href)).toContain("E2E Abroad Shirt");
     // the checkout form itself is not offered abroad
     await expect(page.locator("form.checkout-layout")).toHaveCount(0);

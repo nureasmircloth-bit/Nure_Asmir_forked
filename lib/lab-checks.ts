@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { practiceDb } from "@/db";
+import { db } from "@/db";
 import { LAB_CHECKS } from "./lab-check-queries";
 import { labById } from "./labs";
 
@@ -10,11 +10,11 @@ export async function checkLab(labId: string): Promise<boolean[] | null> {
   const lab = labById(labId);
   const queries = LAB_CHECKS[labId];
   if (!lab || !queries || queries.length !== lab.steps.length) return null;
-  const handle = practiceDb();
+  const handle = db;
   const results: boolean[] = [];
   for (const query of queries) {
-    const result = (await handle.execute(sql.raw(query))) as unknown as Rows<{ ok: boolean }>;
-    results.push(result.rows[0]?.ok === true);
+    const result = (await handle.execute(sql.raw(query))) as unknown as Rows<{ ok: number | boolean }>;
+    results.push(Number(result.rows[0]?.ok) === 1);
   }
   return results;
 }

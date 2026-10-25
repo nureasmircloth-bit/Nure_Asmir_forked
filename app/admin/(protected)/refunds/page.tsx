@@ -40,7 +40,7 @@ export default async function RefundsPage({ searchParams }: { searchParams: Prom
       .where(inArray(refundRequests.status, [...tab.statuses]))
       .orderBy(desc(refundRequests.createdAt))
       .limit(100),
-    db.select({ status: refundRequests.status, n: sql<number>`count(*)::int` }).from(refundRequests).groupBy(refundRequests.status),
+    db.select({ status: refundRequests.status, n: sql<number>`count(*)` }).from(refundRequests).groupBy(refundRequests.status),
   ]);
   const count = (statuses: readonly string[]) => countRows.filter((row) => statuses.includes(row.status)).reduce((sum, row) => sum + row.n, 0);
 

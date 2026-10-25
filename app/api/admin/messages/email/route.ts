@@ -60,7 +60,7 @@ export async function POST(request: Request) {
   let messageId = input.messageId;
   let total = 0;
   if (!messageId) {
-    const [{ count }] = await db.select({ count: sql<number>`count(*)::int` }).from(subscribers).where(subscribed);
+    const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(subscribers).where(subscribed);
     total = count;
     if (!total) return Response.json({ error: "Nobody has joined your email list yet." }, { status: 400 });
     if (allowance.left < total) {

@@ -307,7 +307,7 @@ export async function POST(request: Request) {
       try {
         await db
           .update(productVariants)
-          .set({ reservedQuantity: sql`greatest(0, ${productVariants.reservedQuantity} - ${item.quantity})`, updatedAt: now })
+          .set({ reservedQuantity: sql`max(0, ${productVariants.reservedQuantity} - ${item.quantity})`, updatedAt: now })
           .where(eq(productVariants.id, item.variantId));
       } catch (releaseError) {
         console.error("Failed to release reserved stock after a failed checkout", item.variantId, releaseError);

@@ -81,7 +81,7 @@ const PROVIDERS: Provider[] = [resend("resend", "RESEND_API_KEY"), resend("resen
 
 async function usedToday(services: ServiceName[]): Promise<Map<ServiceName, number>> {
   try {
-    const result = (await db.execute(sql`select service, calls from api_usage where day = ${pktDay()}::date and service in (${sql.join(services.map((s) => sql`${s}`), sql`, `)})`)) as unknown as { rows: Array<{ service: ServiceName; calls: number }> };
+    const result = (await db.execute(sql`select service, calls from api_usage where day = ${pktDay()} and service in (${sql.join(services.map((s) => sql`${s}`), sql`, `)})`)) as unknown as { rows: Array<{ service: ServiceName; calls: number }> };
     return new Map((result.rows ?? []).map((row) => [row.service, Number(row.calls)]));
   } catch {
     return new Map();

@@ -20,7 +20,7 @@ export async function GET() {
   const base = sql`from product_images i where i.status = 'active' and i.compacted_at is null and i.product_id in (select id from (${idleSoldOutProducts(days)}) as idle)`;
   const [list, total] = await Promise.all([
     db.execute(sql`select i.id, i.r2_key as key, i.variant_widths as widths, i.byte_size as bytes ${base} order by i.created_at limit ${BATCH}`),
-    db.execute(sql`select count(*)::int as n, coalesce(sum(i.byte_size), 0)::bigint as bytes ${base}`),
+    db.execute(sql`select count(*) as n, coalesce(sum(i.byte_size), 0) as bytes ${base}`),
   ]);
   const rows = ((list as unknown as { rows: Row[] }).rows ?? []).map((row) => ({ id: row.id, url: mediaUrl(row.key, null), bytes: Number(row.bytes) }));
   const totals = (total as unknown as { rows: Array<{ n: number; bytes: string | number }> }).rows?.[0];

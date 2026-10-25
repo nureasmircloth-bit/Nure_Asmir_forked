@@ -1,4 +1,4 @@
-import { ilike } from "drizzle-orm";
+import { like as likeCi } from "drizzle-orm";
 import { runInBackground } from "@/lib/background";
 import { reindexAll } from "@/lib/search/algolia";
 import { db } from "@/db";
@@ -32,7 +32,7 @@ type ImportResult = {
 };
 
 async function importOne(item: ProductImport, index: number): Promise<ImportResult> {
-  const [category] = await db.select({ id: categories.id, name: categories.name }).from(categories).where(ilike(categories.name, item.category)).limit(1);
+  const [category] = await db.select({ id: categories.id, name: categories.name }).from(categories).where(likeCi(categories.name, item.category)).limit(1);
   if (!category) {
     return { index, name: item.name, success: false, error: `Category "${item.category}" not found — check spelling or create it first.` };
   }

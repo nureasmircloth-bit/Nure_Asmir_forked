@@ -399,7 +399,7 @@ export async function placeAdminOrder(raw: unknown, adminEmail: string, idempote
       try {
         await db
           .update(productVariants)
-          .set({ reservedQuantity: sql`greatest(0, ${productVariants.reservedQuantity} - ${line.quantity})`, updatedAt: now })
+          .set({ reservedQuantity: sql`max(0, ${productVariants.reservedQuantity} - ${line.quantity})`, updatedAt: now })
           .where(eq(productVariants.id, line.variantId));
       } catch (error) {
         console.error("Failed to release stock after a failed admin order", line.variantId, error);
