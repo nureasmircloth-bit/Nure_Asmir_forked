@@ -7,7 +7,7 @@ so going back is always possible.
 
 | Need | Where |
 | --- | --- |
-| Cloudflare **Workers Paid** plan (about $5/month) | dash.cloudflare.com -> Workers & Pages -> Plans. The free plan's 3 MiB size and 10 ms CPU limits are too small for this app. |
+| Cloudflare **Workers Paid** plan (about $5/month), strongly recommended | dash.cloudflare.com -> Workers & Pages -> Plans. The storefront bundle is about 2 MiB compressed, which fits the free plan's 3 MiB limit, but the free plan allows only 10 ms of CPU per request and rendering a shop page can exceed that (Cloudflare's 1102 error); the paid plan allows 30 s and also raises the D1 and request allowances. |
 | A Cloudflare API token for GitHub Actions: Workers Scripts edit, Workers Routes edit, D1 edit, R2 edit, Account Settings read (and later Zone edit + DNS edit) | My Profile -> API Tokens -> Create; save it as the GitHub secret `CLOUDFLARE_API_TOKEN`, with `CLOUDFLARE_ACCOUNT_ID` = `50018d45c190768a55d57124618e5c07` |
 | The old Neon database readable (free quota used up -> upgrade the Neon project for a day, or wait for 1 Nov) | console.neon.tech -> `nure-asmir-db` |
 

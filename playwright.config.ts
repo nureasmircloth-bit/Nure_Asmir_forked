@@ -84,6 +84,8 @@ const serverEnv = {
   GOOGLE_OAUTH_TOKEN_URL: `http://127.0.0.1:${MOCK_PORT}/token`,
   CRON_SECRET: testEnv.CRON_SECRET || "e2e-cron-secret",
   SALES_MEMO_MS: "0",
+  // All browser tests come from one address; the real limit (8 a minute) would throttle them.
+  CHECKOUT_RATE_MAX: "500",
 };
 // Expose to the test processes too.
 // Test-process access to lib/* modules that import the db client (always the local test file).

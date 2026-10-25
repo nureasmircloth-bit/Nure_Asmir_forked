@@ -82,7 +82,8 @@ export async function reserveLookup(bucket: string, ip: string): Promise<LookupG
 
 const checkoutAttempts = new Map<string, number[]>();
 const CHECKOUT_WINDOW_MS = 60 * 1000;
-const CHECKOUT_MAX = 8;
+// (CHECKOUT_RATE_MAX lets the test server raise it: every browser test comes from the same address, and a fast database makes them quicker than a minute.)
+const CHECKOUT_MAX = Number(process.env.CHECKOUT_RATE_MAX) || 8;
 
 /** In-memory best-effort limiter for the checkout endpoint (per-Worker-isolate; the DB-backed order
  * idempotency key is the real duplicate-order guard — this only throttles abusive request bursts). */
