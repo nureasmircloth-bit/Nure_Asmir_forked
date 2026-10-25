@@ -81,7 +81,7 @@ const KEEP = new Set(["admin_owners", "admin_sessions", "admin_push_devices", "l
 
 /** Lists practice data tables eligible for baseline capture, excluding access, usage and internal tables. */
 async function dataTables(): Promise<string[]> {
-  const result = (await practice().execute(sql`select name as table_name from sqlite_master where type = 'table' and name not like 'sqlite_%' and name not like '\_cf\_%' escape '\' and name <> 'd1_migrations' order by name`)) as unknown as Rows<{ table_name: string }>;
+  const result = (await practice().execute(sql`select name as table_name from sqlite_master where type = 'table' and name not like 'sqlite!_%' escape '!' and name not like '!_cf!_%' escape '!' and name <> 'd1_migrations' and name not like '!_%' escape '!' order by name`)) as unknown as Rows<{ table_name: string }>;
   return result.rows.map((row) => row.table_name).filter((name) => !KEEP.has(name) && !name.startsWith("__"));
 }
 
@@ -136,6 +136,9 @@ export async function hasBaseline(): Promise<boolean> {
   }
 }
 
+/** One saved cell, ready to be bound: picture-width lists were saved as arrays, but the column holds them as JSON text. */
+const cell = (value: unknown): string | number | null => (value !== null && typeof value === "object" ? JSON.stringify(value) : (value as string | number | null));
+
 /** Puts every practice table back to the starting data in one all-or-nothing step. Sign-ins and today's counters are left alone. */
 export async function resetToBaseline(): Promise<{ tables: number }> {
   const saved = (await practice().execute(sql`select table_name, rows from sandbox_baseline where table_name <> ${START_KEY}`)) as unknown as Rows<{ table_name: string; rows: unknown }>;
@@ -150,7 +153,7 @@ export async function resetToBaseline(): Promise<{ tables: number }> {
     ...tables.flatMap((table) =>
       parsed(byName.get(table)).map((row) => {
         const columns = Object.keys(row);
-        return sql`insert into ${sql.raw(`"${table}"`)} (${sql.raw(columns.map((column) => `"${column}"`).join(", "))}) values (${sql.join(columns.map((column) => sql`${row[column] as string | number | null}`), sql`, `)})`;
+        return sql`insert into ${sql.raw(`"${table}"`)} (${sql.raw(columns.map((column) => `"${column}"`).join(", "))}) values (${sql.join(columns.map((column) => sql`${cell(row[column])}`), sql`, `)})`;
       }),
     ),
   ];
