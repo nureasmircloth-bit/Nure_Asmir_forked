@@ -46,17 +46,17 @@ export const DISPLAY_FONTS: FontChoice[] = [
 ];
 
 export const BODY_FONTS: FontChoice[] = [
-  { value: "Jost", label: "Jost — clean geometric sans (default)", kind: "sans", weights: ALL },
+  { value: "Figtree", label: "Figtree — light humanist sans, like Ismail Farid (default)", kind: "sans", weights: "300;400;500;600;700" },
+  { value: "Jost", label: "Jost — clean geometric sans", kind: "sans", weights: ALL },
   { value: "Inter", label: "Inter — crisp modern UI sans", kind: "sans", weights: ALL },
   { value: "DM Sans", label: "DM Sans — low-contrast geometric sans", kind: "sans", weights: ALL },
   { value: "Manrope", label: "Manrope — modern semi-condensed sans", kind: "sans", weights: ALL },
   { value: "Outfit", label: "Outfit — contemporary minimalist", kind: "sans", weights: ALL },
   { value: "Plus Jakarta Sans", label: "Plus Jakarta Sans — warm executive sans", kind: "sans", weights: ALL },
-  { value: "Figtree", label: "Figtree — friendly and neat", kind: "sans", weights: ALL },
   { value: "Montserrat", label: "Montserrat — editorial sans", kind: "sans", weights: ALL },
   { value: "Poppins", label: "Poppins — balanced modern geometric sans", kind: "sans", weights: ALL },
   { value: "Raleway", label: "Raleway — elegant light-feel sans", kind: "sans", weights: ALL },
-  { value: "Lato", label: "Lato — classic neutral sans", kind: "sans", weights: REGULAR_BOLD },
+  { value: "Lato", label: "Lato — classic neutral sans", kind: "sans", weights: "300;400;700" },
   { value: "Open Sans", label: "Open Sans — familiar and readable", kind: "sans", weights: ALL },
   { value: "Roboto", label: "Roboto — neutral, everywhere-readable", kind: "sans", weights: ALL },
   { value: "Source Sans 3", label: "Source Sans 3 — clear and professional", kind: "sans", weights: ALL },
@@ -74,8 +74,8 @@ export const BODY_FONTS: FontChoice[] = [
 /** Fonts for the Contact page: the readable sans fonts plus the heading serif the shop already uses. */
 export const CONTACT_FONTS: FontChoice[] = [
   { value: "Inter", label: "Inter — simple and ultra-crisp (recommended)", kind: "sans", weights: ALL },
-  ...BODY_FONTS.filter((font) => font.value !== "Inter" && font.value !== "system-ui" && font.value !== "Jost"),
-  { value: "Jost", label: "Jost — the shop's body font", kind: "sans", weights: ALL },
+  ...BODY_FONTS.filter((font) => font.value !== "Inter" && font.value !== "system-ui" && font.value !== "Jost" && font.value !== "Figtree"),
+  { value: "Figtree", label: "Figtree — the shop's body font", kind: "sans", weights: "300;400;500;600;700" },
   { value: "Cormorant Garamond", label: "Cormorant Garamond — match the luxury serif", kind: "serif", weights: ALL },
   { value: "system-ui", label: "System font — fastest, matches the visitor's device", kind: "sans", weights: "" },
 ];

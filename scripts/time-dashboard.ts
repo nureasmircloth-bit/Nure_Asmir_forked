@@ -8,22 +8,16 @@ async function timed(label: string, work: () => Promise<unknown>) {
   console.log(`${label.padEnd(28)} ${Math.round(performance.now() - started)} ms`);
 }
 
-/** Fails closed: only a disposable test database may be touched, judged by the host name alone (never by words elsewhere in the URL). */
-function assertDisposable(url: string): void {
-  let host = "";
-  try {
-    host = new URL(url).hostname;
-  } catch {
-    // not a URL at all
-  }
-  if (!/^ep-restless-art-[a-z0-9]+(-pooler)?\./.test(host)) {
-    console.error("Refusing to run: DATABASE_URL is not the disposable e2e test branch.");
+/** Fails closed: only a local SQLite test file may be used (LOCAL_DB_PATH), never a real database. */
+function assertDisposable(path: string): void {
+  if (!path) {
+    console.error("Refusing to run: set LOCAL_DB_PATH to a local test database (npm run e2e:db makes one).");
     process.exit(1);
   }
 }
 
 (async () => {
-  assertDisposable(process.env.DATABASE_URL ?? "");
+  assertDisposable(process.env.LOCAL_DB_PATH ?? "");
   await timed("warm-up (todo)", getTodo);
   await timed("getTodo", getTodo);
   await timed("getLowStock(6)", () => getLowStock(6));

@@ -1,4 +1,4 @@
-import { neon } from "@neondatabase/serverless";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { hitCountsAgainstLimit, hitState, LIMIT_REACHED_MESSAGE } from "./sandbox-rules";
 
 /** Today's date in Pakistan, as text (the practice allowance resets at midnight there). */
@@ -14,13 +14,16 @@ export async function sandboxGate(request: Request): Promise<Response | null> {
   if (!hitCountsAgainstLimit(url.pathname, request.method, request.headers)) return null;
   // only the training lab (SANDBOX=1) is counted; the real shop and the real admin are never slowed down
   if (process.env.SANDBOX !== "1") return null;
-  const practiceUrl = process.env.PRACTICE_DATABASE_URL;
-  if (!practiceUrl) return null;
+  // The training Worker's own D1 database (binding DB). Tests that use a plain SQLite file do not count requests.
+  if (process.env.LOCAL_DB_PATH) return null;
   let used: number;
   try {
-    const sql = neon(practiceUrl);
-    const rows = (await sql`insert into sandbox_usage (day, hits) values (${pakistanDay()}, 1) on conflict (day) do update set hits = sandbox_usage.hits + 1 returning hits`) as Array<{ hits: number }>;
-    used = Number(rows[0]?.hits ?? 0);
+    const { env } = getCloudflareContext();
+    const row = await (env as unknown as { DB: { prepare(sql: string): { bind(...values: unknown[]): { first<T>(): Promise<T | null> } } } }).DB
+      .prepare("insert into sandbox_usage (day, hits) values (?, 1) on conflict (day) do update set hits = sandbox_usage.hits + 1 returning hits")
+      .bind(pakistanDay())
+      .first<{ hits: number }>();
+    used = Number(row?.hits ?? 0);
   } catch {
     return null;
   }

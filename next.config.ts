@@ -39,7 +39,7 @@ const nextConfig: NextConfig = {
   // than left in as code that looks like it works but doesn't.
   // The admin deployable has no storefront home page – its root goes straight to the panel.
   async redirects() {
-    return process.env.APP_TARGET === "admin" ? [{ source: "/", destination: "/admin", permanent: false }] : [];
+    return ["admin", "training", "developer"].includes(process.env.APP_TARGET ?? "") ? [{ source: "/", destination: "/admin", permanent: false }] : [];
   },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];

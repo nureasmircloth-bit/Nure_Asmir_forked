@@ -1,7 +1,7 @@
 import { googleFontHref } from "@/lib/fonts";
 import { chromeCss } from "@/lib/theme-chrome";
 import type { Metadata, Viewport } from "next";
-import { Cormorant_Garamond, Jost } from "next/font/google";
+import { Cormorant_Garamond, Figtree, Lato } from "next/font/google";
 import "./globals.css";
 import "./storefront.css";
 import { BRAND, normalizeOrigin, siteOrigin } from "@/lib/brand";
@@ -18,10 +18,20 @@ const display = Cormorant_Garamond({
   preload: false,
 });
 
-const sans = Jost({
+// Body and product text: Figtree, a free humanist sans that stands in for Ismail Farid's Whitney Light (a licensed font we cannot ship).
+const sans = Figtree({
   variable: "--font-sans",
   subsets: ["latin"],
   weight: ["300", "400", "500", "600"],
+  display: "swap",
+  preload: false,
+});
+
+// Prices: Lato Light, the same font Ismail Farid uses for its prices.
+const price = Lato({
+  variable: "--font-price",
+  subsets: ["latin"],
+  weight: ["300", "400", "700"],
   display: "swap",
   preload: false,
 });
@@ -112,12 +122,12 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   // Google fonts chosen in Settings (the built-in heading and body fonts come with the site and are not requested).
   const fontNames = new Set<string>();
   if (settings.fontFamily && settings.fontFamily !== "Cormorant Garamond") fontNames.add(settings.fontFamily.trim());
-  if (settings.bodyFontFamily && settings.bodyFontFamily !== "Jost") fontNames.add(settings.bodyFontFamily.trim());
+  if (settings.bodyFontFamily && settings.bodyFontFamily !== "Figtree") fontNames.add(settings.bodyFontFamily.trim());
   if (settings.contactFontFamily) fontNames.add(settings.contactFontFamily.trim());
   const fontHrefs = [...fontNames].map((name) => googleFontHref(name)).filter((href): href is string => Boolean(href));
 
   return (
-    <html lang="en-PK" suppressHydrationWarning className={`${display.variable} ${sans.variable}`}>
+    <html lang="en-PK" suppressHydrationWarning className={`${display.variable} ${sans.variable} ${price.variable}`}>
       <head>
         <script type="application/ld+json" nonce={nonce} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
         {fontHrefs.map((href) => (
@@ -138,7 +148,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                 --muted: color-mix(in srgb, ${settings.themeTextColor || "#111111"} 55%, transparent);
                 --radius-theme: ${settings.themeRadius === "sharp" ? "0px" : settings.themeRadius === "rounded" ? "10px" : settings.themeRadius === "pill" ? "24px" : "4px"};
                 ${settings.fontFamily && settings.fontFamily !== "Cormorant Garamond" ? `--font-display: "${settings.fontFamily}", Georgia, serif; --display: "${settings.fontFamily}", Georgia, serif;` : ""}
-                ${settings.bodyFontFamily && settings.bodyFontFamily !== "Jost" ? `--font-sans: ${settings.bodyFontFamily === "system-ui" ? "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" : `"${settings.bodyFontFamily}", -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`}; --sans: ${settings.bodyFontFamily === "system-ui" ? "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" : `"${settings.bodyFontFamily}", -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`};` : ""}
+                ${settings.bodyFontFamily && settings.bodyFontFamily !== "Figtree" ? `--font-sans: ${settings.bodyFontFamily === "system-ui" ? "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" : `"${settings.bodyFontFamily}", -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`}; --sans: ${settings.bodyFontFamily === "system-ui" ? "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" : `"${settings.bodyFontFamily}", -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`};` : ""}
                 ${settings.contactFontFamily ? `--contact-font: ${settings.contactFontFamily === "system-ui" ? "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" : `"${settings.contactFontFamily}", -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`};` : ""}
               }
               body {

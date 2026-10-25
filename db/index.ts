@@ -34,8 +34,32 @@ function localDb(path: string): Db {
   return local;
 }
 
+let http: Db | null = null;
+/** Scripts run from a laptop or CI reach a real D1 database over Cloudflare's HTTP API (D1_HTTP_DATABASE_ID + CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_API_TOKEN). */
+function httpDb(): Db {
+  if (http) return http;
+  const { CLOUDFLARE_ACCOUNT_ID: account, CLOUDFLARE_API_TOKEN: token, D1_HTTP_DATABASE_ID: database } = process.env;
+  if (!account || !token || !database) throw new Error("CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_TOKEN and D1_HTTP_DATABASE_ID are needed to reach D1 over HTTP.");
+  const req = eval("require") as NodeRequire;
+  const { drizzle } = req("drizzle-orm/sqlite-proxy") as { drizzle: (callback: unknown, config: unknown) => unknown };
+  const callback = async (query: string, params: unknown[], method: string) => {
+    const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${account}/d1/database/${database}/raw`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({ sql: query, params }),
+    });
+    const body = (await response.json()) as { success: boolean; errors?: Array<{ message: string }>; result?: Array<{ results: { rows: unknown[][] } }> };
+    if (!body.success) throw new Error(`D1: ${body.errors?.map((e) => e.message).join("; ") ?? response.status}`);
+    const rows = body.result?.[0]?.results?.rows ?? [];
+    return { rows: method === "get" ? (rows[0] as unknown[]) : rows };
+  };
+  http = drizzle(callback, { schema }) as unknown as Db;
+  return http;
+}
+
 function resolve(): Db {
   if (process.env.LOCAL_DB_PATH) return localDb(process.env.LOCAL_DB_PATH);
+  if (process.env.D1_HTTP_DATABASE_ID) return httpDb();
   const env = getCloudflareContext().env as unknown as { DB?: D1Database };
   if (!env.DB) throw new Error("The D1 database binding `DB` is missing (see wrangler.jsonc).");
   return drizzleD1(env.DB, { schema }) as unknown as Db;
@@ -68,7 +92,7 @@ export const db: Db = new Proxy({} as Db, {
 
 /** The raw D1 binding (or null when running on a local SQLite file), for statements drizzle cannot express (batches, PRAGMA). */
 export function d1Binding(): D1Database | null {
-  if (process.env.LOCAL_DB_PATH) return null;
+  if (process.env.LOCAL_DB_PATH || process.env.D1_HTTP_DATABASE_ID) return null;
   return (getCloudflareContext().env as unknown as { DB?: D1Database }).DB ?? null;
 }
 
@@ -90,7 +114,12 @@ export async function runAtomically(statements: SQL[]): Promise<void> {
     return;
   }
   // D1 accepts at most a few hundred statements per batch; larger lists are sent in consecutive batches of 90.
-  for (let i = 0; i < statements.length; i += 90) await target.batch!(statements.slice(i, i + 90).map((statement) => target.run(statement)));
+  if (!target.batch) {
+    // Over the HTTP API there is no batch: the statements are sent one after another (scripts only).
+    for (const statement of statements) await target.run(statement);
+    return;
+  }
+  for (let i = 0; i < statements.length; i += 90) await target.batch(statements.slice(i, i + 90).map((statement) => target.run(statement)));
 }
 
 export { schema };

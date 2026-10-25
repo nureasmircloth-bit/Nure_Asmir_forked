@@ -1,7 +1,7 @@
 # Nure Asmir — storefront & admin
 
 Pakistani men's wear e-commerce site ("Tradition in a modern form"): Next.js 16 (App Router) on
-Cloudflare Workers via OpenNext, Neon Postgres + Object Storage + Auth, Algolia search (with a built-in MiniSearch fallback), TCS
+Cloudflare Workers via OpenNext, Cloudflare D1 (SQLite) for the data, Neon Object Storage for pictures, Algolia search (with a built-in MiniSearch fallback), TCS
 courier, WhatsApp order confirmation. The storefront design follows the *Ismail Farid* benchmark:
 a calm, white, image-led layout.
 
@@ -10,7 +10,7 @@ a calm, white, image-led layout.
 | Concern | Service |
 | --- | --- |
 | Hosting / CDN / WAF | Cloudflare Workers (OpenNext) + Cloudflare edge cache |
-| Database | Neon Postgres (`neondb`, Singapore `ap-southeast-1`) via Drizzle + `neon-http` |
+| Database | Cloudflare D1 (SQLite, Asia-Pacific) via Drizzle: `nure-asmir-prod` (shop, admin, developer) and `nure-asmir-training` (the practice shop). Binding `DB`; schema in `db/schema.ts`, migrations in `drizzle/` |
 | Images & files | Neon Object Storage — `nure-asmir-media` (public) and `nure-asmir-private` (payment proofs) |
 | Auth | Neon Auth (Managed Better Auth) is enabled on the project; the admin panel currently uses its own session auth (`lib/auth`) |
 | Search | Algolia (`nure_asmir_products`), instant overlay + `/search`. If Algolia's free allowance runs out (HTTP 429/403) or it is unreachable, the browser switches to a MiniSearch engine that is fetched **only then** (`lib/search/`) |
@@ -26,8 +26,8 @@ changing framework-level code (see `AGENTS.md`).
 
 ```bash
 npm install
-cp .env.example .env.local        # then fill in (or `neon env pull` for the Neon values)
-npm run db:migrate                # apply Drizzle migrations to the Neon branch in .env.local
+cp .env.example .env.local        # then fill in (LOCAL_DB_PATH=.local-db/dev.sqlite makes the app use a local SQLite file instead of D1)
+npm run db:local                  # create/update that local file from the migrations in ./drizzle
 npm run db:seed                   # admin owner, settings, categories, catalogue, banners (uploads photos)
 npm run search:reindex            # push the catalogue into Algolia
 npm run dev                       # http://localhost:3000
@@ -37,7 +37,7 @@ npm run dev                       # http://localhost:3000
 
 Useful scripts: `npm run cf:preview` (run the real Worker bundle locally), `npm run brand:assets`
 (regenerate favicon / OG / logo files from `nure_asmir_assets/web`), `npm run db:generate` after a
-schema change.
+schema change (it writes a new SQL file into `drizzle/`; the real D1 databases get it with `npm run d1:migrate:remote`).
 
 ## Images: conversion, storage and CDN
 
@@ -56,10 +56,10 @@ schema change.
   proxied `cdn` hostname whose origin rule points at the bucket, so images never touch the Worker.
 * Orphans are cleaned daily by `scripts/storage-audit.ts` (GitHub Action *Storage orphan cleanup*).
 
-## Neon
+## Neon (pictures only)
 
-`neon.ts` declares the services (auth + the two buckets); apply with `neon deploy`. The project is
-linked in `.neon` (git-ignored): project `blue-bread-34552165`, branch `production`.
+`neon.ts` declares the services still used (the two storage buckets); apply with `neon deploy`. The data itself no longer lives in Neon: the old Postgres
+project (`blue-bread-34552165`) is kept only until the move to D1 is signed off, and `drizzle-pg-archive/` holds its migration history.
 
 ## Search
 
@@ -67,23 +67,26 @@ linked in `.neon` (git-ignored): project `blue-bread-34552165`, branch `producti
 product/variant/image/category routes re-index on change; a nightly workflow calls
 `/api/cron/search-reindex`. The browser only ever sees the **search-only** key.
 
-## Hosting: Vercel (one project, three hostnames)
+## Hosting: Cloudflare Workers (four Workers, two databases)
 
-The whole app (shop, admin, training lab) is one Next.js project deployed to **Vercel** (project `nure-asmir`, region `sin1` in `vercel.json`), and the
-domain's nameservers are Vercel's (`ns1/ns2.vercel-dns.com`): Cloudflare no longer serves DNS or runs any code for this site. The same deployment answers
-`nureasmir.com` (shop), `admin.nureasmir.com` and `training.nureasmir.com`; `middleware.ts` sends the bare admin address (and any non-admin path) to `/admin`
-and marks the admin host `noindex`. Shoppers never download admin code or CSS (`app/admin/admin.css` is loaded only by the admin layout).
+Each part of the site is its own Worker with its own build (`scripts/build-target.mjs`), so shoppers never download admin code, owners never download the
+developer console or the training lab, and the training lab can never touch real data:
 
-* **Scheduled jobs** (reservation expiry, TCS sync, sale alerts, daily maintenance) are called by GitHub Actions (`.github/workflows/cron.yml`, every 30 minutes)
-  with `CRON_SECRET`; there is no timer left on Cloudflare.
-* **The old shop and admin Workers** (`nure-asmir`, `nure-asmir-admin`) are retired. Their code (`wrangler*.jsonc`, `worker-entry.ts`,
-  `admin-entry.ts`, `open-next.config.ts`, the `cf:*` scripts) is kept in git for now but nothing deploys it. To close the live Workers, run Actions →
-  "Retire Cloudflare Workers (one time)" (list first, then tick "delete").
-* **The training lab** (`/admin/training*`, lessons, six guided labs in `lib/labs.ts`, free practice) stays on **Cloudflare** as its own Worker, `nure-asmir-training`
-  (the admin build in practice mode: `SANDBOX=1`, the practice database only, no email/WhatsApp/TCS/push/search/AI keys, no timer). `.github/workflows/deploy-training.yml`
-  deploys it after every successful production deploy (or by hand) and smoke-checks its login page. Because DNS is on Vercel, the Worker has no custom domain: it lives at
-  `https://nure-asmir-training.<your-subdomain>.workers.dev`, and `training.nureasmir.com` redirects to it when the `TRAINING_URL` variable is set on the Vercel project.
-  See `docs/consultant/03-loading-and-indexing.html#sandbox`.
+| Worker | Build | Address | Database |
+| --- | --- | --- | --- |
+| `nure-asmir` | `npm run cf:build:store` | nureasmir.com, www | `nure-asmir-prod` |
+| `nure-asmir-admin` | `npm run cf:build:admin` | admin.nureasmir.com | `nure-asmir-prod` |
+| `nure-asmir-developer` | `npm run cf:build:developer` | developer.nureasmir.com | `nure-asmir-prod` |
+| `nure-asmir-training` | `npm run cf:build:training` | training.nureasmir.com | `nure-asmir-training` (its own) |
+
+* **Scheduled jobs** (reservation expiry, TCS sync, sale alerts, daily maintenance) run from the store Worker's own timer (`worker-entry.ts`, every 3 minutes);
+  `.github/workflows/cron.yml` is only a backup caller. D1 never sleeps, so nothing needs to keep the database awake.
+* **The training lab** (`/admin/training*`, lessons, six guided labs in `lib/labs.ts`, free practice) is the admin build in practice mode (`SANDBOX=1`) with
+  its own D1 database and none of the email/WhatsApp/TCS/push/search/AI keys. See `docs/consultant/03-loading-and-indexing.html#sandbox`.
+* **Database limits to know**: D1 allows 100 bound values per statement (long lists go through `chunked()` in `db/sql-compat.ts`), and no interactive
+  transactions (`runAtomically()` / guarded `UPDATE ... WHERE` instead). A point in time is stored as milliseconds, true/false as 1/0.
+* **Local database**: tests, scripts and builds use a plain SQLite file (`LOCAL_DB_PATH`, made by `scripts/local-db.mjs`); scripts that must reach a real D1
+  database use `D1_HTTP_DATABASE_ID` + `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_API_TOKEN`. Hand-written SQL goes through the helpers in `db/sql-compat.ts`.
 
 ## Shopper experience details
 
@@ -111,28 +114,22 @@ npx playwright test --project=mobile-safari --project=small-android e2e/ui/layou
 NEXT_DIST_DIR=.next-prod npx next build && E2E_PROD=1 npx playwright test --project=pwa
 ```
 
-The suite refuses to run unless `DATABASE_URL` points at the disposable Neon branch `e2e-test` (set in the
-git-ignored `.env.development.local`); Algolia, email and WhatsApp are switched off for it; push
-notifications go to a local mock of Google's OAuth + FCM endpoints (`e2e/support/mock-fcm.mjs`) and TCS to a local mock
+The suite runs against a disposable local SQLite file, `.local-db/e2e.sqlite`, made (and refilled with the demo shop) by `npm run e2e:db`; it refuses to run if
+that file is missing. Pictures of the demo shop go to the test storage bucket named in the git-ignored `.env.development.local`. Algolia, email and WhatsApp are
+switched off for it; push notifications go to a local mock of Google's OAuth + FCM endpoints (`e2e/support/mock-fcm.mjs`) and TCS to a local mock
 (`e2e/support/mock-tcs.mjs`).
 
-## Deployment (GitHub Actions → Vercel)
+## Deployment (GitHub Actions -> Cloudflare)
 
-* `development` → CI (`.github/workflows/ci.yml`: tsc, eslint, build) and CodeRabbit review. Work goes through pull requests; nothing is pushed straight to `main`.
-* `main` → `.github/workflows/deploy.yml`: checks the Vercel secrets, applies database migrations (`drizzle-kit migrate`, then the practice tables with
-  `scripts/practice-migrate.ts`), then `vercel deploy --prod`.
-* GitHub secrets: `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `DATABASE_URL`, `CRON_SECRET`, `NEXT_PUBLIC_SITE_URL`, `PRACTICE_DATABASE_URL` (optional,
-  made by `scripts/practice-create.ts`) and the storage keys used by the practice seed. The app's own runtime settings (`SESSION_SECRET`, `ADMIN_EMAIL`,
-  `CSP_NONCE`, storage, Algolia, Firebase, Groq, Turnstile, Resend/Brevo, WhatsApp, TCS, `NEXT_PUBLIC_*`, …) live in the **Vercel project's environment variables**
-  (`vercel env ls`); the full list of names is in `.env.example`. Keep service tokens that the app does not read (for example any Cloudflare token) out of it.
-* Pictures: `/cdn/r2/…` is answered from Neon storage when the old Cloudflare R2 bucket is not there (`app/cdn/[...key]/route.ts`).
+* Pull requests -> CI (`.github/workflows/ci.yml`: tsc, eslint, unit tests, then the Next.js build and the four Cloudflare builds against a throw-away local SQLite
+  file made from the migrations - no secret and no real database involved) and CodeRabbit review. Nothing is pushed straight to `main`.
+* `.github/workflows/deploy-cloudflare.yml` (run by hand from the Actions tab until the move is finished): applies the D1 migrations, builds and deploys the four
+  Workers, syncs their secrets (the training lab gets a small subset) and smoke-checks them. `.github/workflows/deploy.yml` (Vercel) is a manual fallback only.
+* GitHub secrets: `CLOUDFLARE_API_TOKEN` (Workers, D1, R2, routes), `CLOUDFLARE_ACCOUNT_ID`, `CRON_SECRET`, `NEXT_PUBLIC_*`, the storage keys, and the app's runtime
+  secrets listed in the workflow (`SESSION_SECRET`, `ADMIN_EMAIL`, `CSP_NONCE`, Algolia, Firebase, Groq, Turnstile, Resend/Brevo, WhatsApp, TCS, ...); names are in `.env.example`.
+* Pictures: `/cdn/r2/...` is answered from Neon storage when the R2 bucket does not have the file (`app/cdn/[...key]/route.ts`).
+* Moving the data from the old Neon Postgres: `scripts/neon-to-d1.ts` (read-only on Neon; row counts and checksums per table), then `wrangler d1 execute --remote --file`.
 * `.github/workflows/dns-watch.yml` is an optional manual check that every hostname resolves on public resolvers.
-
-## Cloudflare (retired)
-
-Cloudflare is not used for DNS or hosting any more. The zone for `nureasmir.com` may still exist on the account, unused; it can be deleted once the email
-records (Brevo `_domainkey`, `orders`, `rsend`) have been copied to Vercel DNS. Security headers and the CSP are set by the app (`middleware.ts`) and by
-`vercel.json`; guessing limits live in the app (`lib/auth/rate-limit.ts`).
 
 ## Content to confirm with the client
 
@@ -180,7 +177,7 @@ admin and the training lab do not track. `https://eu.i.posthog.com` is allowed i
 
 ## Load testing with lots of data
 
-`scripts/load-seed.ts` fills the **disposable e2e test branch** (it refuses to run on anything else) with 1,500 products (3 sizes and 3 photos
+(Retired: `scripts/load-seed.ts` was written for Postgres and has been removed.) It filled the **disposable e2e test branch** (it refuses to run on anything else) with 1,500 products (3 sizes and 3 photos
 each) and 8,000 orders, all tagged (`lt-` slugs, `LT-` order numbers) so `--clean` removes them again:
 
 ```bash

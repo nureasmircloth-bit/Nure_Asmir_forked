@@ -14,11 +14,8 @@ const REMINDER_WINDOW_HOURS = 3;
  * the reserved stock back to the pool. Intended to run before every checkout attempt and from a
  * scheduled cron trigger (see app/api/cron/expire-reservations/route.ts).
  *
- * This project's Neon connection (db/index.ts) uses the stateless `neon-http` driver — a
- * connection-pooling driver caused real production failures on Cloudflare Workers ("Cannot
- * perform I/O on behalf of a different request"), because Workers forbids reusing a persistent
- * connection across different requests. `neon-http` has no `db.transaction()`, so each order here
- * is processed with plain sequential awaits instead, guarded by a conditional UPDATE (cancel only
+ * The database is Cloudflare D1 (db/index.ts), which has no interactive `db.transaction()`, so each
+ * order here is processed with plain sequential awaits instead, guarded by a conditional UPDATE (cancel only
  * if still "pending_confirmation") so two concurrent runs can never double-cancel or
  * double-release the same order.
  */

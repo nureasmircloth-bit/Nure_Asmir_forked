@@ -31,7 +31,10 @@ jobs:
 
       - name: Delete orphaned media objects
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          # the shop's Cloudflare D1 database, reached over Cloudflare's HTTP API
+          D1_HTTP_DATABASE_ID: 55b97328-231b-4fa7-ba88-8b825dfcb337
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           AWS_ENDPOINT_URL_S3: ${{ secrets.AWS_ENDPOINT_URL_S3 }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}

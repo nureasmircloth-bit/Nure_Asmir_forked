@@ -391,7 +391,7 @@ export function SettingsForm({ initial, status, initialPending }: { initial: Set
                 accent: "#c5a059",
                 radius: "subtle",
                 displayFont: "Cormorant Garamond",
-                bodyFont: "Jost",
+                bodyFont: "Figtree",
               },
               {
                 id: "cashmere",
@@ -403,7 +403,7 @@ export function SettingsForm({ initial, status, initialPending }: { initial: Set
                 accent: "#9d7a54",
                 radius: "subtle",
                 displayFont: "Playfair Display",
-                bodyFont: "Jost",
+                bodyFont: "Figtree",
               },
               {
                 id: "emerald",

@@ -1,12 +1,13 @@
 // Sets up (or tops up) the PRACTICE shop's database. Safe to run again: it only fills what is missing.
 //
-//   DATABASE_URL=<the practice connection string> ADMIN_EMAIL=practice@nureasmir.com ADMIN_INITIAL_PASSWORD=<anything> npx tsx scripts/sandbox-setup.ts
+//   local file:  LOCAL_DB_PATH=.local-db/training.sqlite ADMIN_EMAIL=practice@nureasmir.com ADMIN_INITIAL_PASSWORD=<anything> npx tsx scripts/sandbox-setup.ts
+//   real D1:     D1_HTTP_DATABASE_ID=<id of nure-asmir-training> TRAINING_D1_DATABASE_ID=<the same id> CLOUDFLARE_ACCOUNT_ID=... CLOUDFLARE_API_TOKEN=... (same command)
 //
 // 1. runs scripts/seed.ts, which creates the practice owner, settings, delivery areas, categories, products with pictures and banners;
 // 2. adds a few pretend orders in different stages, so every lesson has something to work on;
 // 3. remembers how everything looks as "the starting data" (what the Start again button restores).
 //
-// It refuses to run unless the connection looks at the "practice" schema (see scripts/practice-create.ts), so it can never touch the real tables.
+// It refuses to run unless it is pointed at a local file or at the training D1 database (TRAINING_D1_DATABASE_ID must match), so it can never touch the real shop.
 import { spawnSync } from "node:child_process";
 import { sql } from "drizzle-orm";
 import { db } from "../db";
@@ -16,7 +17,7 @@ const FORCE = process.argv.includes("--force");
 
 /** Counts rows in a trusted setup table, returning zero when the query has no result. */
 async function count(table: string): Promise<number> {
-  const result = (await db.execute(sql.raw(`select count(*)::int as n from "${table}"`))) as unknown as { rows: Array<{ n: number }> };
+  const result = (await db.execute(sql.raw(`select count(*) as n from "${table}"`))) as unknown as { rows: Array<{ n: number }> };
   return Number(result.rows[0]?.n ?? 0);
 }
 
@@ -58,7 +59,7 @@ async function addPretendOrders() {
     const subtotal = item.price * quantity;
     const delivery = subtotal >= 10000 ? 0 : 250;
     const number = `PR-${String(100100 + n)}`;
-    const created = new Date(Date.now() - stage.hoursAgo * 3_600_000).toISOString();
+    const created = Date.now() - stage.hoursAgo * 3_600_000;
     const created_order = (await db.execute(sql`
       insert into orders (order_number, customer_name, customer_phone, city, province, address, subtotal, delivery_charge, total, payment_method, payment_status, order_status,
         courier_tracking_number, courier_status, courier_booked_at, handed_over_at, cancelled_at, cancel_reason, cancelled_by, created_at, updated_at)
@@ -79,14 +80,13 @@ async function addPretendOrders() {
 
 /** Verifies the practice schema, seeds sample data when needed and captures the baseline used by reset. */
 async function main() {
-  const url = process.env.DATABASE_URL ?? "";
-  if (!url) throw new Error("DATABASE_URL is not set (use the PRACTICE connection string).");
   if (!process.env.ADMIN_EMAIL || !process.env.ADMIN_INITIAL_PASSWORD) throw new Error("ADMIN_EMAIL and ADMIN_INITIAL_PASSWORD (any practice sign-in) are required.");
-  process.env.PRACTICE_DATABASE_URL = url; // the helpers below work on "the practice tables"; here that is simply this connection
+  process.env.SANDBOX = "1";
 
-  // The one safety check that matters: this must be the practice user, looking at the practice schema – never the real tables.
-  const where = (await db.execute(sql`select current_schema() as schema, current_user as who`)) as unknown as { rows: Array<{ schema: string; who: string }> };
-  if (where.rows[0]?.schema !== "practice") throw new Error(`Refusing to continue: this connection looks at the "${where.rows[0]?.schema}" tables, not the practice ones.`);
+  // The one safety check that matters: this must be a local test file or the training database – never the real shop's database.
+  const local = Boolean(process.env.LOCAL_DB_PATH);
+  const remote = Boolean(process.env.D1_HTTP_DATABASE_ID) && process.env.D1_HTTP_DATABASE_ID === process.env.TRAINING_D1_DATABASE_ID;
+  if (!local && !remote) throw new Error("Refusing to continue: set LOCAL_DB_PATH, or D1_HTTP_DATABASE_ID equal to TRAINING_D1_DATABASE_ID (the training database).");
 
   if (!(await hasBaseline()) || FORCE) {
     const seed = spawnSync(process.execPath, ["./node_modules/tsx/dist/cli.mjs", "scripts/seed.ts"], { stdio: "inherit", env: process.env });

@@ -59,7 +59,8 @@ export function searchLocal(index: MiniSearch<SearchDoc>, query: string, limit: 
     name: String(result.name),
     slug: String(result.slug),
     price: Number(result.price),
-    priceOnRequest: Boolean(result.priceOnRequest),
+    // (the index's extractField turns every stored value into text, so false arrives as "false")
+    priceOnRequest: result.priceOnRequest === true || result.priceOnRequest === "true",
     imageUrl: (result.imageUrl as string | null) ?? null,
     category: String(result.category),
     highlight: highlight(String(result.name), terms),

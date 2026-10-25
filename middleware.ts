@@ -45,7 +45,7 @@ function buildCsp(): string {
 /** Applies practice usage limits, canonical redirects, response security headers and admin indexing restrictions. */
 export async function middleware(request: NextRequest) {
   // The training lab counts every admin request against a daily allowance first; the real shop and the real admin are not touched by this.
-  if (process.env.SANDBOX === "1" && process.env.PRACTICE_DATABASE_URL) {
+  if (process.env.SANDBOX === "1") {
     const blocked = await sandboxGate(request);
     if (blocked) return blocked;
   }
@@ -86,7 +86,7 @@ export async function middleware(request: NextRequest) {
 
   // When accessed via admin subdomain (e.g. admin.nureasmir.com):
   // automatically route root and non-admin routes to /admin without needing manual /admin typing.
-  const isAdminSubdomain = hostname.startsWith("admin.") || process.env.APP_TARGET === "admin";
+  const isAdminSubdomain = hostname.startsWith("admin.") || process.env.APP_TARGET === "admin" || process.env.APP_TARGET === "developer";
   if (isAdminSubdomain) {
     const pathname = request.nextUrl.pathname;
     const inside = (base: string) => pathname === base || pathname.startsWith(`${base}/`); // whole path segments only: "/administrator" is not "/admin"
@@ -103,7 +103,7 @@ export async function middleware(request: NextRequest) {
   const response = NextResponse.next();
   response.headers.set("Content-Security-Policy", buildCsp());
   // The admin and training Workers / subdomains must never be indexed.
-  if (isAdminSubdomain || process.env.APP_TARGET === "admin" || process.env.APP_TARGET === "training") {
+  if (isAdminSubdomain || ["admin", "developer", "training"].includes(process.env.APP_TARGET ?? "")) {
     response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
   }
   // Never in dev: browsers cache HSTS per host for the full max-age, which would pin localhost to https.

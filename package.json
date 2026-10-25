@@ -20,8 +20,12 @@
     "brand:assets": "node ./node_modules/tsx/dist/cli.mjs scripts/build-brand-assets.ts",
     "cf:build:store": "node scripts/build-target.mjs store build",
     "cf:build:admin": "node scripts/build-target.mjs admin build",
+    "cf:build:training": "node scripts/build-target.mjs training build",
+    "cf:build:developer": "node scripts/build-target.mjs developer build",
     "cf:preview:store": "node scripts/build-target.mjs store preview",
     "cf:preview:admin": "node scripts/build-target.mjs admin preview",
+    "cf:preview:training": "node scripts/build-target.mjs training preview",
+    "cf:preview:developer": "node scripts/build-target.mjs developer preview",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "postinstall": "node scripts/copy-vendor.mjs"

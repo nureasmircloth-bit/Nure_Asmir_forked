@@ -72,7 +72,7 @@ async function loadSettingsData() {
     themeSurfaceColor: row?.themeSurfaceColor || "#faf9f6",
     themeRadius: row?.themeRadius || "subtle",
     fontFamily: row?.fontFamily || "Cormorant Garamond",
-    bodyFontFamily: row?.bodyFontFamily || "Jost",
+    bodyFontFamily: row?.bodyFontFamily || "Figtree",
     contactFontFamily: row?.contactFontFamily || "Inter",
     shopDescription: row?.shopDescription ?? "",
     readyDeliveryText: row?.readyDeliveryText ?? "",

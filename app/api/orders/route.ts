@@ -292,11 +292,8 @@ export async function POST(request: Request) {
   const orderId = randomUUID();
   const orderNumber = generateOrderNumber();
 
-  // NOTE: this project's Neon connection (db/index.ts) intentionally uses the stateless `neon-http`
-  // driver, not a connection-pooling driver — Cloudflare Workers forbids reusing an I/O object
-  // (sockets, pooled connections) across different requests, and a pooling driver caused real
-  // production failures ("Cannot perform I/O on behalf of a different request"). That means
-  // `db.transaction()` isn't available here. Instead, each guarded UPDATE below carries a WHERE
+  // NOTE: the database is Cloudflare D1 (db/index.ts), which has no interactive `db.transaction()`.
+  // Instead, each guarded UPDATE below carries a WHERE
   // condition that only succeeds if the precondition (enough stock, coupon still under its cap)
   // still holds, so a lost race is caught explicitly rather than relying on rollback. If a later
   // step fails after stock was already reserved, we compensate by releasing it manually.

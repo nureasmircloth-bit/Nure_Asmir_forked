@@ -108,7 +108,7 @@ export default async function DeveloperPage() {
       <div className="a-grid a-grid-4" style={{ marginBottom: 18 }}>
         <section className="a-card a-card-pad"><small className="a-muted">Errors today</small><h2 style={{ fontSize: 28 }}>{errTotals.today}</h2><small className="a-muted">{errTotals.week} in the last 7 days · {errTotals.kinds} kinds</small></section>
         <section className="a-card a-card-pad"><small className="a-muted">Picture storage (both stores)</small><h2 style={{ fontSize: 28 }}>{formatBytes(totalUsed)}</h2><small className="a-muted">of {formatBytes(totalLimit)} free · {formatBytes(Math.max(0, totalLimit - totalUsed))} left</small></section>
-        <section className="a-card a-card-pad"><small className="a-muted">Database</small><h2 style={{ fontSize: 28 }}>{formatBytes(dbBytes)}</h2><small className="a-muted">of {formatBytes(DB_LIMIT_BYTES)} on the free plan · {formatBytes(Math.max(0, DB_LIMIT_BYTES - dbBytes))} left</small></section>
+        <section className="a-card a-card-pad"><small className="a-muted">Database</small><h2 style={{ fontSize: 28 }}>{formatBytes(dbBytes)}</h2><small className="a-muted">of {formatBytes(DB_LIMIT_BYTES)} (Cloudflare D1, free plan) · {formatBytes(Math.max(0, DB_LIMIT_BYTES - dbBytes))} left</small></section>
         <section className="a-card a-card-pad"><small className="a-muted">Product photos</small><h2 style={{ fontSize: 28 }}>{images.n}</h2><small className="a-muted">{formatBytes(Number(images.bytes))} originals · {images.shrunk} shrunk</small></section>
       </div>
 

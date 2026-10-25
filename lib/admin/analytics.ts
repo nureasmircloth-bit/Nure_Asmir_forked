@@ -78,7 +78,7 @@ export type NamedValue = { name: string; value: number; extra?: number; image?: 
 async function topProducts(from: Date, to: Date): Promise<NamedValue[]> {
   return rowsOf<{ id: string; name: string; units: number; revenue: number; image: string | null }>(
     await db.execute(sql`
-      select case when oi.product_id is null then 'name:' || oi.product_name else 'id:' || oi.product_id::text end as id, max(oi.product_name) as name, sum(oi.quantity) as units, sum(oi.line_total) as revenue, max(oi.image_url) as image
+      select case when oi.product_id is null then 'name:' || oi.product_name else 'id:' || oi.product_id end as id, max(oi.product_name) as name, sum(oi.quantity) as units, sum(oi.line_total) as revenue, max(oi.image_url) as image
       from order_items oi join orders o on o.id = oi.order_id
       where ${LIVE} and o.created_at >= ${from.getTime()} and o.created_at < ${to.getTime()}
       group by 1 order by revenue desc limit 6`),
@@ -133,7 +133,7 @@ async function newVsReturning(from: Date, to: Date): Promise<{ fresh: number; re
         select distinct p from norm where created_at >= ${from.getTime()} and created_at < ${to.getTime()}
       )
       select count(*) filter (where f.first_at >= ${from.getTime()}) as fresh,
-             count(*) filter (where f.first_at < ${from.getTime()}) as returning
+             count(*) filter (where f.first_at < ${from.getTime()}) as "returning"
       from in_period r join firsts f on f.p = r.p`),
   );
   return { fresh: row?.fresh ?? 0, returning: row?.returning ?? 0 };

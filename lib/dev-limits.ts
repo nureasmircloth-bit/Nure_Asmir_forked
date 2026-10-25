@@ -36,13 +36,12 @@ export const SERVICES: Record<ServiceName, ServiceInfo> = {
 
 /** Other keys the site needs that are not a counted service. */
 export const OTHER_KEYS: Array<{ label: string; keys: string[] }> = [
-  { label: "Database (Neon Postgres)", keys: ["DATABASE_URL"] },
   { label: "Sign-in sessions", keys: ["SESSION_SECRET", "ADMIN_EMAIL"] },
   { label: "Scheduled jobs", keys: ["CRON_SECRET"] },
   { label: "Error reporting (Sentry browser)", keys: ["NEXT_PUBLIC_SENTRY_DSN"] },
 ];
 
-export const DB_LIMIT_BYTES = 512 * 1024 * 1024; // Neon free plan: 0.5 GB per project
+export const DB_LIMIT_BYTES = 500 * 1024 * 1024; // Cloudflare D1 free plan: 500 MB per database (10 GB on the paid plan)
 
 export function formatBytes(bytes: number): string {
   if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(2)} GB`;

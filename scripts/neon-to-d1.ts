@@ -151,6 +151,10 @@ async function main() {
       }
     }
   }
+  // The default body font changed from Jost to Figtree (same as drizzle/0003): an owner who never chose a font gets the new default.
+  const fontFix = "UPDATE site_settings SET body_font_family = 'Figtree' WHERE body_font_family = 'Jost';";
+  if (sqlite) sqlite.exec(fontFix);
+  else chunk.push(fontFix);
   flush();
   sqlite?.close();
   console.table(report);

@@ -36,7 +36,11 @@ export async function sql(strings: TemplateStringsArray, ...values: unknown[]): 
   const text = translate(strings.reduce((acc, part, i) => acc + part + (i < values.length ? "?" : ""), ""));
   const params = values.map((v) => (v instanceof Date ? v.getTime() : typeof v === "string" && /^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/.test(v) ? Date.parse(v) : typeof v === "boolean" ? (v ? 1 : 0) : v && typeof v === "object" ? JSON.stringify(v) : v)) as Array<string | number | null>;
   const statement = local().prepare(text);
-  return statement.reader ? (statement.all(...params) as Array<Record<string, unknown>>) : (statement.run(...params), []);
+  if (!statement.reader) return statement.run(...params), [];
+  const rows = statement.all(...params) as Array<Record<string, any>>; // eslint-disable-line @typescript-eslint/no-explicit-any
+  // JSON columns (picture width lists) are text in SQLite: hand them to the tests as arrays, as the old driver did.
+  for (const row of rows) for (const key of Object.keys(row)) if (/(^|_)widths$/i.test(key) && typeof row[key] === "string") row[key] = JSON.parse(row[key]);
+  return rows;
 }
 
 export type Variant = { id: string; productId: string; sku: string; name: string; price: number; stock: number; reserved: number };
