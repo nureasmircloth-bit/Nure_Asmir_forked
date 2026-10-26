@@ -123,7 +123,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const fontNames = new Set<string>();
   if (settings.fontFamily && settings.fontFamily !== "Cormorant Garamond") fontNames.add(settings.fontFamily.trim());
   if (settings.bodyFontFamily && settings.bodyFontFamily !== "Figtree") fontNames.add(settings.bodyFontFamily.trim());
-  if (settings.contactFontFamily) fontNames.add(settings.contactFontFamily.trim());
+  // The contact page font is requested by the contact page itself: the other pages should not open a connection to a font host for it.
   const fontHrefs = [...fontNames].map((name) => googleFontHref(name)).filter((href): href is string => Boolean(href));
 
   return (
