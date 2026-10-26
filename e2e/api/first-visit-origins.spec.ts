@@ -7,7 +7,7 @@ import { BASE, sql } from "../support/helpers";
  */
 test.describe("first visit: as few outside websites as possible", () => {
   test("with the built-in fonts, the home and shop pages ask no outside host for fonts or styles", async ({ request }) => {
-    await sql`update site_settings set font_family = 'Cormorant Garamond', body_font_family = 'Jost', contact_font_family = 'Inter' where id = 'store'`;
+    await sql`update site_settings set font_family = 'Cormorant Garamond', body_font_family = 'Figtree', contact_font_family = 'Inter' where id = 'store'`;
     for (const path of ["/", "/shop", "/about"]) {
       const html = await (await request.get(`${BASE}${path}`, { timeout: 90_000 })).text();
       expect(html, path).not.toContain("fonts.googleapis.com");
@@ -15,7 +15,7 @@ test.describe("first visit: as few outside websites as possible", () => {
     }
   });
   test("the contact page asks for its own font, and only the contact page does", async ({ request }) => {
-    await sql`update site_settings set font_family = 'Cormorant Garamond', body_font_family = 'Jost', contact_font_family = 'Inter' where id = 'store'`;
+    await sql`update site_settings set font_family = 'Cormorant Garamond', body_font_family = 'Figtree', contact_font_family = 'Inter' where id = 'store'`;
     const contact = await (await request.get(`${BASE}/contact`, { timeout: 90_000 })).text();
     expect(contact).toMatch(/fonts\.googleapis\.com\/css2\?family=Inter/);
     const home = await (await request.get(`${BASE}/`)).text();
