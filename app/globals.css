@@ -10,7 +10,8 @@
   --muted: #6b6b6b;
   --line: rgba(17, 17, 17, 0.14);
   --display: var(--font-display), "Cormorant Garamond", "Iowan Old Style", Georgia, serif;
-  --sans: var(--font-sans), "Jost", "Helvetica Neue", Arial, sans-serif;
+  --sans: var(--font-sans), "Figtree", "Helvetica Neue", Arial, sans-serif;
+  --price-font: var(--font-price), "Lato", "Helvetica Neue", Arial, sans-serif;
 }
 * { box-sizing: border-box; }
 html { scrollbar-color: var(--gold) transparent; scrollbar-width: thin; }
@@ -22,7 +23,7 @@ html:has(:target) { scroll-behavior: smooth; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--gold) 55%, transparent); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
 ::-webkit-scrollbar-thumb:hover { background: var(--gold); background-clip: padding-box; }
-body { margin: 0; color: var(--ink); background: var(--paper); font: 400 15px/1.5 var(--sans); -webkit-font-smoothing: antialiased; }
+body { margin: 0; color: var(--ink); background: var(--paper); font: 400 16px/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
 body, button, input { font-family: var(--sans); }
 a { color: inherit; text-decoration: none; }
 button { color: inherit; }

@@ -42,7 +42,7 @@ export default async function ContactPage() {
 
   const whatsappHref = settings.whatsappChatUrl || `https://wa.me/${whatsapp}?text=${encodeURIComponent("Hello Nure Asmir, I would like some assistance.")}`;
   // The font for this page only; a font that every page already loads (the chosen heading or body font) is not asked for twice.
-  const globallyLoaded = [settings.fontFamily !== "Cormorant Garamond" ? settings.fontFamily : "", settings.bodyFontFamily !== "Jost" ? settings.bodyFontFamily : ""];
+  const globallyLoaded = [settings.fontFamily !== "Cormorant Garamond" ? settings.fontFamily : "", settings.bodyFontFamily !== "Figtree" ? settings.bodyFontFamily : ""];
   const contactFontHref = globallyLoaded.includes(settings.contactFontFamily) ? null : googleFontHref(settings.contactFontFamily);
   return (
     <main>

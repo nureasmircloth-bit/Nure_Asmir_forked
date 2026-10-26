@@ -1,6 +1,6 @@
 import { scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
-import { eq, like, sql } from "drizzle-orm";
+import { eq, like as likeCi, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { adminOwners } from "@/db/schema";
 import { isLoginRateLimited, recordLoginAttempt } from "@/lib/auth/rate-limit";
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
   let email = traineeEmail(name);
   const [existing] = await db.select({ email: adminOwners.email }).from(adminOwners).where(eq(adminOwners.email, email)).limit(1);
   if (!existing) {
-    const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(adminOwners).where(like(adminOwners.email, "trainee-%@training.local"));
+    const [{ n }] = await db.select({ n: sql<number>`count(*)` }).from(adminOwners).where(likeCi(adminOwners.email, "trainee-%@training.local"));
     if (n >= MAX_TRAINEES) email = SHARED_TRAINEE;
   }
   // The stored password is not a real hash on purpose: nobody can sign in with it, the entrance above is the only way in.

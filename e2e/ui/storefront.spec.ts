@@ -281,7 +281,8 @@ test.describe("forgotten and stale bags", () => {
   });
 });
 
-test("DB sanity: the test branch, not production, is in use", async () => {
-  const [row] = (await sql`select current_setting('neon.branch_id', true) as b`) as Array<{ b: string | null }>;
-  expect(row.b === null || /quiet-fire/.test(row.b)).toBe(true);
+test("DB sanity: the disposable local test database, not a real one, is in use", async () => {
+  expect(process.env.LOCAL_DB_PATH ?? "").toContain("e2e.sqlite");
+  const [row] = (await sql`select sqlite_version() as v`) as Array<{ v: string }>;
+  expect(row.v).toMatch(/^3\./);
 });

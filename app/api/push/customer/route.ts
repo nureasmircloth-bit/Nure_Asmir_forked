@@ -74,10 +74,12 @@ export async function POST(request: Request) {
         ...(verifiedOrder
           ? {
               orderNumbers: sql`(
-                select coalesce(jsonb_agg(v), '[]'::jsonb) from (
-                  select distinct v from jsonb_array_elements_text(${customerPushDevices.orderNumbers} || ${JSON.stringify([verifiedOrder])}::jsonb) as v
-                  order by v desc limit 20
-                ) t
+                select coalesce(json_group_array(v), '[]') from (
+                  select distinct value as v from (
+                    select value from json_each(${customerPushDevices.orderNumbers})
+                    union all select value from json_each(${JSON.stringify([verifiedOrder])})
+                  ) order by v desc limit 20
+                )
               )`,
             }
           : {}),

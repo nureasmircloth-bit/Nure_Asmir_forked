@@ -1,7 +1,9 @@
-// Builds ONE of the two deployables from this codebase:
+// Builds ONE of the four deployables from this codebase, each its own Worker with its own bundle, origin and cookies:
 //
-//   node scripts/build-target.mjs store   → the customer-facing storefront Worker ("nure-asmir")
-//   node scripts/build-target.mjs admin   → the owner's admin Worker            ("nure-asmir-admin")
+//   node scripts/build-target.mjs store      → the customer-facing storefront     ("nure-asmir")
+//   node scripts/build-target.mjs admin      → the owner's admin panel            ("nure-asmir-admin")   – no developer or training pages
+//   node scripts/build-target.mjs training   → the practice shop for trainees     ("nure-asmir-training") – no developer pages, own database
+//   node scripts/build-target.mjs developer  → the developer console + admin      ("nure-asmir-developer")
 //
 // Shoppers never download — or even have deployed next to them — any admin code, and the admin
 // panel loads only when its link is opened (separate Worker, separate origin, own cookies/CSP/robots).
@@ -17,34 +19,47 @@ import fs from "node:fs";
 import path from "node:path";
 
 const target = process.argv[2];
-if (!["store", "admin"].includes(target)) {
-  console.error("Usage: node scripts/build-target.mjs <store|admin> [build|deploy|preview]");
+const TARGETS = ["store", "admin", "training", "developer"];
+if (!TARGETS.includes(target)) {
+  console.error(`Usage: node scripts/build-target.mjs <${TARGETS.join("|")}> [build|deploy|preview]`);
   process.exit(1);
 }
 const command = process.argv[3] || "build";
+
+// The storefront's pages and APIs: none of them belong in an admin-side build.
+const STORE_ONLY = [
+  "app/(store)",
+  "app/robots.ts",
+  "app/sitemap.ts",
+  "app/api/cart-availability",
+  "app/api/catalog",
+  "app/api/checkout",
+  "app/api/cron",
+  "app/api/currency",
+  "app/api/feeds",
+  "app/api/newsletter",
+  "app/api/orders",
+  "app/api/push",
+  "app/api/revalidate",
+  "app/api/search",
+  "app/api/whatsapp",
+];
+// The developer console, and the practice shop's entrance, lab guides and daily allowance.
+const DEVELOPER_ONLY = ["app/admin/(protected)/developer"];
+const TRAINING_ONLY = ["app/admin/(protected)/training", "app/admin/training-start", "app/admin/training-login", "app/api/admin/sandbox"];
+
+// Error reporting (Sentry) is built into the storefront and the owner's admin only. The training lab and the developer console are built with an
+// empty DSN: they send nothing, and the Sentry code is never even requested by their pages.
+const SENTRY_TARGETS = ["store", "admin"];
 
 // Everything the other target owns. Shared pieces (root layout, db, lib, middleware, /api/media* …) stay.
 const EXCLUDE = {
   // public/vendor holds the browser build of ExcelJS, which only the admin panel loads. (app/cdn – the picture route – is NOT excluded from
   // the admin build: the admin pages show product pictures from their own address, so they need it too.)
   store: ["app/admin", "app/api/admin", "public/vendor"],
-  admin: [
-    "app/(store)",
-    "app/robots.ts",
-    "app/sitemap.ts",
-    "app/api/cart-availability",
-    "app/api/catalog",
-    "app/api/checkout",
-    "app/api/cron",
-    "app/api/currency",
-    "app/api/feeds",
-    "app/api/newsletter",
-    "app/api/orders",
-    "app/api/push",
-    "app/api/revalidate",
-    "app/api/search",
-    "app/api/whatsapp",
-  ],
+  admin: [...STORE_ONLY, ...DEVELOPER_ONLY, ...TRAINING_ONLY],
+  training: [...STORE_ONLY, ...DEVELOPER_ONLY],
+  developer: [...STORE_ONLY, ...TRAINING_ONLY],
 }[target];
 
 const root = ".build-excluded";
@@ -96,8 +111,8 @@ try {
   // Generated route types from a previous dev/other-target run would reference the excluded routes.
   fs.rmSync(".next", { recursive: true, force: true });
 
-  const config = target === "admin" ? "wrangler.admin.jsonc" : "wrangler.jsonc";
-  const env = { ...process.env, APP_TARGET: target, NEXT_PUBLIC_APP_TARGET: target };
+  const config = { store: "wrangler.jsonc", admin: "wrangler.admin.jsonc", training: "wrangler.training.jsonc", developer: "wrangler.developer.jsonc" }[target];
+  const env = { ...process.env, APP_TARGET: target, NEXT_PUBLIC_APP_TARGET: target, ...(SENTRY_TARGETS.includes(target) ? {} : { NEXT_PUBLIC_SENTRY_DSN: "" }) };
   const args = ["opennextjs-cloudflare", command, "--config", config];
   const result = spawnSync("npx", args, { stdio: "inherit", env, shell: process.platform === "win32" });
   process.exitCode = result.status ?? 1;

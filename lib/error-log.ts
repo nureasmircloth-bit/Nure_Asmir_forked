@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
+import { nowMs } from "@/db/sql-compat";
 import { runInBackground } from "@/lib/background";
 import { pktDay } from "@/lib/usage";
 
@@ -27,7 +28,7 @@ export async function recordError(input: { source: string; message: string; path
     await db.execute(sql`
       insert into error_log (fingerprint, source, message, path, stack, day)
       values (${fingerprint}, ${source}, ${message}, ${path}, ${stack}, ${pktDay()})
-      on conflict (fingerprint, day) do update set count = error_log.count + 1, last_seen_at = now()`);
+      on conflict (fingerprint, day) do update set count = error_log.count + 1, last_seen_at = ${nowMs}`);
   } catch {
     // the error list must never become an error itself
   }

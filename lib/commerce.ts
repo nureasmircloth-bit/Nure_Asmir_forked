@@ -1,7 +1,8 @@
 import { hasFilters, type CatalogFilters } from "@/lib/catalog-filters";
 import { cache } from "react";
-import { and, asc, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/db";
+import { likeEsc } from "@/db/sql-compat";
 import { BRAND } from "@/lib/brand";
 import { mediaUrl } from "@/lib/media-url";
 import { applySales, getActiveSales, getActiveSalesChecked } from "@/lib/sales";
@@ -126,7 +127,7 @@ async function getListingExtras(productIds: string[]): Promise<Map<string, Listi
     db
       .select({
         productId: productVariants.productId,
-        available: sql<number>`coalesce(sum(greatest(${productVariants.stockQuantity} - ${productVariants.reservedQuantity}, 0)), 0)::int`,
+        available: sql<number>`coalesce(sum(max(${productVariants.stockQuantity} - ${productVariants.reservedQuantity}, 0)), 0)`,
       })
       .from(productVariants)
       .where(and(inArray(productVariants.productId, productIds), eq(productVariants.status, "active")))
@@ -220,7 +221,7 @@ function searchWhere(text: string) {
   return and(
     ...words.map((word) => {
       const like = `%${word.replace(/[\\%_]/g, (character) => `\\${character}`)}%`;
-      return or(ilike(products.name, like), ilike(products.typeLabel, like), ilike(products.shortDescription, like));
+      return or(likeEsc(products.name, like), likeEsc(products.typeLabel, like), likeEsc(products.shortDescription, like));
     }),
   );
 }
@@ -228,7 +229,7 @@ function searchWhere(text: string) {
 /** How many live products match – for the Show more button. */
 export async function countCatalogProducts(query: CatalogQuery = {}): Promise<number> {
   const [row] = await db
-    .select({ n: sql<number>`count(*)::int` })
+    .select({ n: sql<number>`count(*)` })
     .from(products)
     .innerJoin(categories, eq(categories.id, products.categoryId))
     .where(catalogWhere(query));
@@ -903,7 +904,7 @@ export const getPublicSettings = cache(async (): Promise<PublicSettings> => {
     themeSurfaceColor: row?.themeSurfaceColor || "#faf9f6",
     themeRadius: row?.themeRadius || "subtle",
     fontFamily: row?.fontFamily || "Cormorant Garamond",
-    bodyFontFamily: row?.bodyFontFamily || "Jost",
+    bodyFontFamily: row?.bodyFontFamily || "Figtree",
     contactFontFamily: row?.contactFontFamily || "Inter",
     shopDescription: row?.shopDescription ?? "",
     readyDeliveryText: row?.readyDeliveryText?.trim() || DEFAULT_READY_DELIVERY,

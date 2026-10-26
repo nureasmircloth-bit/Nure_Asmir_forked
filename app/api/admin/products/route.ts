@@ -2,7 +2,7 @@ import { z } from "zod";
 import { sandboxRoomMessage } from "@/lib/sandbox";
 import { runInBackground } from "@/lib/background";
 import { syncProductSearch } from "@/lib/search/algolia";
-import { and, desc, eq, ilike, or } from "drizzle-orm";
+import { and, desc, eq, like as likeCi, or } from "drizzle-orm";
 import { db } from "@/db";
 import { categories, productImages, products, productVariants } from "@/db/schema";
 import { getAdminUser } from "@/lib/auth/admin-auth";
@@ -57,7 +57,7 @@ export async function GET(request: Request) {
     conditions.push(eq(products.status, status));
   }
   if (search) {
-    conditions.push(or(ilike(products.name, `%${search}%`), ilike(products.typeLabel, `%${search}%`)));
+    conditions.push(or(likeCi(products.name, `%${search}%`), likeCi(products.typeLabel, `%${search}%`)));
   }
 
   const rows = await db

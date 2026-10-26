@@ -18,9 +18,9 @@ export async function GET(request: Request) {
   const base = sql`from product_variants v join products p on p.id = v.product_id join categories c on c.id = p.category_id where p.status = 'published' and v.status = 'active' ${scope}`;
 
   const [range, sizes, colors] = await Promise.all([
-    db.execute(sql`select min(v.price)::int as "min", max(v.price)::int as "max" ${base}`),
-    db.execute(sql`select min(v.size) as value, count(distinct p.id)::int as n ${base} and coalesce(v.size, '') <> '' group by lower(v.size)`),
-    db.execute(sql`select min(v.color) as value, count(distinct p.id)::int as n ${base} and coalesce(v.color, '') <> '' group by lower(v.color) order by count(distinct p.id) desc, min(v.color)`),
+    db.execute(sql`select min(v.price) as "min", max(v.price) as "max" ${base}`),
+    db.execute(sql`select min(v.size) as value, count(distinct p.id) as n ${base} and coalesce(v.size, '') <> '' group by lower(v.size)`),
+    db.execute(sql`select min(v.color) as value, count(distinct p.id) as n ${base} and coalesce(v.color, '') <> '' group by lower(v.color) order by count(distinct p.id) desc, min(v.color)`),
   ]);
   const price = rowsOf<{ min: number | null; max: number | null }>(range)[0] ?? { min: null, max: null };
   const sizeRows = rowsOf<{ value: string; n: number }>(sizes);

@@ -1,44 +1,55 @@
-import { sql } from "drizzle-orm";
-import { boolean, date, doublePrecision, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { desc, sql } from "drizzle-orm";
+import { nowMs, uuidSql } from "./sql-compat";
+import { index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+
+// Cloudflare D1 (SQLite): a point in time is whole milliseconds since 1970 (drizzle gives the app a Date), ids are random UUID strings, true/false
+// are 1/0, JSON is text and a calendar day is "YYYY-MM-DD" text.
+
+const uuid = (name: string) => text(name);
+const timestamp = (name: string, options?: { withTimezone?: boolean }) => (void options, integer(name, { mode: "timestamp_ms" }));
+const boolean = (name: string) => integer(name, { mode: "boolean" });
+const jsonb = (name: string) => text(name, { mode: "json" });
+const doublePrecision = (name: string) => real(name);
+const date = (name: string) => text(name);
 
 const timestamps = {
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(nowMs),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().default(nowMs),
 };
 
-export const adminOwners = pgTable("admin_owners", {
+export const adminOwners = sqliteTable("admin_owners", {
   email: text("email").primaryKey(),
   displayName: text("display_name"),
   passwordHash: text("password_hash").notNull(),
   role: text("role").notNull().default("owner"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(nowMs),
 });
 
-export const adminSessions = pgTable("admin_sessions", {
-  id: uuid("id").primaryKey().defaultRandom(),
+export const adminSessions = sqliteTable("admin_sessions", {
+  id: uuid("id").primaryKey().default(uuidSql),
   tokenHash: text("token_hash").notNull().unique(),
   adminEmail: text("admin_email").notNull().references(() => adminOwners.email, { onDelete: "cascade" }),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(nowMs),
 }, (table) => [index("admin_sessions_email_idx").on(table.adminEmail)]);
 
 // Browser/phone push registrations (Firebase Cloud Messaging) for the owner's order alerts. One row
 // per device token; tokens FCM reports as unregistered are deleted on the next send.
-export const adminPushDevices = pgTable("admin_push_devices", {
-  id: uuid("id").primaryKey().defaultRandom(),
+export const adminPushDevices = sqliteTable("admin_push_devices", {
+  id: uuid("id").primaryKey().default(uuidSql),
   adminEmail: text("admin_email").notNull().references(() => adminOwners.email, { onDelete: "cascade" }),
   token: text("token").notNull().unique(),
   userAgent: text("user_agent"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(nowMs),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().default(nowMs),
 }, (table) => [index("admin_push_devices_email_idx").on(table.adminEmail)]);
 
-export const loginAttempts = pgTable("login_attempts", {
-  id: uuid("id").primaryKey().defaultRandom(),
+export const loginAttempts = sqliteTable("login_attempts", {
+  id: uuid("id").primaryKey().default(uuidSql),
   email: text("email").notNull(),
   ip: text("ip").notNull(),
   success: boolean("success").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(nowMs),
 }, (table) => [index("login_attempts_email_idx").on(table.email, table.createdAt), index("login_attempts_bucket_idx").on(table.email, table.ip, table.createdAt)]);
 
 // Checkout email verification: a customer requests a 6-digit code, receives it via Resend, and
@@ -46,8 +57,8 @@ export const loginAttempts = pgTable("login_attempts", {
 // checks out and is what /api/orders actually validates — the code itself never travels past
 // verify-otp. `otpHash` is a SHA-256 digest, not a password hash: OTPs are short-lived, single-use,
 // and rate-limited, so a fast hash is fine here (see lib/checkout/otp.ts).
-export const checkoutVerifications = pgTable("checkout_verifications", {
-  id: uuid("id").primaryKey().defaultRandom(),
+export const checkoutVerifications = sqliteTable("checkout_verifications", {
+  id: uuid("id").primaryKey().default(uuidSql),
   email: text("email").notNull(),
   ip: text("ip").notNull(),
   otpHash: text("otp_hash").notNull(),
@@ -56,21 +67,21 @@ export const checkoutVerifications = pgTable("checkout_verifications", {
   verifiedToken: text("verified_token").unique(),
   verifiedUntil: timestamp("verified_until", { withTimezone: true }),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(nowMs),
 }, (table) => [index("checkout_verifications_email_idx").on(table.email, table.createdAt)]);
 
-export const adminAuditLog = pgTable("admin_audit_log", {
-  id: uuid("id").primaryKey().defaultRandom(),
+export const adminAuditLog = sqliteTable("admin_audit_log", {
+  id: uuid("id").primaryKey().default(uuidSql),
   actorEmail: text("actor_email").notNull(),
   action: text("action").notNull(),
   entityType: text("entity_type"),
   entityId: text("entity_id"),
   detail: text("detail"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(nowMs),
 }, (table) => [index("admin_audit_entity_idx").on(table.entityType, table.entityId)]);
 
-export const categories = pgTable("categories", {
-  id: uuid("id").primaryKey().defaultRandom(),
+export const categories = sqliteTable("categories", {
+  id: uuid("id").primaryKey().default(uuidSql),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   description: text("description"),
@@ -99,8 +110,8 @@ export const categories = pgTable("categories", {
   ...timestamps,
 }, (table) => [index("categories_status_idx").on(table.status)]);
 
-export const collections = pgTable("collections", {
-  id: uuid("id").primaryKey().defaultRandom(),
+export const collections = sqliteTable("collections", {
+  id: uuid("id").primaryKey().default(uuidSql),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   description: text("description"),
@@ -109,8 +120,8 @@ export const collections = pgTable("collections", {
   ...timestamps,
 });
 
-export const products = pgTable("products", {
-  id: uuid("id").primaryKey().defaultRandom(),
+export const products = sqliteTable("products", {
+  id: uuid("id").primaryKey().default(uuidSql),
   categoryId: uuid("category_id").notNull().references(() => categories.id),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
@@ -149,11 +160,11 @@ export const products = pgTable("products", {
   index("products_status_idx").on(table.status),
   index("products_featured_idx").on(table.featured),
   // the shop and the home page list live products newest first: this index is already in that order, so a page is read straight off it
-  index("products_published_order_idx").on(table.publishedAt.desc().nullsFirst(), table.createdAt.desc().nullsFirst(), table.id.desc().nullsFirst()).where(sql`${table.status} = 'published'`),
+  index("products_published_order_idx").on(desc(table.publishedAt), desc(table.createdAt), desc(table.id)).where(sql`${table.status} = 'published'`),
 ]);
 
-export const productVariants = pgTable("product_variants", {
-  id: uuid("id").primaryKey().defaultRandom(),
+export const productVariants = sqliteTable("product_variants", {
+  id: uuid("id").primaryKey().default(uuidSql),
   productId: uuid("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   sku: text("sku").notNull().unique(),
@@ -180,8 +191,8 @@ export const productVariants = pgTable("product_variants", {
   index("variants_default_idx").on(table.productId).where(sql`${table.isDefault}`),
 ]);
 
-export const productImages = pgTable("product_images", {
-  id: uuid("id").primaryKey().defaultRandom(),
+export const productImages = sqliteTable("product_images", {
+  id: uuid("id").primaryKey().default(uuidSql),
   productId: uuid("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
   variantId: uuid("variant_id").references(() => productVariants.id, { onDelete: "set null" }),
   r2Key: text("r2_key").notNull().unique(),
@@ -202,7 +213,7 @@ export const productImages = pgTable("product_images", {
   variantWidths: jsonb("variant_widths").$type<number[]>(),
   // Set once the photo has been squeezed harder (sold-out items kept for the record) – see lib/photo-compaction.ts.
   compactedAt: timestamp("compacted_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(nowMs),
 }, (table) => [
   index("images_product_idx").on(table.productId),
   // the main photo that every product card joins
@@ -211,8 +222,8 @@ export const productImages = pgTable("product_images", {
   index("images_variant_idx").on(table.variantId),
 ]);
 
-export const campaignSlides = pgTable("campaign_slides", {
-  id: uuid("id").primaryKey().defaultRandom(),
+export const campaignSlides = sqliteTable("campaign_slides", {
+  id: uuid("id").primaryKey().default(uuidSql),
   r2Key: text("r2_key").notNull().unique(),
   altText: text("alt_text").notNull(),
   contentType: text("content_type").notNull(),
@@ -234,11 +245,11 @@ export const campaignSlides = pgTable("campaign_slides", {
   mobileByteSize: integer("mobile_byte_size"),
   mobileBlurDataUrl: text("mobile_blur_data_url"),
   mobileVariantWidths: jsonb("mobile_variant_widths").$type<number[]>(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(nowMs),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().default(nowMs),
 }, (table) => [index("campaign_slides_order_idx").on(table.active, table.sortOrder)]);
 
-export const productCollections = pgTable("product_collections", {
+export const productCollections = sqliteTable("product_collections", {
   productId: uuid("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
   collectionId: uuid("collection_id").notNull().references(() => collections.id, { onDelete: "cascade" }),
 }, (table) => [
@@ -246,8 +257,8 @@ export const productCollections = pgTable("product_collections", {
   index("product_collections_collection_idx").on(table.collectionId),
 ]);
 
-export const inventoryMovements = pgTable("inventory_movements", {
-  id: uuid("id").primaryKey().defaultRandom(),
+export const inventoryMovements = sqliteTable("inventory_movements", {
+  id: uuid("id").primaryKey().default(uuidSql),
   variantId: uuid("variant_id").notNull().references(() => productVariants.id, { onDelete: "cascade" }),
   type: text("type").notNull(),
   quantity: integer("quantity").notNull(),
@@ -255,11 +266,11 @@ export const inventoryMovements = pgTable("inventory_movements", {
   referenceType: text("reference_type"),
   referenceId: text("reference_id"),
   actorEmail: text("actor_email").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(nowMs),
 }, (table) => [index("inventory_variant_idx").on(table.variantId)]);
 
-export const orders = pgTable("orders", {
-  id: uuid("id").primaryKey().defaultRandom(),
+export const orders = sqliteTable("orders", {
+  id: uuid("id").primaryKey().default(uuidSql),
   orderNumber: text("order_number").notNull().unique(),
   customerName: text("customer_name").notNull(),
   customerPhone: text("customer_phone").notNull(),
@@ -320,14 +331,13 @@ export const orders = pgTable("orders", {
 }, (table) => [
   index("orders_phone_idx").on(table.customerPhone),
   // an order list tab is "this status, newest first" (also serves plain status counts, so the old status-only index is gone)
-  index("orders_status_created_idx").on(table.orderStatus, table.createdAt.desc().nullsFirst()),
+  index("orders_status_created_idx").on(table.orderStatus, desc(table.createdAt)),
   index("orders_created_idx").on(table.createdAt),
-  // customers type phones as 0300..., +92300... or 92300...: reports and searches compare the digits only, and this index matches that exact expression
-  index("orders_phone_digits_idx").on(sql`regexp_replace(${table.customerPhone}, '\\D', '', 'g')`),
+  // (the phone-digits index is created by hand in drizzle/0001_phone_digits_index.sql: drizzle-kit cannot write expression indexes for SQLite)
 ]);
 
-export const orderItems = pgTable("order_items", {
-  id: uuid("id").primaryKey().defaultRandom(),
+export const orderItems = sqliteTable("order_items", {
+  id: uuid("id").primaryKey().default(uuidSql),
   orderId: uuid("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
   productId: uuid("product_id").references(() => products.id, { onDelete: "set null" }),
   variantId: uuid("variant_id").references(() => productVariants.id, { onDelete: "set null" }),
@@ -347,8 +357,8 @@ export const orderItems = pgTable("order_items", {
 // Time-boxed storewide or per-product discounts ("flash sales"). The price a shopper pays is always
 // computed server-side at order time from the sales active *right then* (lib/sales.ts), so a stale
 // cached page or a tampered cart can never get a discount that has ended.
-export const flashSales = pgTable("flash_sales", {
-  id: uuid("id").primaryKey().defaultRandom(),
+export const flashSales = sqliteTable("flash_sales", {
+  id: uuid("id").primaryKey().default(uuidSql),
   name: text("name").notNull(),
   discountType: text("discount_type").notNull(), // "percent" | "fixed"
   discountValue: integer("discount_value").notNull(),
@@ -361,7 +371,7 @@ export const flashSales = pgTable("flash_sales", {
   ...timestamps,
 }, (table) => [index("flash_sales_window_idx").on(table.active, table.startsAt, table.endsAt)]);
 
-export const flashSaleProducts = pgTable("flash_sale_products", {
+export const flashSaleProducts = sqliteTable("flash_sale_products", {
   saleId: uuid("sale_id").notNull().references(() => flashSales.id, { onDelete: "cascade" }),
   productId: uuid("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
 }, (table) => [primaryKey({ columns: [table.saleId, table.productId] }), index("flash_sale_products_product_idx").on(table.productId)]);
@@ -369,45 +379,45 @@ export const flashSaleProducts = pgTable("flash_sale_products", {
 // Shopper devices that opted into push (Firebase Cloud Messaging): order updates for the orders they
 // placed on this device and sale alerts for wishlisted products. No account exists for shoppers, so a
 // device is tied to an order only after proving the order number + phone number.
-export const customerPushDevices = pgTable("customer_push_devices", {
-  id: uuid("id").primaryKey().defaultRandom(),
+export const customerPushDevices = sqliteTable("customer_push_devices", {
+  id: uuid("id").primaryKey().default(uuidSql),
   token: text("token").notNull().unique(),
   orderNumbers: jsonb("order_numbers").$type<string[]>().notNull().default([]),
   wishlist: jsonb("wishlist").$type<string[]>().notNull().default([]),
   salesOptIn: boolean("sales_opt_in").notNull().default(false),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(nowMs),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().default(nowMs),
 });
 
 // One row per (order, lifecycle event) that has already been announced to the customer — makes the
 // notifications idempotent when an admin double-clicks or a webhook is retried.
-export const orderEventsSent = pgTable("order_events_sent", {
+export const orderEventsSent = sqliteTable("order_events_sent", {
   orderId: uuid("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
   event: text("event").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(nowMs),
 }, (table) => [primaryKey({ columns: [table.orderId, table.event] })]);
 
-export const orderStatusHistory = pgTable("order_status_history", {
-  id: uuid("id").primaryKey().defaultRandom(),
+export const orderStatusHistory = sqliteTable("order_status_history", {
+  id: uuid("id").primaryKey().default(uuidSql),
   orderId: uuid("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
   fromStatus: text("from_status"),
   toStatus: text("to_status").notNull(),
   note: text("note"),
   actorEmail: text("actor_email").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(nowMs),
 }, (table) => [index("order_history_order_idx").on(table.orderId)]);
 
-export const orderIdempotencyKeys = pgTable("order_idempotency_keys", {
+export const orderIdempotencyKeys = sqliteTable("order_idempotency_keys", {
   key: text("key").primaryKey(),
   // Nullable: the key is claimed (this row inserted) *before* the order it will belong to exists —
   // see claimIdempotencyKey in lib/idempotency.ts — then filled in once that order is actually
   // created. A row with a null orderId means someone is still in the middle of processing this key.
   orderId: uuid("order_id").references(() => orders.id, { onDelete: "cascade" }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(nowMs),
 }, (table) => [index("idempotency_order_idx").on(table.orderId)]);
 
-export const paymentProofs = pgTable("payment_proofs", {
-  id: uuid("id").primaryKey().defaultRandom(),
+export const paymentProofs = sqliteTable("payment_proofs", {
+  id: uuid("id").primaryKey().default(uuidSql),
   orderId: uuid("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
   r2Key: text("r2_key").notNull().unique(),
   contentType: text("content_type").notNull(),
@@ -416,22 +426,22 @@ export const paymentProofs = pgTable("payment_proofs", {
   reviewNote: text("review_note"),
   reviewedBy: text("reviewed_by"),
   reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(nowMs),
 }, (table) => [index("payment_proofs_order_idx").on(table.orderId)]);
 
-export const subscribers = pgTable("subscribers", {
+export const subscribers = sqliteTable("subscribers", {
   email: text("email").primaryKey(),
   firstName: text("first_name"),
   source: text("source").notNull().default("website"),
   status: text("status").notNull().default("subscribed"),
-  consentAt: timestamp("consent_at", { withTimezone: true }).notNull().defaultNow(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  consentAt: timestamp("consent_at", { withTimezone: true }).notNull().default(nowMs),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(nowMs),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().default(nowMs),
 });
 
 /** Physical shops. The owner can add as many as needed; they show in the website footer and on the Contact page. */
-export const storeLocations = pgTable("store_locations", {
-  id: uuid("id").primaryKey().defaultRandom(),
+export const storeLocations = sqliteTable("store_locations", {
+  id: uuid("id").primaryKey().default(uuidSql),
   name: text("name").notNull(),
   address: text("address").notNull(),
   city: text("city").notNull().default(""),
@@ -446,7 +456,7 @@ export const storeLocations = pgTable("store_locations", {
   ...timestamps,
 });
 
-export const siteSettings = pgTable("site_settings", {
+export const siteSettings = sqliteTable("site_settings", {
   id: text("id").primaryKey().default("store"),
   brandName: text("brand_name").notNull().default("Nure Asmir"),
   whatsappNumber: text("whatsapp_number").notNull().default(""),
@@ -527,11 +537,11 @@ export const siteSettings = pgTable("site_settings", {
   pendingChanges: text("pending_changes"),
   pendingApplyAt: timestamp("pending_apply_at", { withTimezone: true }),
   previousSettings: text("previous_settings"),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().default(nowMs),
 });
 
-export const discountCodes = pgTable("discount_codes", {
-  id: uuid("id").primaryKey().defaultRandom(),
+export const discountCodes = sqliteTable("discount_codes", {
+  id: uuid("id").primaryKey().default(uuidSql),
   code: text("code").notNull().unique(),
   description: text("description"),
   type: text("type").notNull(), // "percentage" | "fixed"
@@ -547,16 +557,16 @@ export const discountCodes = pgTable("discount_codes", {
   ...timestamps,
 }, (table) => [index("discount_codes_active_idx").on(table.active)]);
 
-export const discountRedemptions = pgTable("discount_redemptions", {
-  id: uuid("id").primaryKey().defaultRandom(),
+export const discountRedemptions = sqliteTable("discount_redemptions", {
+  id: uuid("id").primaryKey().default(uuidSql),
   discountCodeId: uuid("discount_code_id").notNull().references(() => discountCodes.id, { onDelete: "cascade" }),
   orderId: uuid("order_id").notNull(),
   amountDiscounted: integer("amount_discounted").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(nowMs),
 }, (table) => [index("discount_redemptions_code_idx").on(table.discountCodeId)]);
 
-export const deliveryZones = pgTable("delivery_zones", {
-  id: uuid("id").primaryKey().defaultRandom(),
+export const deliveryZones = sqliteTable("delivery_zones", {
+  id: uuid("id").primaryKey().default(uuidSql),
   name: text("name").notNull(),
   cities: jsonb("cities").notNull().default([]),
   provinces: jsonb("provinces").notNull().default([]),
@@ -571,8 +581,8 @@ export const deliveryZones = pgTable("delivery_zones", {
 // A shopper's refund claim (or one the system opens when a prepaid order is cancelled). The owner reviews
 // it, optionally arranges a return pickup with TCS, and finally marks it refunded with the payment
 // reference. One per order.
-export const refundRequests = pgTable("refund_requests", {
-  id: uuid("id").primaryKey().defaultRandom(),
+export const refundRequests = sqliteTable("refund_requests", {
+  id: uuid("id").primaryKey().default(uuidSql),
   orderId: uuid("order_id").notNull().unique().references(() => orders.id, { onDelete: "cascade" }),
   source: text("source").notNull().default("customer"), // "customer" | "admin" | "system"
   reason: text("reason").notNull(),
@@ -595,7 +605,7 @@ export const refundRequests = pgTable("refund_requests", {
 
 // Owner-editable website pictures that are not products, categories or homepage banners (those have their
 // own tables): see lib/site-images.ts for the list of slots and their fallbacks.
-export const siteImages = pgTable("site_images", {
+export const siteImages = sqliteTable("site_images", {
   slot: text("slot").primaryKey(),
   r2Key: text("r2_key").notNull(),
   altText: text("alt_text").notNull().default(""),
@@ -605,29 +615,29 @@ export const siteImages = pgTable("site_images", {
   height: integer("height"),
   blurDataUrl: text("blur_data_url"),
   variantWidths: jsonb("variant_widths").$type<number[]>(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().default(nowMs),
 });
 
 /** Server errors seen by the website, newest first on the developer page. Identical errors on the same day are counted, not repeated. */
-export const errorLog = pgTable(
+export const errorLog = sqliteTable(
   "error_log",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuid("id").primaryKey().default(uuidSql),
     fingerprint: text("fingerprint").notNull(),
     source: text("source").notNull(),
     message: text("message").notNull(),
     path: text("path").notNull().default(""),
     stack: text("stack").notNull().default(""),
     count: integer("count").notNull().default(1),
-    firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
-    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().default(nowMs),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().default(nowMs),
     day: date("day").notNull(),
   },
   (table) => [uniqueIndex("error_log_fp_day").on(table.fingerprint, table.day), index("error_log_last_idx").on(table.lastSeenAt)],
 );
 
 /** How many requests each outside service (Algolia, Groq, Resend, Geoapify, storage…) was asked for, per day (Pakistan time). */
-export const apiUsage = pgTable(
+export const apiUsage = sqliteTable(
   "api_usage",
   {
     service: text("service").notNull(),
@@ -635,23 +645,23 @@ export const apiUsage = pgTable(
     calls: integer("calls").notNull().default(0),
     errors: integer("errors").notNull().default(0),
     lastError: text("last_error").notNull().default(""),
-    lastAt: timestamp("last_at", { withTimezone: true }).notNull().defaultNow(),
+    lastAt: timestamp("last_at", { withTimezone: true }).notNull().default(nowMs),
   },
   (table) => [primaryKey({ columns: [table.service, table.day] })],
 );
 
 /** Small cached readings (storage used per bucket, limits reported by a service's own headers). */
-export const serviceStats = pgTable("service_stats", {
+export const serviceStats = sqliteTable("service_stats", {
   key: text("key").primaryKey(),
   value: jsonb("value").$type<Record<string, unknown>>().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().default(nowMs),
 });
 
 /** The questions and answers on the FAQ page, edited by the owner. {{codHours}}, {{freeAbove}} and {{refundDays}} are filled in from the live settings. */
-export const faqs = pgTable(
+export const faqs = sqliteTable(
   "faqs",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuid("id").primaryKey().default(uuidSql),
     question: text("question").notNull(),
     answer: text("answer").notNull(),
     sortOrder: integer("sort_order").notNull().default(0),
@@ -662,8 +672,8 @@ export const faqs = pgTable(
 );
 
 /** Notifications and emails the owner sent from the admin "Messages" page (a short history so the same thing is not sent twice by accident). */
-export const adminMessages = pgTable("admin_messages", {
-  id: uuid("id").primaryKey().defaultRandom(),
+export const adminMessages = sqliteTable("admin_messages", {
+  id: uuid("id").primaryKey().default(uuidSql),
   kind: text("kind").notNull(), // "push" | "email"
   audience: text("audience").notNull(), // "all" | "sales" | "test" | "list" | "one"
   title: text("title").notNull(),
@@ -672,18 +682,18 @@ export const adminMessages = pgTable("admin_messages", {
   recipients: integer("recipients").notNull().default(0),
   delivered: integer("delivered").notNull().default(0),
   createdBy: text("created_by").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(nowMs),
 });
 
 /** Practice shop only (see lib/sandbox.ts): how many requests the practice admin has used today. Tiny and empty everywhere else. */
-export const sandboxUsage = pgTable("sandbox_usage", {
+export const sandboxUsage = sqliteTable("sandbox_usage", {
   day: text("day").primaryKey(),
   hits: integer("hits").notNull().default(0),
 });
 
 /** Practice shop only: a copy of every table as it was when the practice data was set up, so "Start again" can put it all back. */
-export const sandboxBaseline = pgTable("sandbox_baseline", {
+export const sandboxBaseline = sqliteTable("sandbox_baseline", {
   tableName: text("table_name").primaryKey(),
   rows: jsonb("rows").$type<unknown[]>().notNull(),
-  capturedAt: timestamp("captured_at", { withTimezone: true }).notNull().defaultNow(),
+  capturedAt: timestamp("captured_at", { withTimezone: true }).notNull().default(nowMs),
 });

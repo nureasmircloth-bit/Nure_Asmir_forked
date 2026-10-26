@@ -1,5 +1,6 @@
-import { desc, eq, ilike, or, sql } from "drizzle-orm";
+import { desc, eq, like as likeCi, or, sql } from "drizzle-orm";
 import { db } from "@/db";
+import { phoneDigits } from "@/db/sql-compat";
 import { orders, products, productVariants } from "@/db/schema";
 import { getAdminUser } from "@/lib/auth/admin-auth";
 import { statusLabel } from "@/lib/order-rules";
@@ -21,10 +22,10 @@ export async function GET(request: Request) {
       .from(orders)
       .where(
         or(
-          ilike(orders.orderNumber, like),
-          ilike(orders.customerName, like),
-          ilike(orders.courierTrackingNumber, like),
-          digits.length >= 4 ? sql`regexp_replace(${orders.customerPhone}, '\\D', '', 'g') like ${`%${digits}%`}` : undefined,
+          likeCi(orders.orderNumber, like),
+          likeCi(orders.customerName, like),
+          likeCi(orders.courierTrackingNumber, like),
+          digits.length >= 4 ? sql`${phoneDigits(orders.customerPhone)} like ${`%${digits}%`}` : undefined,
         ),
       )
       .orderBy(desc(orders.createdAt))
@@ -33,7 +34,7 @@ export async function GET(request: Request) {
       .selectDistinct({ id: products.id, name: products.name, status: products.status })
       .from(products)
       .leftJoin(productVariants, eq(productVariants.productId, products.id))
-      .where(or(ilike(products.name, like), ilike(productVariants.sku, like)))
+      .where(or(likeCi(products.name, like), likeCi(productVariants.sku, like)))
       .limit(6),
   ]);
 

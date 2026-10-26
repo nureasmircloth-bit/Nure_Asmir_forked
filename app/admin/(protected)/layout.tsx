@@ -23,9 +23,9 @@ async function sidebarCounts() {
   try {
     const [orders, [refunds], [stock]] = await Promise.all([
       orderTabCounts(),
-      db.select({ n: sql<number>`count(*)::int` }).from(refundRequests).where(eq(refundRequests.status, "requested")),
+      db.select({ n: sql<number>`count(*)` }).from(refundRequests).where(eq(refundRequests.status, "requested")),
       db
-        .select({ n: sql<number>`count(*)::int` })
+        .select({ n: sql<number>`count(*)` })
         .from(productVariants)
         .where(sql`${productVariants.status} = 'active' and ${productVariants.stockQuantity} - ${productVariants.reservedQuantity} <= ${productVariants.lowStockThreshold}`),
     ]);

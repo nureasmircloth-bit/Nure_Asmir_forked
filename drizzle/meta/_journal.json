@@ -1,264 +1,33 @@
 {
   "version": "7",
-  "dialect": "postgresql",
+  "dialect": "sqlite",
   "entries": [
     {
       "idx": 0,
-      "version": "7",
-      "when": 1785321346791,
-      "tag": "0000_conscious_the_hunter",
+      "version": "6",
+      "when": 1792954859089,
+      "tag": "0000_baseline",
       "breakpoints": true
     },
     {
       "idx": 1,
-      "version": "7",
-      "when": 1785337392523,
-      "tag": "0001_far_nitro",
+      "version": "6",
+      "when": 1792954868554,
+      "tag": "0001_phone_digits_index",
       "breakpoints": true
     },
     {
       "idx": 2,
-      "version": "7",
-      "when": 1785439547293,
-      "tag": "0002_spooky_serpent_society",
+      "version": "6",
+      "when": 1792956578437,
+      "tag": "0002_starting_rows",
       "breakpoints": true
     },
     {
       "idx": 3,
-      "version": "7",
-      "when": 1785483011645,
-      "tag": "0003_tan_scourge",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1785525153633,
-      "tag": "0004_outstanding_stick",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1785601771151,
-      "tag": "0005_stale_sleepwalker",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1785610137168,
-      "tag": "0006_slimy_karma",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1785870025624,
-      "tag": "0007_curvy_wallow",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1786036211200,
-      "tag": "0008_safe_dagger",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1786093217554,
-      "tag": "0009_parallel_aaron_stack",
-      "breakpoints": true
-    },
-    {
-      "idx": 10,
-      "version": "7",
-      "when": 1786115385684,
-      "tag": "0010_clammy_wallow",
-      "breakpoints": true
-    },
-    {
-      "idx": 11,
-      "version": "7",
-      "when": 1786191702697,
-      "tag": "0011_round_nomad",
-      "breakpoints": true
-    },
-    {
-      "idx": 12,
-      "version": "7",
-      "when": 1786469983539,
-      "tag": "0012_bent_rocket_racer",
-      "breakpoints": true
-    },
-    {
-      "idx": 13,
-      "version": "7",
-      "when": 1790335244197,
-      "tag": "0013_curly_machine_man",
-      "breakpoints": true
-    },
-    {
-      "idx": 14,
-      "version": "7",
-      "when": 1790337162113,
-      "tag": "0014_lumpy_johnny_blaze",
-      "breakpoints": true
-    },
-    {
-      "idx": 15,
-      "version": "7",
-      "when": 1791188006572,
-      "tag": "0015_nure_asmir_defaults",
-      "breakpoints": true
-    },
-    {
-      "idx": 16,
-      "version": "7",
-      "when": 1791190667276,
-      "tag": "0016_admin_push_devices",
-      "breakpoints": true
-    },
-    {
-      "idx": 17,
-      "version": "7",
-      "when": 1791194252646,
-      "tag": "0017_flash_sales_push_stock_alerts",
-      "breakpoints": true
-    },
-    {
-      "idx": 18,
-      "version": "7",
-      "when": 1791221356077,
-      "tag": "0018_courier_refunds_site_images",
-      "breakpoints": true
-    },
-    {
-      "idx": 19,
-      "version": "7",
-      "when": 1791221383966,
-      "tag": "0019_drop_legacy_postex_columns",
-      "breakpoints": true
-    },
-    {
-      "idx": 20,
-      "version": "7",
-      "when": 1791285635418,
-      "tag": "0020_tidy_bloodscream",
-      "breakpoints": true
-    },
-    {
-      "idx": 21,
-      "version": "7",
-      "when": 1791286678545,
-      "tag": "0021_acoustic_lake",
-      "breakpoints": true
-    },
-    {
-      "idx": 22,
-      "version": "7",
-      "when": 1791299685918,
-      "tag": "0022_naive_marten_broadcloak",
-      "breakpoints": true
-    },
-    {
-      "idx": 23,
-      "version": "7",
-      "when": 1791311968219,
-      "tag": "0023_rainy_rocket_raccoon",
-      "breakpoints": true
-    },
-    {
-      "idx": 24,
-      "version": "7",
-      "when": 1791312536418,
-      "tag": "0024_short_ben_grimm",
-      "breakpoints": true
-    },
-    {
-      "idx": 25,
-      "version": "7",
-      "when": 1791360590051,
-      "tag": "0025_product_seo_keywords",
-      "breakpoints": true
-    },
-    {
-      "idx": 26,
-      "version": "7",
-      "when": 1791360617315,
-      "tag": "0026_product_seo_locked",
-      "breakpoints": true
-    },
-    {
-      "idx": 27,
-      "version": "7",
-      "when": 1791435207751,
-      "tag": "0027_site_text_and_ticker",
-      "breakpoints": true
-    },
-    {
-      "idx": 28,
-      "version": "7",
-      "when": 1791435983250,
-      "tag": "0028_admin_messages",
-      "breakpoints": true
-    },
-    {
-      "idx": 29,
-      "version": "7",
-      "when": 1791474220724,
-      "tag": "0029_sandbox_tables",
-      "breakpoints": true
-    },
-    {
-      "idx": 30,
-      "version": "7",
-      "when": 1791696227245,
-      "tag": "0030_db_tuning",
-      "breakpoints": true
-    },
-    {
-      "idx": 31,
-      "version": "7",
-      "when": 1791788400000,
-      "tag": "0031_settings_buffer",
-      "breakpoints": true
-    },
-    {
-      "idx": 32,
-      "version": "7",
-      "when": 1791802800000,
-      "tag": "0032_storefront_theme_presets",
-      "breakpoints": true
-    },
-    {
-      "idx": 33,
-      "version": "7",
-      "when": 1791941801473,
-      "tag": "0033_storefront_texts",
-      "breakpoints": true
-    },
-    {
-      "idx": 34,
-      "version": "7",
-      "when": 1791980601166,
-      "tag": "0034_theme_chrome_colors",
-      "breakpoints": true
-    },
-    {
-      "idx": 35,
-      "version": "7",
-      "when": 1791983220500,
-      "tag": "0035_theme_bottom_bar",
-      "breakpoints": true
-    },
-    {
-      "idx": 36,
-      "version": "7",
-      "when": 1792407409452,
-      "tag": "0036_price_on_request_bespoke",
+      "version": "6",
+      "when": 1792956578438,
+      "tag": "0003_figtree_default_body_font",
       "breakpoints": true
     }
   ]

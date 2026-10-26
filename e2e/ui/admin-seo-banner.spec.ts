@@ -50,7 +50,7 @@ test.describe("admin: Google text, own search words, banner crop frames", () => 
     await expect(page.locator(".a-toast").first()).toContainText(/saved/i, { timeout: 30_000 });
 
     const [row] = (await sql`select seo_title as title, seo_description as description, seo_keywords as keywords, seo_locked as locked from products where id = ${productId}`) as Array<Record<string, unknown>>;
-    expect(row).toEqual({ title: "E2E Hand written Google title", description: "E2E Hand written description for Google, with delivery all over Pakistan.", keywords: "e2e eid kurta, e2e wedding wear", locked: true });
+    expect(row).toEqual({ title: "E2E Hand written Google title", description: "E2E Hand written description for Google, with delivery all over Pakistan.", keywords: "e2e eid kurta, e2e wedding wear", locked: 1 });
 
     // the words reach search engines through the product's structured data
     await expect

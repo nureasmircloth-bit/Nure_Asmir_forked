@@ -1,5 +1,6 @@
-import { and, desc, eq, ilike, inArray, or, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, like as likeCi, inArray, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
+import { phoneDigits } from "@/db/sql-compat";
 import { orders } from "@/db/schema";
 
 export const ORDER_TABS = [
@@ -43,11 +44,11 @@ function searchCondition(q: string): SQL | undefined {
   const digits = text.replace(/\D/g, "");
   const like = `%${text.replace(/[%_]/g, "")}%`;
   return or(
-    ilike(orders.orderNumber, like),
-    ilike(orders.customerName, like),
-    ilike(orders.courierTrackingNumber, like),
-    ilike(orders.city, like),
-    digits.length >= 4 ? sql`regexp_replace(${orders.customerPhone}, '\\D', '', 'g') like ${`%${digits}%`}` : undefined,
+    likeCi(orders.orderNumber, like),
+    likeCi(orders.customerName, like),
+    likeCi(orders.courierTrackingNumber, like),
+    likeCi(orders.city, like),
+    digits.length >= 4 ? sql`${phoneDigits(orders.customerPhone)} like ${`%${digits}%`}` : undefined,
   );
 }
 
@@ -93,7 +94,7 @@ export async function listOrders(options: { tab: OrderTab; q?: string; page?: nu
         courierTrackingNumber: orders.courierTrackingNumber,
         courierStatus: orders.courierStatus,
         handedOverAt: orders.handedOverAt,
-        pieces: sql<number>`coalesce((select sum(oi.quantity) from order_items oi where oi.order_id = ${outerId}), 0)::int`,
+        pieces: sql<number>`coalesce((select sum(oi.quantity) from order_items oi where oi.order_id = ${outerId}), 0)`,
         firstImage: sql<string | null>`(select oi.image_url from order_items oi where oi.order_id = ${outerId} order by oi.id limit 1)`,
         firstItem: sql<string | null>`(select oi.product_name from order_items oi where oi.order_id = ${outerId} order by oi.id limit 1)`,
         proofPending,
@@ -104,7 +105,7 @@ export async function listOrders(options: { tab: OrderTab; q?: string; page?: nu
       .orderBy(desc(orders.createdAt))
       .limit(pageSize)
       .offset((page - 1) * pageSize),
-    db.select({ n: sql<number>`count(*)::int` }).from(orders).where(where),
+    db.select({ n: sql<number>`count(*)` }).from(orders).where(where),
   ]);
   return { rows: rows.map((row) => ({ ...row, proofPending: Boolean(row.proofPending) })), total: count?.n ?? 0, page, pageSize };
 }
@@ -112,12 +113,12 @@ export async function listOrders(options: { tab: OrderTab; q?: string; page?: nu
 export async function orderTabCounts(): Promise<Record<OrderTab, number>> {
   const [row] = await db
     .select({
-      action: sql<number>`count(*) filter (where ${orders.orderStatus} = 'pending_confirmation' or (${orders.orderStatus} in ('confirmed','processing','packed') and ${proofPending}))::int`,
-      pack: sql<number>`count(*) filter (where ${orders.orderStatus} in ('confirmed','processing','packed'))::int`,
-      tcs: sql<number>`count(*) filter (where ${orders.orderStatus} = 'shipped')::int`,
-      done: sql<number>`count(*) filter (where ${orders.orderStatus} = 'delivered')::int`,
-      closed: sql<number>`count(*) filter (where ${orders.orderStatus} in ('cancelled','returned'))::int`,
-      all: sql<number>`count(*)::int`,
+      action: sql<number>`count(*) filter (where ${orders.orderStatus} = 'pending_confirmation' or (${orders.orderStatus} in ('confirmed','processing','packed') and ${proofPending}))`,
+      pack: sql<number>`count(*) filter (where ${orders.orderStatus} in ('confirmed','processing','packed'))`,
+      tcs: sql<number>`count(*) filter (where ${orders.orderStatus} = 'shipped')`,
+      done: sql<number>`count(*) filter (where ${orders.orderStatus} = 'delivered')`,
+      closed: sql<number>`count(*) filter (where ${orders.orderStatus} in ('cancelled','returned'))`,
+      all: sql<number>`count(*)`,
     })
     .from(orders);
   return { action: row?.action ?? 0, pack: row?.pack ?? 0, tcs: row?.tcs ?? 0, done: row?.done ?? 0, closed: row?.closed ?? 0, all: row?.all ?? 0 };

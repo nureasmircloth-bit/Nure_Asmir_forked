@@ -31,30 +31,30 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
   const like = `%${q.replace(/[%_]/g, "")}%`;
 
   const where = sql`${filter === "all" ? sql`p.status <> 'archived'` : filter === "low" ? sql`p.status <> 'archived'` : sql`p.status = ${filter}`}
-    ${q ? sql`and (p.name ilike ${like} or p.type_label ilike ${like} or exists (select 1 from product_variants sv where sv.product_id = p.id and sv.sku ilike ${like}))` : sql``}
-    ${cat ? sql`and p.category_id = ${cat}::uuid` : sql``}`;
+    ${q ? sql`and (p.name like ${like} or p.type_label like ${like} or exists (select 1 from product_variants sv where sv.product_id = p.id and sv.sku like ${like}))` : sql``}
+    ${cat ? sql`and p.category_id = ${cat}` : sql``}`;
   const having = filter === "low" ? sql`where s."lowCount" > 0` : sql``;
 
   const base = sql`
     select p.id, p.name, p.type_label as type, p.status, p.featured, p.created_at as created, c.name as category,
-           s.min_price::int as "minPrice", s.max_price::int as "maxPrice", s.sizes, s.colors, s.available, s.low_count as "lowCount",
+           s.min_price as "minPrice", s.max_price as "maxPrice", s.sizes, s.colors, s.available, s.low_count as "lowCount",
            (select i.r2_key from product_images i where i.product_id = p.id and i.status = 'active' order by i.is_primary desc, i.sort_order, i.created_at limit 1) as "imageKey",
            (select i.variant_widths from product_images i where i.product_id = p.id and i.status = 'active' order by i.is_primary desc, i.sort_order, i.created_at limit 1) as widths
     from products p
     join categories c on c.id = p.category_id
-    left join lateral (
-      select min(v.price) as min_price, max(v.price) as max_price, count(*)::int as sizes, count(distinct lower(v.color))::int as colors,
-             sum(greatest(0, v.stock_quantity - v.reserved_quantity))::int as available,
-             count(*) filter (where v.stock_quantity - v.reserved_quantity <= v.low_stock_threshold)::int as low_count
-      from product_variants v where v.product_id = p.id and v.status = 'active'
-    ) s on true
+    left join (
+      select v.product_id, min(v.price) as min_price, max(v.price) as max_price, count(*) as sizes, count(distinct lower(v.color)) as colors,
+             sum(max(0, v.stock_quantity - v.reserved_quantity)) as available,
+             count(*) filter (where v.stock_quantity - v.reserved_quantity <= v.low_stock_threshold) as low_count
+      from product_variants v where v.status = 'active' group by v.product_id
+    ) s on s.product_id = p.id
     where ${where}`;
 
   const [result, totalResult, catRows, counts] = await Promise.all([
     db.execute(sql`select * from (${base}) s ${having} order by created desc limit ${PAGE_SIZE} offset ${(page - 1) * PAGE_SIZE}`),
-    db.execute(sql`select count(*)::int as n from (${base}) s ${having}`),
+    db.execute(sql`select count(*) as n from (${base}) s ${having}`),
     db.select({ id: categories.id, name: categories.name }).from(categories).orderBy(asc(categories.sortOrder), asc(categories.name)),
-    db.select({ status: products.status, n: sql<number>`count(*)::int` }).from(products).groupBy(products.status),
+    db.select({ status: products.status, n: sql<number>`count(*)` }).from(products).groupBy(products.status),
   ]);
   const rows = ((result as unknown as { rows: Row[] }).rows ?? []).map((row) => ({ ...row, created: new Date(row.created) }));
   const total = Number(((totalResult as unknown as { rows: Array<{ n: number }> }).rows ?? [])[0]?.n ?? 0);

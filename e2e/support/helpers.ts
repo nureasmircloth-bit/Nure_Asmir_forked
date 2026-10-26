@@ -1,28 +1,47 @@
 import { randomUUID } from "node:crypto";
-import { neon, neonConfig } from "@neondatabase/serverless";
+import Database from "better-sqlite3";
 import { expect, type APIRequestContext } from "@playwright/test";
 
 export const BASE = process.env.E2E_BASE_URL ?? "http://localhost:3100";
 export const MOCK = process.env.E2E_MOCK_FCM ?? "http://127.0.0.1:4010";
 export const CRON_SECRET = process.env.E2E_CRON_SECRET ?? "e2e-cron-secret";
 
-/** fetch with retries: the free-tier Neon endpoint occasionally drops a connection right after waking. */
-const retryingFetch: typeof fetch = async (input, init) => {
-  let lastError: unknown;
-  for (let attempt = 0; attempt < 4; attempt++) {
-    try {
-      return await fetch(input, init);
-    } catch (error) {
-      lastError = error;
-      await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
-    }
+const NOW_MS = "(cast(unixepoch('subsec') * 1000 as integer))";
+const UNIT_MS: Record<string, number> = { second: 1000, seconds: 1000, minute: 60_000, minutes: 60_000, hour: 3_600_000, hours: 3_600_000, day: 86_400_000, days: 86_400_000 };
+
+/** The tests were written for Postgres; the few idioms they use are spelled the SQLite way here, so the specs stay readable. */
+function translate(text: string): string {
+  return text
+    .replace(/now\(\)\s*-\s*interval\s*'(\d+)\s*(\w+)'/gi, (_m, n: string, unit: string) => `(${NOW_MS} - ${Number(n) * (UNIT_MS[unit.toLowerCase()] ?? 1000)})`)
+    .replace(/make_interval\(days\s*=>\s*([^)]+)\)/gi, "($1 * 86400000)")
+    .replace(/\bnow\(\)/gi, NOW_MS)
+    .replace(/::(int|integer|bigint|text|uuid|date|jsonb|float8|numeric)\b/gi, "")
+    .replace(/\bjsonb_array_length\(/gi, "json_array_length(")
+    .replace(/\bilike\b/gi, "like");
+}
+
+const dbFile = process.env.LOCAL_DB_PATH ?? process.env.E2E_LOCAL_DB ?? ".local-db/e2e.sqlite";
+let client: Database.Database | null = null;
+function local(): Database.Database {
+  if (!client) {
+    client = new Database(dbFile);
+    client.pragma("journal_mode = WAL");
+    client.pragma("busy_timeout = 8000");
   }
-  throw lastError;
-};
-neonConfig.fetchFunction = retryingFetch;
-const sqlClient = neon(process.env.E2E_DATABASE_URL ?? "");
-/** Tagged-template SQL against the disposable e2e branch. */
-export const sql = sqlClient;
+  return client;
+}
+
+/** Tagged-template SQL against the disposable local test database (the same SQLite file the app under test uses). Returns the rows. */
+export async function sql(strings: TemplateStringsArray, ...values: unknown[]): Promise<Array<Record<string, any>>> { // eslint-disable-line @typescript-eslint/no-explicit-any
+  const text = translate(strings.reduce((acc, part, i) => acc + part + (i < values.length ? "?" : ""), ""));
+  const params = values.map((v) => (v instanceof Date ? v.getTime() : typeof v === "string" && /^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/.test(v) ? Date.parse(v) : typeof v === "boolean" ? (v ? 1 : 0) : v && typeof v === "object" ? JSON.stringify(v) : v)) as Array<string | number | null>;
+  const statement = local().prepare(text);
+  if (!statement.reader) return statement.run(...params), [];
+  const rows = statement.all(...params) as Array<Record<string, any>>; // eslint-disable-line @typescript-eslint/no-explicit-any
+  // JSON columns (picture width lists) are text in SQLite: hand them to the tests as arrays, as the old driver did.
+  for (const row of rows) for (const key of Object.keys(row)) if (/(^|_)widths$/i.test(key) && typeof row[key] === "string") row[key] = JSON.parse(row[key]);
+  return rows;
+}
 
 export type Variant = { id: string; productId: string; sku: string; name: string; price: number; stock: number; reserved: number };
 

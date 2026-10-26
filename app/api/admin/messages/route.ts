@@ -12,10 +12,10 @@ export async function GET() {
   const admin = await getAdminUser();
   if (!admin) return Response.json({ error: "Unauthorized" }, { status: 401 });
   const [[devices], [alerts], [mine], [list], allowance, history] = await Promise.all([
-    db.select({ n: sql<number>`count(*)::int` }).from(customerPushDevices),
-    db.select({ n: sql<number>`count(*)::int` }).from(customerPushDevices).where(eq(customerPushDevices.salesOptIn, true)),
-    db.select({ n: sql<number>`count(*)::int` }).from(adminPushDevices),
-    db.select({ n: sql<number>`count(*)::int` }).from(subscribers).where(eq(subscribers.status, "subscribed")),
+    db.select({ n: sql<number>`count(*)` }).from(customerPushDevices),
+    db.select({ n: sql<number>`count(*)` }).from(customerPushDevices).where(eq(customerPushDevices.salesOptIn, true)),
+    db.select({ n: sql<number>`count(*)` }).from(adminPushDevices),
+    db.select({ n: sql<number>`count(*)` }).from(subscribers).where(eq(subscribers.status, "subscribed")),
     emailAllowance(),
     db.select().from(adminMessages).orderBy(desc(adminMessages.createdAt)).limit(15),
   ]);

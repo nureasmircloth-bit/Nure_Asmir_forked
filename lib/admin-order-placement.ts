@@ -6,7 +6,7 @@ import { computeDeliveryCharge, isDeliveryMode, type DeliveryMode } from "@/lib/
 // threshold — but the order is created already *confirmed*, with the admin as the actor. Checkout
 // itself is deliberately untouched; this is a separate path so it can't change how customers order.
 //
-// Like checkout, this runs on the stateless neon-http driver (no db.transaction), so stock is
+// Like checkout, this runs on D1 (no interactive db.transaction), so stock is
 // reserved with guarded UPDATEs and compensated by hand if a later write fails.
 
 import { randomUUID } from "node:crypto";
@@ -399,7 +399,7 @@ export async function placeAdminOrder(raw: unknown, adminEmail: string, idempote
       try {
         await db
           .update(productVariants)
-          .set({ reservedQuantity: sql`greatest(0, ${productVariants.reservedQuantity} - ${line.quantity})`, updatedAt: now })
+          .set({ reservedQuantity: sql`max(0, ${productVariants.reservedQuantity} - ${line.quantity})`, updatedAt: now })
           .where(eq(productVariants.id, line.variantId));
       } catch (error) {
         console.error("Failed to release stock after a failed admin order", line.variantId, error);

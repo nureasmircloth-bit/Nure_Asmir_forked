@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // The developer console (plus the admin screens) – its own Worker and build (see scripts/build-target.mjs), so owners never download it:
+  // shoppers never download or share a bundle with it, and it has its own origin, cookies and robots rules.
+  "name": "nure-asmir-developer",
+  // developer-entry.ts is the plain OpenNext worker (no timers: the developer console is opened rarely).
+  "main": "developer-entry.ts",
+  "compatibility_date": "2026-07-29",
+  "compatibility_flags": ["nodejs_compat"],
+  // The database (Cloudflare D1, SQLite). The store and the admin share one database.
+  "d1_databases": [{ "binding": "DB", "database_name": "nure-asmir-prod", "database_id": "55b97328-231b-4fa7-ba88-8b825dfcb337", "migrations_dir": "drizzle" }],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "r2_buckets": [
+    { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "nure-asmir-cache" },
+    // Second picture store (10 GB free) used next to Neon Storage – see lib/storage.ts. Created by the deploy workflow.
+    { "binding": "MEDIA_R2", "bucket_name": "nure-asmir-media-r2" }
+  ],
+  "vars": { "APP_TARGET": "developer", "NEXT_PUBLIC_ADMIN_URL": "https://developer.nureasmir.com" },
+  "observability": { "enabled": true },
+  "workers_dev": true,
+  "routes": [{ "pattern": "developer.nureasmir.com", "custom_domain": true }]
+}

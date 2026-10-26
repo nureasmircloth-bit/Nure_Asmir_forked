@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { db, practiceDb } from "@/db";
+import { db, runAtomically } from "@/db";
 import { isPracticeRequest } from "./practice-context";
 import { hitState, roomMessage, SANDBOX_LIMITS, type HitState, type SandboxThing } from "./sandbox-rules";
 
@@ -9,17 +9,16 @@ export type { SandboxThing } from "./sandbox-rules";
 /** True while the request being handled is a practice request (see lib/practice-context.ts). */
 export const isSandbox = (): boolean => isPracticeRequest();
 
-/** Is the practice shop set up on this server at all? (It needs its own database user, PRACTICE_DATABASE_URL.) */
-export const practiceAvailable = (): boolean => Boolean(process.env.PRACTICE_DATABASE_URL);
+/** Is the practice shop set up on this server at all? Only the training Worker (SANDBOX=1) has it: that Worker's database IS the practice shop. */
+export const practiceAvailable = (): boolean => process.env.SANDBOX === "1";
 
 /** Returns the current calendar date in Pakistan time for daily practice usage counters. */
 const pakistanDay = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Karachi" });
 
 type Rows<T> = { rows: T[] };
 
-// Everything below that is about setting practice up, counting or resetting uses the practice tables directly, whatever the current request is.
-/** Returns a database handle that always targets the practice tables. */
-const practice = () => practiceDb();
+// The training Worker has its own D1 database (binding DB), so the practice tables are simply `db` there.
+const practice = () => db;
 
 /** Reads today's practice usage, falling back to zero used hits when the query fails. */
 export async function sandboxHits(): Promise<HitState> {
@@ -45,7 +44,7 @@ const TABLE_FOR: Record<SandboxThing, string> = {
 /** How much room the practice tables take on disk (data and indexes). */
 export async function practiceBytes(): Promise<number> {
   const result = (await practice().execute(
-    sql`select coalesce(sum(pg_total_relation_size(c.oid)), 0)::bigint as bytes from pg_class c where c.relnamespace = current_schema()::regnamespace and c.relkind = 'r'`,
+    sql`select (select page_count from pragma_page_count) * (select page_size from pragma_page_size) as bytes`,
   )) as unknown as Rows<{ bytes: string | number }>;
   return Number(result.rows[0]?.bytes ?? 0);
 }
@@ -65,7 +64,7 @@ async function startBytes(): Promise<number> {
 export async function sandboxRoomMessage(thing: SandboxThing): Promise<string | null> {
   if (!isSandbox()) return null;
   try {
-    const result = (await db.execute(sql.raw(`select count(*)::int as n from "${TABLE_FOR[thing]}"`))) as unknown as Rows<{ n: number }>;
+    const result = (await db.execute(sql.raw(`select count(*) as n from "${TABLE_FOR[thing]}"`))) as unknown as Rows<{ n: number }>;
     const crowded = roomMessage(thing, Number(result.rows[0]?.n ?? 0));
     if (crowded) return crowded;
     const grown = (await practiceBytes()) - (await startBytes());
@@ -82,20 +81,20 @@ const KEEP = new Set(["admin_owners", "admin_sessions", "admin_push_devices", "l
 
 /** Lists practice data tables eligible for baseline capture, excluding access, usage and internal tables. */
 async function dataTables(): Promise<string[]> {
-  const result = (await practice().execute(sql`select table_name from information_schema.tables where table_schema = current_schema() and table_type = 'BASE TABLE' order by table_name`)) as unknown as Rows<{ table_name: string }>;
+  const result = (await practice().execute(sql`select name as table_name from sqlite_master where type = 'table' and name not like 'sqlite!_%' escape '!' and name not like '!_cf!_%' escape '!' and name <> 'd1_migrations' and name not like '!_%' escape '!' order by name`)) as unknown as Rows<{ table_name: string }>;
   return result.rows.map((row) => row.table_name).filter((name) => !KEEP.has(name) && !name.startsWith("__"));
 }
 
 /** Tables ordered so that a table always comes after the tables it points to (so rows can be put back without breaking a link). */
 async function insertOrder(tables: string[]): Promise<string[]> {
   const result = (await practice().execute(
-    sql`select c.conrelid::regclass::text as child, c.confrelid::regclass::text as parent from pg_constraint c where c.contype = 'f' and c.connamespace = current_schema()::regnamespace`,
+    sql`select m.name as child, f."table" as parent from sqlite_master m, pragma_foreign_key_list(m.name) f where m.type = 'table'`,
   )) as unknown as Rows<{ child: string; parent: string }>;
   const wanted = new Set(tables);
   const needs = new Map<string, Set<string>>(tables.map((table) => [table, new Set<string>()]));
   for (const { child, parent } of result.rows) {
-    const c = child.replaceAll('"', "").replace(/^practice\./, "");
-    const p = parent.replaceAll('"', "").replace(/^practice\./, "");
+    const c = child;
+    const p = parent;
     if (c !== p && wanted.has(c) && wanted.has(p)) needs.get(c)?.add(p);
   }
   const ordered: string[] = [];
@@ -119,10 +118,11 @@ export async function captureBaseline(): Promise<number> {
   const tables = await dataTables();
   await practice().execute(sql`delete from sandbox_baseline`);
   for (const table of tables) {
-    await practice().execute(sql.raw(`insert into sandbox_baseline (table_name, rows) select '${table}', coalesce(jsonb_agg(t), '[]'::jsonb) from "${table}" t`));
+    const copy = await practice().execute(sql.raw(`select * from "${table}"`));
+    await practice().execute(sql`insert into sandbox_baseline (table_name, rows) values (${table}, ${JSON.stringify(copy.rows)})`);
   }
   const bytes = await practiceBytes();
-  await practice().execute(sql`insert into sandbox_baseline (table_name, rows) values (${START_KEY}, ${JSON.stringify([bytes])}::jsonb)`);
+  await practice().execute(sql`insert into sandbox_baseline (table_name, rows) values (${START_KEY}, ${JSON.stringify([bytes])})`);
   return tables.length;
 }
 
@@ -136,16 +136,27 @@ export async function hasBaseline(): Promise<boolean> {
   }
 }
 
+/** One saved cell, ready to be bound: picture-width lists were saved as arrays, but the column holds them as JSON text. */
+const cell = (value: unknown): string | number | null => (value !== null && typeof value === "object" ? JSON.stringify(value) : (value as string | number | null));
+
 /** Puts every practice table back to the starting data in one all-or-nothing step. Sign-ins and today's counters are left alone. */
 export async function resetToBaseline(): Promise<{ tables: number }> {
-  const saved = (await practice().execute(sql`select table_name, rows from sandbox_baseline where table_name <> ${START_KEY}`)) as unknown as Rows<{ table_name: string; rows: unknown[] }>;
+  const saved = (await practice().execute(sql`select table_name, rows from sandbox_baseline where table_name <> ${START_KEY}`)) as unknown as Rows<{ table_name: string; rows: unknown }>;
   if (!saved.rows.length) throw new Error("There is no starting data saved yet.");
   const byName = new Map(saved.rows.map((row) => [row.table_name, row.rows]));
   const existing = new Set(await dataTables());
   const tables = await insertOrder([...byName.keys()].filter((name) => existing.has(name)));
-  const wipe = sql.raw(`truncate table ${tables.map((table) => `"${table}"`).join(", ")} restart identity cascade`);
-  const refill = tables.map((table) => sql`insert into ${sql.raw(`"${table}"`)} select * from jsonb_populate_recordset(null::${sql.raw(`"${table}"`)}, ${JSON.stringify(byName.get(table) ?? [])}::jsonb)`);
-  const handle = practice();
-  await handle.batch([handle.execute(wipe), ...refill.map((statement) => handle.execute(statement))] as unknown as Parameters<typeof handle.batch>[0]);
+  const parsed = (value: unknown): Array<Record<string, unknown>> => (typeof value === "string" ? (JSON.parse(value) as Array<Record<string, unknown>>) : ((value ?? []) as Array<Record<string, unknown>>));
+  // Wipe children before parents, then refill parents before children: one all-or-nothing batch.
+  const statements = [
+    ...[...tables].reverse().map((table) => sql.raw(`delete from "${table}"`)),
+    ...tables.flatMap((table) =>
+      parsed(byName.get(table)).map((row) => {
+        const columns = Object.keys(row);
+        return sql`insert into ${sql.raw(`"${table}"`)} (${sql.raw(columns.map((column) => `"${column}"`).join(", "))}) values (${sql.join(columns.map((column) => sql`${cell(row[column])}`), sql`, `)})`;
+      }),
+    ),
+  ];
+  await runAtomically(statements);
   return { tables: tables.length };
 }

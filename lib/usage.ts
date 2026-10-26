@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
+import { nowMs } from "@/db/sql-compat";
 import { runInBackground } from "@/lib/background";
 
 /**
@@ -20,12 +21,12 @@ export async function recordApiCall(service: ServiceName, ok: boolean, error = "
     const message = ok ? "" : error.slice(0, 300);
     await db.execute(sql`
       insert into api_usage (service, day, calls, errors, last_error, last_at)
-      values (${service}, ${pktDay()}, 1, ${failed}, ${message}, now())
+      values (${service}, ${pktDay()}, 1, ${failed}, ${message}, ${nowMs})
       on conflict (service, day) do update set
         calls = api_usage.calls + 1,
         errors = api_usage.errors + ${failed},
-        last_error = case when ${ok} then api_usage.last_error else ${message} end,
-        last_at = now()`);
+        last_error = case when ${ok ? 1 : 0} then api_usage.last_error else ${message} end,
+        last_at = ${nowMs}`);
   } catch {
     // counting is best-effort
   }
@@ -48,8 +49,8 @@ export async function noteLimits(service: string, values: Record<string, unknown
   try {
     const value = JSON.stringify(values);
     await db.execute(sql`
-      insert into service_stats (key, value, updated_at) values (${`limits:${service}`}, ${value}::jsonb, now())
-      on conflict (key) do update set value = ${value}::jsonb, updated_at = now()`);
+      insert into service_stats (key, value, updated_at) values (${`limits:${service}`}, ${value}, ${nowMs})
+      on conflict (key) do update set value = ${value}, updated_at = ${nowMs}`);
   } catch {
     // best-effort
   }

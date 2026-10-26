@@ -73,7 +73,7 @@ test.describe("admin theme → storefront", () => {
         });
         expect(seen).toMatchObject({ accent: "#2e8b57", ink: "#1a1a40", paper: "#fff4e6", surface: "#e8f1ea", radius: "10px", bodyBackground: "rgb(255, 244, 230)" });
         expect(seen.display).toContain("Bodoni Moda");
-        await expect(page.locator('link[href*="fonts.googleapis.com"][href*="Bodoni"]')).toHaveCount(1);
+        await expect(page.locator('link[rel="stylesheet"][href*="fonts.googleapis.com"][href*="Bodoni"]')).toHaveCount(1);
       });
     }
 

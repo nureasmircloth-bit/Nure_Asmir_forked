@@ -102,7 +102,7 @@ test.describe("admin: top bar, delivery, payment, questions", () => {
     await expect(toast(page).first()).toContainText("Settings saved", { timeout: 20_000 });
     await applyNow(page);
     const [row] = (await sql`select delivery_mode as mode, flat_delivery_charge as flat, bank_deposit_enabled as bank from site_settings where id = 'store'`) as Array<Record<string, unknown>>;
-    expect(row).toEqual({ mode: "flat", flat: 199, bank: true });
+    expect(row).toEqual({ mode: "flat", flat: 199, bank: 1 });
 
     // and the shop obeys: the checkout now offers bank transfer, with the flat price
     const options = (await (await page.request.get(`${BASE}/api/checkout/options`)).json()) as { settings: { bankDepositEnabled: boolean; deliveryMode: string; flatDeliveryCharge: number } };

@@ -40,7 +40,7 @@ async function setupChecklist() {
 
 export default async function AdminHomePage({ searchParams }: { searchParams: Promise<{ range?: string }> }) {
   const user = await requireAdminUser("/admin");
-  if (user.role === "developer") redirect("/admin/developer");
+  if (user.role === "developer" && process.env.APP_TARGET !== "admin") redirect("/admin/developer"); // (the owner build has no developer console)
   const rangeParam = (await searchParams).range;
   const rangeKey = isRangeKey(rangeParam) ? rangeParam : "7d";
 

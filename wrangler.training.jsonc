@@ -9,6 +9,8 @@
   "main": "admin-entry.ts",
   "compatibility_date": "2026-07-29",
   "compatibility_flags": ["nodejs_compat"],
+  // The database (Cloudflare D1, SQLite). The training lab has its own database (the practice shop), so nothing done there can touch the real one.
+  "d1_databases": [{ "binding": "DB", "database_name": "nure-asmir-training", "database_id": "b005376b-e179-4082-9195-acbe32c81ad6", "migrations_dir": "drizzle" }],
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
