@@ -43,6 +43,13 @@ test("each of the four builds leaves out exactly what belongs to the others", ()
   expect(block("TRAINING_ONLY")).toContain("app/api/admin/sandbox");
 });
 
+test("Sentry is built into the storefront and the owner's admin only", () => {
+  const list = text.match(/const SENTRY_TARGETS = \[([^\]]*)\]/);
+  expect(list, "SENTRY_TARGETS is defined").not.toBeNull();
+  expect(list![1].replace(/[\s"]/g, "").split(",")).toEqual(["store", "admin"]);
+  expect(text).toContain('NEXT_PUBLIC_SENTRY_DSN: ""'); // the other builds get no DSN, so they report nothing
+});
+
 test("every build has its own Worker config with its own name and database binding", () => {
   const configs: Record<string, string> = {
     "wrangler.jsonc": "nure-asmir",

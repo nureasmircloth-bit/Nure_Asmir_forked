@@ -48,6 +48,10 @@ const STORE_ONLY = [
 const DEVELOPER_ONLY = ["app/admin/(protected)/developer"];
 const TRAINING_ONLY = ["app/admin/(protected)/training", "app/admin/training-start", "app/admin/training-login", "app/api/admin/sandbox"];
 
+// Error reporting (Sentry) is built into the storefront and the owner's admin only. The training lab and the developer console are built with an
+// empty DSN: they send nothing, and the Sentry code is never even requested by their pages.
+const SENTRY_TARGETS = ["store", "admin"];
+
 // Everything the other target owns. Shared pieces (root layout, db, lib, middleware, /api/media* …) stay.
 const EXCLUDE = {
   // public/vendor holds the browser build of ExcelJS, which only the admin panel loads. (app/cdn – the picture route – is NOT excluded from
@@ -108,7 +112,7 @@ try {
   fs.rmSync(".next", { recursive: true, force: true });
 
   const config = { store: "wrangler.jsonc", admin: "wrangler.admin.jsonc", training: "wrangler.training.jsonc", developer: "wrangler.developer.jsonc" }[target];
-  const env = { ...process.env, APP_TARGET: target, NEXT_PUBLIC_APP_TARGET: target };
+  const env = { ...process.env, APP_TARGET: target, NEXT_PUBLIC_APP_TARGET: target, ...(SENTRY_TARGETS.includes(target) ? {} : { NEXT_PUBLIC_SENTRY_DSN: "" }) };
   const args = ["opennextjs-cloudflare", command, "--config", config];
   const result = spawnSync("npx", args, { stdio: "inherit", env, shell: process.platform === "win32" });
   process.exitCode = result.status ?? 1;
