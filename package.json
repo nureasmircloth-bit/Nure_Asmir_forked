@@ -35,7 +35,7 @@
     "@neon/config": "^1.8.3",
     "@neon/env": "^1.5.0",
     "@neondatabase/serverless": "^1.1.0",
-    "@opennextjs/cloudflare": "^1.20.2",
+    "@opennextjs/cloudflare": "^1.20.13",
     "@sentry/nextjs": "^11.4.0",
     "@types/leaflet": "^1.9.22",
     "algoliasearch": "^5.59.0",
@@ -47,15 +47,15 @@
     "lucide-react": "^1.27.0",
     "minisearch": "^7.2.0",
     "nanoid": "^6.0.0",
-    "next": "16.3.8",
+    "next": "16.4.3",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-easy-crop": "^6.2.3",
     "react-hook-form": "^7.83.0",
     "resend": "^6.18.1",
     "tailwind-merge": "^3.6.0",
-    "wrangler": "^4.147.0",
-    "zod": "^4.4.3"
+    "wrangler": "^4.153.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@aws-sdk/client-s3": "^3.1097.0",
@@ -70,7 +70,7 @@
     "better-sqlite3": "^13.0.3",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
-    "eslint-config-next": "16.3.8",
+    "eslint-config-next": "16.4.3",
     "exceljs": "^4.4.0",
     "sharp": "^0.35.5",
     "tailwindcss": "^4",
@@ -84,6 +84,9 @@
     "sharp": "$sharp",
     "@esbuild-kit/core-utils": {
       "esbuild": "^0.25.12"
+    },
+    "@node-minify/core": {
+      "glob": "^10.5.0"
     }
   }
 }
