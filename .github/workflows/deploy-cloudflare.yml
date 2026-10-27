@@ -179,7 +179,7 @@ jobs:
             TRAINING_SESSION_SECRET=$(printf '%s' "${SESSION_SECRET}:training" | sha256sum | cut -d' ' -f1)
             for name in TRAINING_PASSWORD CSP_NONCE; do put wrangler.training.jsonc "$name"; done
             printf '%s' "$TRAINING_SESSION_SECRET" | npx wrangler secret put SESSION_SECRET -c wrangler.training.jsonc || echo "::warning::could not set SESSION_SECRET on the training lab"
-            for name in AWS_ENDPOINT_URL_S3 AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_REGION; do npx wrangler secret delete "$name" -c wrangler.training.jsonc --yes >/dev/null 2>&1 || true; done
+            for name in AWS_ENDPOINT_URL_S3 AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_REGION DATABASE_URL PRACTICE_DATABASE_URL; do printf "y\n" | npx wrangler secret delete "$name" -c wrangler.training.jsonc >/dev/null 2>&1 || true; done
           fi
 
       - name: Smoke check
