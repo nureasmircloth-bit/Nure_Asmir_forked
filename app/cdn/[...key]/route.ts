@@ -1,5 +1,5 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { backendOf, publicBucketOrigin, r2Bucket } from "@/lib/storage";
+import { backendOf, publicBucketOrigin, r2Bucket, r2Get } from "@/lib/storage";
 import { recordApiCall } from "@/lib/usage";
 import { runInBackground } from "@/lib/background";
 
@@ -35,7 +35,7 @@ export async function GET(request: Request, context: { params: Promise<{ key: st
       const hit = await cache?.match(cacheKey);
       if (hit) return hit;
       try {
-        const object = await bucket.get(key.join("/"));
+        const object = await r2Get(key.join("/")); // the Asia-Pacific bucket, then the older one
         runInBackground(recordApiCall("r2-storage", true), "usage:r2-storage");
         if (!object) return new Response("Not found", { status: 404, headers: { "Cache-Control": "public, max-age=60" } });
         const headers = new Headers({

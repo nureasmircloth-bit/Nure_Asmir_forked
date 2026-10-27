@@ -78,11 +78,11 @@ jobs:
         if: ${{ env.ONLY == 'all' || env.ONLY == 'training' }}
         run: npx wrangler d1 migrations apply DB --remote -c wrangler.training.jsonc
 
-      # The ISR page cache and the second picture store live in Cloudflare R2; the buckets are created once.
+      # The ISR page cache and the second picture store live in Cloudflare R2; the buckets are created once (Asia-Pacific for the new ones; see wrangler.jsonc). To create one by hand: wrangler r2 bucket create <name> --location apac.
       - name: Prepare the R2 buckets
         run: |
-          for bucket in nure-asmir-cache nure-asmir-media-r2; do
-            npx wrangler r2 bucket info "$bucket" >/dev/null 2>&1 || npx wrangler r2 bucket create "$bucket"
+          for bucket in nure-asmir-cache-apac nure-asmir-media-apac nure-asmir-media-r2 nure-asmir-training-media; do
+            npx wrangler r2 bucket info "$bucket" >/dev/null 2>&1 || npx wrangler r2 bucket create "$bucket" --location apac
           done
 
       # --- storefront ------------------------------------------------------------------------------------------------------------------
@@ -99,7 +99,7 @@ jobs:
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          R2_BUCKET_NAME: nure-asmir-cache
+          R2_BUCKET_NAME: nure-asmir-cache-apac
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
           if [ -n "${R2_ACCESS_KEY_ID:-}" ]; then npx tsx scripts/purge-isr-cache.ts; else echo "::warning::R2_* secrets are not set - skipping the ISR cache purge."; fi

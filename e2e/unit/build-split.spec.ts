@@ -69,3 +69,15 @@ test("every build has its own Worker config with its own name and database bindi
   expect(ids.get("wrangler.training.jsonc")).toBe("nure-asmir-training");
   for (const file of ["wrangler.jsonc", "wrangler.admin.jsonc", "wrangler.developer.jsonc"]) expect(ids.get(file)).toBe("nure-asmir-prod");
 });
+
+test("pictures and the page cache live in Cloudflare's Asia-Pacific buckets; the training lab has a picture bucket of its own", () => {
+  const bucket = (file: string, binding: string) => fs.readFileSync(file, "utf8").match(new RegExp(`"binding": "${binding}", "bucket_name": "([^"]+)"`))?.[1];
+  for (const file of ["wrangler.jsonc", "wrangler.admin.jsonc", "wrangler.developer.jsonc"]) {
+    expect(bucket(file, "MEDIA_R2"), file).toBe("nure-asmir-media-apac");
+    expect(bucket(file, "MEDIA_R2_LEGACY"), file).toBe("nure-asmir-media-r2"); // older pictures stay readable
+    expect(bucket(file, "NEXT_INC_CACHE_R2_BUCKET"), file).toBe("nure-asmir-cache-apac");
+  }
+  const training = bucket("wrangler.training.jsonc", "MEDIA_R2");
+  expect(training).toBe("nure-asmir-training-media");
+  expect(training).not.toBe(bucket("wrangler.jsonc", "MEDIA_R2")); // practising can never write into the real shop's pictures
+});

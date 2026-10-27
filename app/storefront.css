@@ -770,3 +770,8 @@ p, .pcard-title { text-wrap: pretty; }
   .pcard-title { font-size: 15px; }
   .pcard-price { font-size: 16px; }
 }
+
+/* Subcategory chips under a category title (written by the owner in Admin -> Collections). */
+.sub-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 18px auto 0; max-width: 760px; }
+.sub-chips a { padding: 7px 16px; border: 1px solid var(--line); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink); text-decoration: none; transition: background .2s, color .2s, border-color .2s; }
+.sub-chips a:hover { background: var(--ink); border-color: var(--ink); color: var(--paper); }

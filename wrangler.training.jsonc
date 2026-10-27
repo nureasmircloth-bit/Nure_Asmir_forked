@@ -17,7 +17,7 @@
   },
   // Pictures only (the practice products show the shop's pictures). Deliberately NO page-cache bucket: nothing of the lab is ever
   // saved where the real admin could pick it up.
-  "r2_buckets": [{ "binding": "MEDIA_R2", "bucket_name": "nure-asmir-media-r2" }],
+  "r2_buckets": [{ "binding": "MEDIA_R2", "bucket_name": "nure-asmir-training-media" }],
   "vars": {
     "APP_TARGET": "training",
     "SANDBOX": "1",
