@@ -26,8 +26,8 @@ const SHOP = [
 // credentials either (those open the real shop's public pictures and the private payment proofs). TRAINING_PASSWORD is set by hand:
 //   npx wrangler secret put TRAINING_PASSWORD -c wrangler.training.jsonc
 const TRAINING = ["CSP_NONCE"];
-// Left over from the first deploy: removed from the training Worker so nothing real stays there.
-const TRAINING_REMOVE = ["AWS_ENDPOINT_URL_S3", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_REGION"];
+// Left over from earlier deploys (Neon Storage keys, and the old practice database URLs from before the move to D1): removed from the training Worker so nothing real stays there.
+const TRAINING_REMOVE = ["AWS_ENDPOINT_URL_S3", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_REGION", "DATABASE_URL", "PRACTICE_DATABASE_URL"];
 const config = { store: "wrangler.jsonc", admin: "wrangler.admin.jsonc", developer: "wrangler.developer.jsonc", training: "wrangler.training.jsonc" };
 
 if (!targets.length || targets.some((t) => !config[t])) {
@@ -37,7 +37,7 @@ if (!targets.length || targets.some((t) => !config[t])) {
 
 let failures = 0;
 const wrangler = (verb, name, target, input) =>
-  spawnSync("npx", ["wrangler", "secret", verb, name, "-c", config[target], ...(verb === "delete" ? ["--yes"] : [])], { input, shell: true, encoding: "utf8" });
+  spawnSync("npx", ["wrangler", "secret", verb, name, "-c", config[target]], { input, shell: true, encoding: "utf8" });
 
 for (const target of targets) {
   const names = target === "training" ? TRAINING : SHOP;
@@ -57,7 +57,7 @@ for (const target of targets) {
     }
   }
   if (target === "training") {
-    for (const name of TRAINING_REMOVE) if (wrangler("delete", name, target).status !== 0) console.log(`(training: ${name} was not there, or could not be removed)`);
+    for (const name of TRAINING_REMOVE) if (wrangler("delete", name, target, "y\n").status !== 0) console.log(`(training: ${name} was not there, or could not be removed)`);
   }
   console.log(`${target}: ${ok} secrets set; no value found for: ${missing.join(", ") || "none"}`);
 }
