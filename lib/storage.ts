@@ -59,9 +59,21 @@ export function legacyR2Bucket(): R2Like | null {
 
 /** Reads a picture from R2: the Asia-Pacific bucket first, then the older one. */
 export async function r2Get(key: string): Promise<Awaited<ReturnType<R2Like["get"]>>> {
-  const primary = await r2Bucket()?.get(key);
-  if (primary) return primary;
-  return (await legacyR2Bucket()?.get(key)) ?? null;
+  let failure: unknown;
+  try {
+    const primary = await r2Bucket()?.get(key);
+    if (primary) return primary;
+  } catch (error) {
+    failure = error; // the older bucket may still have it
+  }
+  try {
+    const older = await legacyR2Bucket()?.get(key);
+    if (older) return older;
+  } catch (error) {
+    failure ??= error;
+  }
+  if (failure) throw failure; // neither bucket could answer: the caller shows an error, not a false "not found"
+  return null;
 }
 
 const count = (service: "neon-storage" | "r2-storage", ok: boolean, error = "") => runInBackground(recordApiCall(service, ok, error), `usage:${service}`);
@@ -94,6 +106,8 @@ async function refreshPlacement(): Promise<void> {
 
 /** Which store the next public picture should go to. */
 export function chooseBackend(prefix: string): Backend {
+  // The training lab only ever writes to its own R2 bucket: it holds no Neon Storage credentials, so it must never pick that store.
+  if (isPracticeRequest()) return r2Bucket() ? "r2" : "neon";
   if (!SMART_PREFIXES.some((allowed) => prefix === allowed || prefix.startsWith(`${allowed}/`))) return "neon";
   if (!r2Bucket()) return "neon";
   if (Date.now() - placementAt > PLACEMENT_MS) {

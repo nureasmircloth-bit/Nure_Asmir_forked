@@ -36,6 +36,11 @@ const unitOnly = process.env.E2E_UNIT_ONLY === "1" || (process.argv.some((arg) =
 if (unitOnly) process.env.E2E_UNIT_ONLY = "1";
 
 const E2E_DB = path.resolve(process.env.E2E_LOCAL_DB ?? ".local-db/e2e.sqlite");
+// The suite writes to the database it is given (settings, categories, orders). It may only ever be the local SQLite file: refuse to start when a real
+// D1 database is configured in this shell, and never talk to a server that was started by something else (see reuseExistingServer below).
+if (!unitOnly && process.env.D1_HTTP_DATABASE_ID) {
+  throw new Error("Refusing to run: D1_HTTP_DATABASE_ID is set in this shell, so the app under test could reach a real database. Unset it first.");
+}
 if (!unitOnly && !fs.existsSync(E2E_DB)) {
   throw new Error(`The test database ${E2E_DB} does not exist yet. Create it with: npm run e2e:db`);
 }
@@ -55,6 +60,7 @@ const serverEnv = {
   ...testEnv,
   // The app under test reads and writes this SQLite file instead of a Cloudflare D1 binding (see db/index.ts).
   LOCAL_DB_PATH: E2E_DB,
+  D1_HTTP_DATABASE_ID: "", // never a real D1 database
   NEXT_PUBLIC_SITE_URL: `http://localhost:${APP_PORT}`,
   // Settings apply at once in tests (in production a save waits 5 minutes in a safety buffer).
   SETTINGS_BUFFER_SECONDS: "0",
@@ -153,7 +159,8 @@ export default defineConfig({
     {
       command: `npx next dev -p ${APP_PORT}`,
       url: `http://localhost:${APP_PORT}/api/health`,
-      reuseExistingServer: !process.env.CI,
+      // An already-running server on this port could be pointed at a real database, so it is only reused when you say so (E2E_REUSE_SERVER=1).
+      reuseExistingServer: process.env.E2E_REUSE_SERVER === "1" && !process.env.CI,
       timeout: 180_000,
       env: serverEnv as Record<string, string>,
     },
@@ -162,7 +169,7 @@ export default defineConfig({
           {
             command: `npx next start -p ${PROD_PORT}`,
             url: `http://localhost:${PROD_PORT}/api/health`,
-            reuseExistingServer: !process.env.CI,
+            reuseExistingServer: process.env.E2E_REUSE_SERVER === "1" && !process.env.CI,
             timeout: 120_000,
             env: { ...serverEnv, NEXT_DIST_DIR: ".next-prod", NODE_ENV: "production", ALLOW_INSECURE_HTTP: "1" } as Record<string, string>,
           },
