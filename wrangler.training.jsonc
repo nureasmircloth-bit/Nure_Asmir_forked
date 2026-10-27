@@ -17,7 +17,9 @@
   },
   // Pictures only (the practice products show the shop's pictures). Deliberately NO page-cache bucket: nothing of the lab is ever
   // saved where the real admin could pick it up.
-  "r2_buckets": [{ "binding": "MEDIA_R2", "bucket_name": "nure-asmir-media-r2" }],
+  // The practice shop's pictures live in a bucket of their own. Its database is separate too, so it holds no reference to the real shop's pictures
+  // (nothing to copy, and no legacy bucket is bound); it also gets no Neon Storage credentials.
+  "r2_buckets": [{ "binding": "MEDIA_R2", "bucket_name": "nure-asmir-training-media" }],
   "vars": {
     "APP_TARGET": "training",
     "SANDBOX": "1",

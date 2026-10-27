@@ -15,9 +15,11 @@
   // bucket used only for cached page renders (product / category / campaign IMAGES live in Neon
   // Object Storage, not here). Create it once with: npx wrangler r2 bucket create nure-asmir-cache
   "r2_buckets": [
-    { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "nure-asmir-cache" },
-    // Second picture store (10 GB free) used next to Neon Storage – see lib/storage.ts. Created by the deploy workflow.
-    { "binding": "MEDIA_R2", "bucket_name": "nure-asmir-media-r2" }
+    { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "nure-asmir-cache-apac" },
+    // Second picture store (10 GB free), in Cloudflare's Asia-Pacific region (nearest to Pakistan), used next to Neon Storage – see lib/storage.ts. Created by the deploy workflow.
+    { "binding": "MEDIA_R2", "bucket_name": "nure-asmir-media-apac" },
+    // The first picture bucket (created in eastern North America): still read from, never written to.
+    { "binding": "MEDIA_R2_LEGACY", "bucket_name": "nure-asmir-media-r2" }
   ],
   "vars": { "APP_TARGET": "store", "EDGE_PAGE_CACHE": "1" },
   // Cloudflare's own timer: every 3 minutes (keeps the database awake; runs the shop's scheduled jobs on time).

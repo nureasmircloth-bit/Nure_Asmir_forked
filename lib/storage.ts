@@ -35,7 +35,8 @@ export type R2Like = {
   list(options?: { prefix?: string; cursor?: string; limit?: number }): Promise<{ objects: Array<{ key: string; size: number }>; truncated: boolean; cursor?: string }>;
 };
 
-/** The R2 bucket, or null when this process has none (local development, or R2 not switched on yet). */
+/** The R2 bucket, or null when this process has none (local development, or R2 not switched on yet). New pictures are written here:
+ * it lives in Cloudflare's Asia-Pacific region (nearest to Pakistan), and every picture is also kept at the edge after its first view. */
 export function r2Bucket(): R2Like | null {
   try {
     const env = getCloudflareContext().env as unknown as { MEDIA_R2?: R2Like };
@@ -43,6 +44,36 @@ export function r2Bucket(): R2Like | null {
   } catch {
     return null;
   }
+}
+
+/** The first R2 bucket (nure-asmir-media-r2, created in eastern North America before the region was chosen). Pictures already in it are still
+ * read from there; nothing new is written to it. Null when this Worker has no such binding. */
+export function legacyR2Bucket(): R2Like | null {
+  try {
+    const env = getCloudflareContext().env as unknown as { MEDIA_R2_LEGACY?: R2Like };
+    return env.MEDIA_R2_LEGACY ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Reads a picture from R2: the Asia-Pacific bucket first, then the older one. */
+export async function r2Get(key: string): Promise<Awaited<ReturnType<R2Like["get"]>>> {
+  let failure: unknown;
+  try {
+    const primary = await r2Bucket()?.get(key);
+    if (primary) return primary;
+  } catch (error) {
+    failure = error; // the older bucket may still have it
+  }
+  try {
+    const older = await legacyR2Bucket()?.get(key);
+    if (older) return older;
+  } catch (error) {
+    failure ??= error;
+  }
+  if (failure) throw failure; // neither bucket could answer: the caller shows an error, not a false "not found"
+  return null;
 }
 
 const count = (service: "neon-storage" | "r2-storage", ok: boolean, error = "") => runInBackground(recordApiCall(service, ok, error), `usage:${service}`);
@@ -65,9 +96,9 @@ async function refreshPlacement(): Promise<void> {
     const used = (key: string) => Number((rows.find((row) => row.key === key)?.value as { bytes?: number } | undefined)?.bytes ?? 0);
     const neon = used("storage:neon") / STORAGE_LIMITS.neon;
     const r2 = used("storage:r2") / STORAGE_LIMITS.r2;
-    placement = r2 <= neon ? "r2" : "neon";
-    if (neon >= 0.97 && r2 < 0.97) placement = "r2";
-    if (r2 >= 0.97 && neon < 0.97) placement = "neon";
+    // Cloudflare R2 first: it sits in Asia-Pacific and is served from Cloudflare's own network. Neon Storage (Singapore only) takes over
+    // when R2 is nearly full.
+    placement = r2 < 0.9 || neon >= 0.97 ? "r2" : "neon";
   } catch {
     // keep the last choice
   }
@@ -75,6 +106,8 @@ async function refreshPlacement(): Promise<void> {
 
 /** Which store the next public picture should go to. */
 export function chooseBackend(prefix: string): Backend {
+  // The training lab only ever writes to its own R2 bucket: it holds no Neon Storage credentials, so it must never pick that store.
+  if (isPracticeRequest()) return r2Bucket() ? "r2" : "neon";
   if (!SMART_PREFIXES.some((allowed) => prefix === allowed || prefix.startsWith(`${allowed}/`))) return "neon";
   if (!r2Bucket()) return "neon";
   if (Date.now() - placementAt > PLACEMENT_MS) {
@@ -182,7 +215,7 @@ export async function getObjectBytes(
 ): Promise<{ body: Uint8Array; contentType?: string } | null> {
   if (backendOf(key) === "r2") {
     try {
-      const object = await r2Bucket()?.get(key);
+      const object = await r2Get(key);
       count("r2-storage", true);
       return object ? { body: new Uint8Array(await object.arrayBuffer()), contentType: object.httpMetadata?.contentType } : null;
     } catch {
@@ -206,6 +239,7 @@ export async function deleteObject(key: string, visibility: Visibility = "public
   if (isPracticeRequest()) return;
   if (backendOf(key) === "r2") {
     await r2Bucket()?.delete(key);
+    await legacyR2Bucket()?.delete(key);
     count("r2-storage", true);
     return;
   }
@@ -228,18 +262,20 @@ export async function measureStore(backend: Backend): Promise<{ bytes: number; o
   let bytes = 0;
   let objects = 0;
   if (backend === "r2") {
-    const bucket = r2Bucket();
-    if (!bucket) throw new Error("R2 is not available here");
-    let cursor: string | undefined;
-    for (let page = 0; page < 200; page++) {
-      const listing = await bucket.list({ cursor, limit: 1000 });
-      count("r2-storage", true);
-      for (const object of listing.objects) {
-        bytes += object.size;
-        objects += 1;
+    const buckets = [r2Bucket(), legacyR2Bucket()].filter((bucket): bucket is R2Like => Boolean(bucket));
+    if (!buckets.length) throw new Error("R2 is not available here");
+    for (const bucket of buckets) {
+      let cursor: string | undefined;
+      for (let page = 0; page < 200; page++) {
+        const listing = await bucket.list({ cursor, limit: 1000 });
+        count("r2-storage", true);
+        for (const object of listing.objects) {
+          bytes += object.size;
+          objects += 1;
+        }
+        if (!listing.truncated) break;
+        cursor = listing.cursor;
       }
-      if (!listing.truncated) break;
-      cursor = listing.cursor;
     }
     return { bytes, objects };
   }

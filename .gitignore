@@ -84,3 +84,5 @@ tools/field-kit/field-report-*/
 # local SQLite files that stand in for Cloudflare D1 (tests, scripts, builds)
 .local-db/
 .wrangler/
+
+wrangler.preview-*.jsonc

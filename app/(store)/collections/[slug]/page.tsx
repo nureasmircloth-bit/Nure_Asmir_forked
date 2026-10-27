@@ -77,6 +77,13 @@ export default async function CollectionPage({ params }: { params: Promise<{ slu
         <h1 className="page-title">{found.title}</h1>
         {categoryDiscount > 0 && <p className="listing-sale">Sale on now — up to −{categoryDiscount}% off</p>}
         {found.description && <p>{found.description}</p>}
+        {found.kind === "category" && found.category.subcategories && found.category.subcategories.length > 0 && (
+          // The owner writes these in Admin -> Collections -> Categories (comma separated). Each one narrows this page to matching pieces (a full page load, so the grid starts with that filter).
+          <nav className="sub-chips" aria-label={`${found.title} types`}>
+            <a href={`/collections/${slug}`}>All</a>
+            {found.category.subcategories.map((sub) => (<a key={sub} href={`/collections/${slug}?q=${encodeURIComponent(sub)}`}>{sub}</a>))}
+          </nav>
+        )}
       </header>
       <ShopGrid products={products.map(toCard)} total={total} scopeCategory={found.kind === "category" ? slug : undefined} />
       <StoreFooter />

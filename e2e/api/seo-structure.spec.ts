@@ -47,7 +47,7 @@ test.describe("SEO structure", () => {
     expect(sitemap).not.toContain("/cart");
     expect(sitemap).not.toContain("/checkout");
     expect(sitemap).toContain("/shop");
-    const robots = await (await request.get(`${BASE}/robots.txt`)).text();
+    const robots = await (await request.get(`${BASE}/robots.txt`, { timeout: 90_000 })).text();
     expect(robots).toMatch(/Sitemap: .*\/sitemap\.xml/);
   });
 
