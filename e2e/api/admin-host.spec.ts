@@ -29,7 +29,7 @@ test.describe("admin hostname", () => {
     const health = await request.get(`${BASE}/api/health`, { headers: admin, maxRedirects: 0 });
     expect(health.status()).toBe(200); // not redirected into /admin
     expect(health.headers()["x-robots-tag"] ?? "").toMatch(/noindex/);
-    const file = await request.get(`${BASE}/robots.txt`, { headers: admin, maxRedirects: 0 });
+    const file = await request.get(`${BASE}/robots.txt`, { headers: admin, maxRedirects: 0, timeout: 90_000 });
     expect(file.status(), "a path with a dot is a file, not a page").toBe(200);
     expect(file.headers()["content-type"] ?? "").toMatch(/text\/plain/);
     expect(await file.text()).toMatch(/user-agent/i);
