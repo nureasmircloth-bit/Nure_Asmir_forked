@@ -124,4 +124,22 @@ test.describe("price on request, delivery times and international orders", () =>
     await expect(page.locator(".service-strip")).toHaveCount(0);
     await expect(page.getByText("Nationwide delivery", { exact: true })).toHaveCount(0);
   });
+  test("every product page has Care instructions and a short Return policy, and the full policy starts with damaged, defective or incorrect items", async ({ page }) => {
+    await page.goto(`/products/${slug}`);
+    const care = page.locator(".product-accordions details", { hasText: "Care instructions" });
+    await care.locator("summary").click();
+    await expect(care).toContainText("Care instructions for your Nure Asmir outfit");
+    await expect(care).toContainText("Dry clean recommended");
+    await expect(care).toContainText("Moderate ironing");
+    await expect(care).toContainText("Avoid bleach");
+
+    const returns = page.locator(".product-accordions details", { hasText: "Return policy" });
+    await returns.locator("summary").click();
+    await expect(returns).toContainText("notify us within 48 hours of delivery");
+    await expect(returns).toContainText("unused, unopened, and in their original packaging");
+
+    await page.goto("/policies/returns");
+    await expect(page.locator("main")).toContainText("Damaged, defective or incorrect items");
+    await expect(page.locator("main")).toContainText("Our team will review your request");
+  });
 });

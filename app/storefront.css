@@ -775,3 +775,9 @@ p, .pcard-title { text-wrap: pretty; }
 .sub-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 18px auto 0; max-width: 760px; }
 .sub-chips a { padding: 7px 16px; border: 1px solid var(--line); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink); text-decoration: none; transition: background .2s, color .2s, border-color .2s; }
 .sub-chips a:hover { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+
+/* Care instructions on the product page: a small heading, then the three care steps as the facts list does. */
+.product-care { padding-bottom: 8px; }
+.product-care .product-care-title { margin: -2px 0 8px; color: var(--ink); font-weight: 600; }
+.product-care p { margin: 0 0 12px; color: #555; font-size: 14px; line-height: 1.7; }
+.product-care .product-facts { margin: 0 0 14px; }

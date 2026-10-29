@@ -6,6 +6,7 @@ import type { CatalogProduct, CatalogVariant } from "@/lib/commerce";
 import { Price } from "../../_components/currency";
 import { discountLabel, SaleCountdown } from "../../_components/sale";
 import { WishlistButton } from "../../_components/wishlist-button";
+import { CARE_INTRO, CARE_STEPS, RETURN_SUMMARY } from "@/lib/care-and-returns";
 import { ProductGallery } from "./product-gallery";
 import { ProductPurchase } from "./product-purchase";
 import { BackButton } from "./back-button";
@@ -134,18 +135,47 @@ export function ProductView({
             </summary>
             <p>{product.description || "Tailored with attention to fit and finish."}</p>
           </details>
-          {(product.material || product.dimensions || product.careInstructions) && (
+          {(product.material || product.dimensions) && (
             <details>
               <summary>
-                Material &amp; care <span>+</span>
+                Material <span>+</span>
               </summary>
               <p>
                 {product.material ? `${product.material}. ` : ""}
-                {product.dimensions ? `${product.dimensions}. ` : ""}
-                {product.careInstructions}
+                {product.dimensions ? `${product.dimensions}.` : ""}
               </p>
             </details>
           )}
+          <details>
+            <summary>
+              Care instructions <span>+</span>
+            </summary>
+            <div className="product-care">
+              <p className="product-care-title">Care instructions for your Nure Asmir outfit</p>
+              {product.careInstructions ? (
+                <p>{product.careInstructions}</p>
+              ) : (
+                <>
+                  <p>{CARE_INTRO}</p>
+                  <ul className="product-facts">
+                    {CARE_STEPS.map((step) => (
+                      <li key={step.title}>
+                        <strong>{step.title}:</strong> {step.text}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
+          </details>
+          <details>
+            <summary>
+              Return policy <span>+</span>
+            </summary>
+            <p>
+              {RETURN_SUMMARY} <Link href="/policies/returns">Read the full policy</Link>.
+            </p>
+          </details>
           <details>
             <summary>
               Delivery &amp; returns <span>+</span>
