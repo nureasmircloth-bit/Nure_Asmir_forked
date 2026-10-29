@@ -16,7 +16,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
   if (!product) notFound();
 
   const [cats, variants, images] = await Promise.all([
-    db.select({ id: categories.id, name: categories.name }).from(categories).orderBy(asc(categories.sortOrder), asc(categories.name)),
+    db.select({ id: categories.id, name: categories.name, subcategories: categories.subcategories }).from(categories).orderBy(asc(categories.sortOrder), asc(categories.name)),
     db.select().from(productVariants).where(eq(productVariants.productId, id)).orderBy(desc(productVariants.isDefault), asc(productVariants.createdAt)),
     db.select().from(productImages).where(eq(productImages.productId, id)).orderBy(desc(productImages.isPrimary), asc(productImages.sortOrder), asc(productImages.createdAt)),
   ]);
@@ -31,11 +31,13 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
       <PageHeader title={product.name} intro={product.status === "published" ? "This product is on your website." : product.status === "draft" ? "This product is hidden from customers." : "This product has been removed from your website."} />
       <ProductEditor
         key={`${product.id}-${product.updatedAt.getTime()}`}
-        categories={cats}
+        categories={cats.map((row) => ({ id: row.id, name: row.name, subcategories: (row.subcategories ?? "").split(",").map((part) => part.trim()).filter(Boolean) }))}
         product={{
           id: product.id,
           name: product.name,
           categoryId: product.categoryId,
+          subcategory: product.subcategory ?? "",
+          comingSoon: product.comingSoon,
           typeLabel: product.typeLabel,
           primaryColour: product.primaryColour ?? variants[0]?.color ?? "",
           material: product.material ?? "",

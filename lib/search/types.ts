@@ -6,6 +6,7 @@ export type SearchHit = {
   price: number;
   /** True for "price on request" products (no price is shown). */
   priceOnRequest?: boolean;
+  comingSoon?: boolean;
   imageUrl: string | null;
   category: string;
   /** Name with <mark> around the matched words (Algolia sends this; the local engine builds it). */
@@ -26,6 +27,7 @@ export type SearchDoc = {
   sizes: string[];
   price: number;
   priceOnRequest?: boolean;
+  comingSoon?: boolean;
   inStock: boolean;
   badge: string;
   description: string;

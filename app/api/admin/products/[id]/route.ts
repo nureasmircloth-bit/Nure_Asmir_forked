@@ -3,6 +3,7 @@ import { runInBackground } from "@/lib/background";
 import { removeProductFromSearch, syncProductSearch } from "@/lib/search/algolia";
 import { asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
+import { addSubcategory, ensureCategory } from "@/lib/categories";
 import { categories, productImages, products, productVariants } from "@/db/schema";
 import { getAdminUser } from "@/lib/auth/admin-auth";
 import { slugify } from "@/lib/slug";
@@ -30,6 +31,9 @@ const updateSchema = z.object({
   name: z.string().min(1).optional(),
   slug: z.string().optional(),
   categoryId: z.string().uuid().optional(),
+  categoryName: z.string().trim().min(1).max(80).optional(),
+  subcategory: z.string().trim().max(60).nullable().optional(),
+  comingSoon: z.boolean().optional(),
   typeLabel: z.string().min(1).optional(),
   shortDescription: nullableString,
   description: nullableString,
@@ -87,6 +91,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const parsed = updateSchema.safeParse(await request.json().catch(() => ({})));
   if (!parsed.success) return Response.json({ error: "Invalid product payload." }, { status: 400 });
   const data = parsed.data;
+  if (data.categoryName) data.categoryId = (await ensureCategory(data.categoryName)).id; // a new name creates the category
 
   const [existing] = await db.select().from(products).where(eq(products.id, id)).limit(1);
   if (!existing) return Response.json({ error: "Product not found." }, { status: 404 });
@@ -134,6 +139,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       ...(data.name !== undefined ? { name: data.name } : {}),
       ...(nextSlug !== undefined ? { slug: nextSlug } : {}),
       ...(data.categoryId !== undefined ? { categoryId: data.categoryId } : {}),
+      ...(data.subcategory !== undefined ? { subcategory: data.subcategory?.trim().replace(/\s+/g, " ") || null } : {}),
+      ...(data.comingSoon !== undefined ? { comingSoon: data.comingSoon } : {}),
       ...(data.typeLabel !== undefined ? { typeLabel: data.typeLabel } : {}),
       ...(data.shortDescription !== undefined ? { shortDescription: data.shortDescription || null } : {}),
       ...(data.description !== undefined ? { description: data.description || null } : {}),
@@ -172,6 +179,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     throw error;
   }
 
+  if (row?.subcategory) await addSubcategory(row.categoryId, row.subcategory);
   await auditLogEntry({ actorEmail: admin.email, action: "product.update", entityType: "product", entityId: id, detail: data });
 
   runInBackground(syncProductSearch(id), "syncProductSearch");

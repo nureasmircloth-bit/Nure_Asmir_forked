@@ -1,8 +1,8 @@
-import { like as likeCi } from "drizzle-orm";
 import { runInBackground } from "@/lib/background";
 import { reindexAll } from "@/lib/search/algolia";
 import { db } from "@/db";
-import { categories, products, productVariants } from "@/db/schema";
+import { products, productVariants } from "@/db/schema";
+import { addSubcategory, ensureCategory } from "@/lib/categories";
 import { getAdminUser } from "@/lib/auth/admin-auth";
 import { slugify } from "@/lib/slug";
 import { auditLogEntry } from "@/lib/admin/audit";
@@ -32,12 +32,11 @@ type ImportResult = {
 };
 
 async function importOne(item: ProductImport, index: number): Promise<ImportResult> {
-  const [category] = await db.select({ id: categories.id, name: categories.name }).from(categories).where(likeCi(categories.name, item.category)).limit(1);
-  if (!category) {
-    return { index, name: item.name, success: false, error: `Category "${item.category}" not found — check spelling or create it first.` };
-  }
+  // A category name that does not exist yet is created on the spot (the owner types a new one in the sheet and it simply appears).
+  const category = await ensureCategory(item.category);
 
   const slug = slugify(item.slug || item.name);
+  const subcategory = item.subcategory?.trim().replace(/\s+/g, " ") || null;
   const dimensions = formatDimensions(item.dimensions);
   const careInstructions = joinCareInstructions(item.careInstructions);
   const pattern = item.attributes?.pattern;
@@ -74,6 +73,8 @@ async function importOne(item: ProductImport, index: number): Promise<ImportResu
         name: item.name,
         slug,
         typeLabel: item.typeLabel,
+        subcategory,
+        comingSoon: item.comingSoon ?? false,
         shortDescription: item.shortDescription || null,
         description: item.description || null,
         material: item.material || null,
@@ -100,8 +101,15 @@ async function importOne(item: ProductImport, index: number): Promise<ImportResu
     }
     throw error;
   }
-
   const variantErrors: string[] = [];
+  if (subcategory) {
+    // The product is already saved: a failure here must not fail the row, only be reported.
+    const listed = await addSubcategory(category.id, subcategory).catch((error) => {
+      console.error("product.import: subcategory list not updated", error);
+      return false;
+    });
+    if (!listed) variantErrors.push(`Subcategory "${subcategory}" was saved on the product but could not be added to the category's list; add it under Collections.`);
+  }
   const images: ImageJob[] = [];
   // A product sold in several colours keeps each colour's photos with that colour (the shop shows them when the colour is picked).
   const multiColour = new Set(item.variants.map((variant) => variant.color.trim().toLowerCase())).size > 1;

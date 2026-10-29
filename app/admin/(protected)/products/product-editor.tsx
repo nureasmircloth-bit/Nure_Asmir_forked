@@ -13,11 +13,13 @@ import { pkr } from "../../_ui/ui";
 import { ProductPreview, type PreviewData } from "./product-preview";
 import { SeoPanel, type SeoDraft } from "./seo-panel";
 
-export type EditorCategory = { id: string; name: string };
+export type EditorCategory = { id: string; name: string; subcategories?: string[] };
 export type EditorProduct = {
   id: string;
   name: string;
   categoryId: string;
+  subcategory?: string;
+  comingSoon?: boolean;
   typeLabel: string;
   primaryColour: string;
   material: string;
@@ -86,7 +88,10 @@ export function ProductEditor({ categories, product, variants: initialVariants, 
 
   const [form, setForm] = useState({
     name: product?.name ?? "",
-    categoryId: product?.categoryId ?? categories[0]?.id ?? "",
+    // The category is a text box with a list of the existing ones: pick one, or type a new name and it is created when the product is saved.
+    categoryText: categories.find((c) => c.id === product?.categoryId)?.name ?? "",
+    subcategory: product?.subcategory ?? "",
+    comingSoon: product?.comingSoon ?? false,
     typeLabel: product?.typeLabel ?? "",
     material: product?.material ?? "",
     shortDescription: product?.shortDescription ?? "",
@@ -256,7 +261,7 @@ export function ProductEditor({ categories, product, variants: initialVariants, 
       return;
     }
     await writer.run(async () => {
-      const categoryName = categories.find((c) => c.id === form.categoryId)?.name;
+      const categoryName = form.categoryText.trim();
       const result = await callApi<{ description: string }>("/api/admin/ai-description", "POST", { name: form.name, type: form.typeLabel, category: categoryName, color: colors.map((c) => c.name.trim()).filter(Boolean).join(", "), material: form.material, existing: form.description, mode });
       if (result.ok) {
         setForm((current) => ({ ...current, description: result.data.description }));
@@ -270,7 +275,7 @@ export function ProductEditor({ categories, product, variants: initialVariants, 
     if (!form.name.trim()) return;
     setWritingSeo(true);
     try {
-      const categoryName = categories.find((c) => c.id === form.categoryId)?.name;
+      const categoryName = form.categoryText.trim();
       const result = await callApi<{ seoTitle: string; seoDescription: string }>("/api/admin/ai-seo", "POST", { name: form.name, type: form.typeLabel, category: categoryName, color: colors.map((c) => c.name.trim()).filter(Boolean).join(", "), material: form.material, shortDescription: form.shortDescription, description: form.description, keywords: seo.keywords });
       if (result.ok) {
         setSeo((current) => ({ ...current, title: result.data.seoTitle, description: result.data.seoDescription, edited: true }));
@@ -286,7 +291,7 @@ export function ProductEditor({ categories, product, variants: initialVariants, 
   function validate(): string[] {
     const problems: string[] = [];
     if (!form.name.trim()) problems.push("Please type the product name.");
-    if (!form.categoryId) problems.push("Please choose a category (create one first under Categories).");
+    if (!form.categoryText.trim()) problems.push("Please choose a category from the list, or type a new one.");
     if (!form.typeLabel.trim()) problems.push("Please say what kind of product it is, for example Shirt or Pants.");
     const names = new Set<string>();
     resolved.forEach((c, colorIndex) => {
@@ -297,7 +302,7 @@ export function ProductEditor({ categories, product, variants: initialVariants, 
       const sizes = new Set<string>();
       c.variants.forEach((v, index) => {
         const label = `${where}${v.size ? `Size ${v.size}` : `Row ${index + 1}`}`;
-        if (!form.priceOnRequest && (!v.price || Number(v.price) < 1)) problems.push(`${label}: please enter a price (or tick “Price on request”).`);
+        if (!form.priceOnRequest && !form.comingSoon && (!v.price || Number(v.price) < 1)) problems.push(`${label}: please enter a price (or tick “Price on request”).`);
         if (v.compareAt && Number(v.compareAt) <= Number(v.price)) problems.push(`${label}: the old price must be higher than the selling price (or leave it empty).`);
         if (!v.sku.trim()) problems.push(`${label}: the product code is missing.`);
         const key = v.size.trim().toLowerCase();
@@ -329,7 +334,9 @@ export function ProductEditor({ categories, product, variants: initialVariants, 
       setProgress("Saving the product…");
       const payload = {
         name: form.name.trim(),
-        categoryId: form.categoryId,
+        categoryName: form.categoryText.trim(),
+        subcategory: form.subcategory.trim() || null,
+        comingSoon: form.comingSoon,
         typeLabel: form.typeLabel.trim(),
         primaryColour: colors[0].name.trim(),
         material: form.material.trim() || null,
@@ -468,13 +475,23 @@ export function ProductEditor({ categories, product, variants: initialVariants, 
             <label htmlFor="pe-cat">
               Category <Hint text="Where customers find it on your website, e.g. Shirts or Shalwar Kameez. You can add categories under “Categories”." />
             </label>
-            <select id="pe-cat" value={form.categoryId} onChange={setField("categoryId")}>
+            <input id="pe-cat" list="pe-cat-list" autoComplete="off" value={form.categoryText} onChange={setField("categoryText")} placeholder="Pick from the list or type a new category" />
+            <datalist id="pe-cat-list">
               {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
+                <option key={c.id} value={c.name} />
               ))}
-            </select>
+            </datalist>
+          </div>
+          <div className="a-field">
+            <label htmlFor="pe-sub">
+              Subcategory (optional) <Hint text="Leave it empty if the product has none. Pick one of this category's subcategories or type a new one: it is added to the category's list and shows as a button on the category page." />
+            </label>
+            <input id="pe-sub" list="pe-sub-list" autoComplete="off" value={form.subcategory} onChange={setField("subcategory")} placeholder="Optional, e.g. Casual" maxLength={60} />
+            <datalist id="pe-sub-list">
+              {(categories.find((c) => c.name.toLowerCase() === form.categoryText.trim().toLowerCase())?.subcategories ?? []).map((name) => (
+                <option key={name} value={name} />
+              ))}
+            </datalist>
           </div>
           <div className="a-field">
             <label htmlFor="pe-type">
@@ -747,6 +764,13 @@ export function ProductEditor({ categories, product, variants: initialVariants, 
             {form.status === "archived" && <p className="a-note warn">This product is archived (hidden). Choose one of the options above to bring it back.</p>}
           </fieldset>
           <label className="a-check">
+            <input type="checkbox" checked={form.comingSoon} onChange={(event) => { setForm((c) => ({ ...c, comingSoon: event.target.checked })); touch(); }} />
+            <span>
+              <strong>Coming soon</strong>
+              <small className="a-help" style={{ display: "block" }}>Customers see the name and the picture with a “Coming soon” badge, but cannot buy it yet. The price boxes below can stay empty. Untick it when the product is ready.</small>
+            </span>
+          </label>
+          <label className="a-check">
             <input type="checkbox" checked={form.priceOnRequest} onChange={(event) => { setForm((c) => ({ ...c, priceOnRequest: event.target.checked })); touch(); }} />
             <span>
               <strong>Price on request</strong>
@@ -790,7 +814,7 @@ export function ProductEditor({ categories, product, variants: initialVariants, 
         input={{
           name: form.name,
           type: form.typeLabel,
-          category: categories.find((c) => c.id === form.categoryId)?.name,
+          category: form.categoryText.trim(),
           colors: colors.map((c) => c.name),
           material: form.material,
           shortDescription: form.shortDescription,

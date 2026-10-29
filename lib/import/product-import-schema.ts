@@ -61,6 +61,8 @@ export const productImportSchema = z.object({
   slug: z.string().optional(),
   category: z.string().min(1),
   typeLabel: z.string().min(1),
+  subcategory: z.string().max(60).refine((value) => !value.includes(","), "Subcategory cannot contain a comma.").optional(),
+  comingSoon: z.boolean().optional(),
   visibility: visibilityEnum.optional(),
   featured: z.boolean().optional(),
   badge: z.string().optional(),

@@ -9,7 +9,8 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Add product" };
 
 export default async function NewProductPage() {
-  const list = await db.select({ id: categories.id, name: categories.name }).from(categories).orderBy(asc(categories.sortOrder), asc(categories.name));
+  const rows = await db.select({ id: categories.id, name: categories.name, subcategories: categories.subcategories }).from(categories).orderBy(asc(categories.sortOrder), asc(categories.name));
+  const list = rows.map((row) => ({ id: row.id, name: row.name, subcategories: (row.subcategories ?? "").split(",").map((part) => part.trim()).filter(Boolean) }));
   return (
     <>
       <p style={{ marginBottom: 10 }}>
@@ -18,13 +19,7 @@ export default async function NewProductPage() {
         </Link>
       </p>
       <PageHeader title="Add a product" intro="Fill in the four sections, then press Add product. Nothing is shown to customers until you say so." />
-      {list.length ? (
-        <ProductEditor categories={list} />
-      ) : (
-        <Note tone="warn">
-          You need at least one category first (for example “Shirts”). <Link href="/admin/collections" style={{ textDecoration: "underline", fontWeight: 600 }}>Add a category</Link>, then come back.
-        </Note>
-      )}
+      <ProductEditor categories={list} />
     </>
   );
 }

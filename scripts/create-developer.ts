@@ -11,6 +11,7 @@ async function main() {
   const email = (process.argv[2] || process.env.DEVELOPER_EMAIL || "developer@nureasmir.com").trim().toLowerCase();
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
   const chosen = process.env.DEVELOPER_PASSWORD;
+  if (chosen && chosen.length < 12) throw new Error("DEVELOPER_PASSWORD must be at least 12 characters.");
   const password = chosen || Array.from(randomBytes(18), (byte) => alphabet[byte % alphabet.length]).join("");
   const passwordHash = await hashPassword(password);
   const [existing] = await db.select().from(adminOwners).where(eq(adminOwners.email, email)).limit(1);

@@ -4,6 +4,7 @@ import { runInBackground } from "@/lib/background";
 import { syncProductSearch } from "@/lib/search/algolia";
 import { and, desc, eq, like as likeCi, or } from "drizzle-orm";
 import { db } from "@/db";
+import { addSubcategory, ensureCategory } from "@/lib/categories";
 import { categories, productImages, products, productVariants } from "@/db/schema";
 import { getAdminUser } from "@/lib/auth/admin-auth";
 import { slugify } from "@/lib/slug";
@@ -19,7 +20,11 @@ const statusEnum = z.enum(["draft", "published", "archived"]);
 const createSchema = z.object({
   name: z.string().min(1),
   slug: z.string().optional(),
-  categoryId: z.string().uuid(),
+  categoryId: z.string().uuid().optional(),
+  // A category typed by name: an existing one is used, a new name creates it on the spot.
+  categoryName: z.string().trim().min(1).max(80).optional(),
+  subcategory: z.string().trim().max(60).nullable().optional(),
+  comingSoon: z.boolean().optional(),
   typeLabel: z.string().min(1),
   shortDescription: z.string().optional(),
   description: z.string().optional(),
@@ -129,6 +134,9 @@ export async function POST(request: Request) {
   const parsed = createSchema.safeParse(await request.json().catch(() => ({})));
   if (!parsed.success) return Response.json({ error: "Invalid product payload." }, { status: 400 });
   const data = parsed.data;
+  if (data.categoryName) data.categoryId = (await ensureCategory(data.categoryName)).id;
+  if (!data.categoryId) return Response.json({ error: "Please choose or type a category." }, { status: 400 });
+  const categoryId = data.categoryId;
   const slug = slugify(data.slug || data.name);
 
   // The admin never fills these in directly through the manual form (see products-manager.tsx —
@@ -157,8 +165,10 @@ export async function POST(request: Request) {
     [row] = await db
       .insert(products)
       .values({
-        categoryId: data.categoryId,
+        categoryId,
         name: data.name,
+        subcategory: data.subcategory?.trim().replace(/\s+/g, " ") || null,
+        comingSoon: data.comingSoon ?? false,
         slug,
         typeLabel: data.typeLabel,
         shortDescription: data.shortDescription || null,
@@ -195,6 +205,7 @@ export async function POST(request: Request) {
     throw error;
   }
 
+  if (row.subcategory) await addSubcategory(row.categoryId, row.subcategory);
   await auditLogEntry({ actorEmail: admin.email, action: "product.create", entityType: "product", entityId: row.id, detail: { name: data.name, slug } });
 
   runInBackground(syncProductSearch(row.id), "syncProductSearch");

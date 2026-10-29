@@ -198,7 +198,7 @@ export function ProductPurchase({
         </div>
       ) : null}
 
-      {!product.priceOnRequest && (selected && selected.available < 1 ? (
+      {!product.priceOnRequest && !product.comingSoon && (selected && selected.available < 1 ? (
         <p className="stock-badge stock-badge-out">Sold out</p>
       ) : selected && selected.available < 5 ? (
         <p className="stock-badge stock-badge-low">Only {selected.available} left in stock</p>
@@ -206,7 +206,11 @@ export function ProductPurchase({
         <p className="stock-badge stock-badge-out">Sold out</p>
       ) : null)}
 
-      {product.priceOnRequest ? (
+      {product.comingSoon ? (
+        <button className="add-button coming-soon" type="button" disabled>
+          Coming soon
+        </button>
+      ) : product.priceOnRequest ? (
         <a className="add-button ask-price" href={askPrice} target="_blank" rel="noopener noreferrer" onClick={() => track("price_request", { product: product.slug })}>
           Ask for the price on WhatsApp
         </a>

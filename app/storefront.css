@@ -781,3 +781,6 @@ p, .pcard-title { text-wrap: pretty; }
 .product-care .product-care-title { margin: -2px 0 8px; color: var(--ink); font-weight: 600; }
 .product-care p { margin: 0 0 12px; color: #555; font-size: 14px; line-height: 1.7; }
 .product-care .product-facts { margin: 0 0 14px; }
+
+/* A "coming soon" product: shown, but it cannot be bought. */
+.add-button.coming-soon { background: transparent; color: var(--muted); border-color: var(--line); cursor: not-allowed; letter-spacing: .16em; }
