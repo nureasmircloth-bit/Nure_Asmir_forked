@@ -75,6 +75,8 @@ const EXAMPLE_ROWS: unknown[][] = [
   ["Ivory Kameez Shalwar", "Shalwar Kameez", "Wash & wear", "Kameez Shalwar", "Ivory", "M", 12500, "", 6, "", "Wash & wear", "A clean everyday kameez shalwar in soft wash & wear fabric.", "Yes", "ivory-ks-1.jpg", "", ""],
   ["Ivory Kameez Shalwar", "Shalwar Kameez", "Wash & wear", "Kameez Shalwar", "Ivory", "L", 12500, "", 6, "", "", "", "Yes", "", "", ""],
   ["Tan Leather Wallet", "Accessories", "Wallets", "Wallet", "Tan", "One size", 3500, 4500, 20, "", "Leather", "Slim bifold wallet in genuine leather.", "Yes", "tan-wallet.jpg", "", "Sale"],
+  // Coming soon: only a name, category and picture are needed; no price or stock yet, and the subcategory is left empty (it is optional).
+  ["Charcoal Overcoat", "Coats", "", "Overcoat", "Charcoal", "", "", "", "", "", "", "", "Yes", "charcoal-overcoat.jpg", "Yes", ""],
 ];
 
 const TYPE_SUGGESTIONS = ["Shalwar Kameez", "Kameez Shalwar", "Kurta", "Shirt", "T-Shirt", "Polo Shirt", "Pants", "Cargo Pants", "Jeans", "Waistcoat", "Sweater", "Hoodie", "Wallet", "Belt", "Card Holder", "Cap", "Socks"];
