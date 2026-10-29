@@ -768,18 +768,19 @@ test.describe("admin (desktop Chromium)", () => {
       const sheet = wb.getWorksheet("2 - Your products")!;
       expect(String(sheet.getRow(1).getCell(1).value)).toBe("Product name*");
       expect(String(sheet.getRow(1).getCell(3).value)).toBe("Subcategory (optional)");
+      expect(String(sheet.getRow(1).getCell(4).value)).toBe("Sub-subcategory (optional)");
       // the owner already wrote subcategories for Shirts: the import must add to them, never replace or reorder them
       const [shirtsBefore] = (await sql`select subcategories from categories where name = ${"Shirts"}`) as Array<{ subcategories: string | null }>;
       const originalSubs = shirtsBefore?.subcategories ?? null;
       try {
       await sql`update categories set subcategories = ${"Casual, Festive"} where name = ${"Shirts"}`;
       const put = (r: number, v: Array<string | number>) => v.forEach((x, i) => (sheet.getRow(r).getCell(i + 1).value = x));
-      put(2, ["E2E Bulk Polo", "Shirts", "Polo", "Polo Shirt", "Navy", "M", 3800, "", 6, "", "Cotton", "A soft everyday polo.", "Yes", "polo-front.png", "", "New"]);
-      put(3, ["E2E Bulk Polo", "Shirts", "polo", "Polo Shirt", "Navy", "L", 3800, 4500, 4, "", "", "", "Yes", "", "", ""]);
-      put(4, ["E2E Bulk Chinos", "E2E Brand New Category", "E2E Slim Fit", "Chinos", "Khaki", "32", 5200, "", 5, "E2E-CHINO-32", "", "", "Yes", "", "", ""]);
+      put(2, ["E2E Bulk Polo", "Shirts", "Polo", "", "", "Polo Shirt", "Navy", "M", 3800, "", 6, "", "Cotton", "A soft everyday polo.", "Yes", "polo-front.png", "", "New"]);
+      put(3, ["E2E Bulk Polo", "Shirts", "polo", "", "", "Polo Shirt", "Navy", "L", 3800, 4500, 4, "", "", "", "Yes", "", "", ""]);
+      put(4, ["E2E Bulk Chinos", "E2E Brand New Category", "E2E Slim Fit", "", "", "Chinos", "Khaki", "32", 5200, "", 5, "E2E-CHINO-32", "", "", "Yes", "", "", ""]);
       // a "coming soon" product: a name, a category (new), no subcategory, no price, no stock; a picture follows in the next step
-      put(6, ["E2E Soon Jacket", "E2E Brand New Category", "", "Jacket", "Black", "", "", "", "", "", "", "", "Yes", "", "Yes", ""]);
-      put(5, ["E2E Bulk Broken", "Shirts", "", "Shirt", "Red", "M", "cheap", "", 1, "", "", "", "Yes", "", "", ""]);
+      put(6, ["E2E Soon Jacket", "E2E Brand New Category", "", "", "", "Jacket", "Black", "", "", "", "", "", "", "", "Yes", "", "Yes", ""]);
+      put(5, ["E2E Bulk Broken", "Shirts", "", "", "", "Shirt", "Red", "M", "cheap", "", 1, "", "", "", "Yes", "", "", ""]);
       await wb.xlsx.writeFile(file);
 
       await page.locator('input[type="file"][accept*=".xlsx"]').first().setInputFiles(file);
@@ -806,10 +807,11 @@ test.describe("admin (desktop Chromium)", () => {
       // the Subcategory column: saved on the product, added once (any capitals) to its category's list, existing names untouched
       const subs = (await sql`select p.name, p.subcategory from products p where p.name in ('E2E Bulk Polo', 'E2E Bulk Chinos') order by p.name`) as Array<{ name: string; subcategory: string | null }>;
       expect(subs).toEqual([{ name: "E2E Bulk Chinos", subcategory: "E2E Slim Fit" }, { name: "E2E Bulk Polo", subcategory: "Polo" }]);
+      // the Subcategory column is a folder inside the Category: the product sits in it (any capitals), and the words the owner already wrote stay as they are
+      const homes = (await sql`select p.name, c.name as home, (select name from categories where id = c.parent_id) as parent from products p join categories c on c.id = p.category_id where p.name in ('E2E Bulk Polo', 'E2E Bulk Chinos') order by p.name`) as Array<{ name: string; home: string; parent: string }>;
+      expect(homes).toEqual([{ name: "E2E Bulk Chinos", home: "E2E Slim Fit", parent: "E2E Brand New Category" }, { name: "E2E Bulk Polo", home: "Polo", parent: "Shirts" }]);
       const [shirts] = (await sql`select subcategories from categories where name = 'Shirts'`) as Array<{ subcategories: string }>;
-      expect(shirts.subcategories).toBe("Casual, Festive, Polo");
-      const [fresh] = (await sql`select subcategories from categories where name = 'E2E Brand New Category'`) as Array<{ subcategories: string }>;
-      expect(fresh.subcategories).toBe("E2E Slim Fit");
+      expect(shirts.subcategories).toBe("Casual, Festive");
       const [soon] = (await sql`select coming_soon, subcategory from products where name = 'E2E Soon Jacket'`) as Array<{ coming_soon: number; subcategory: string | null }>;
       expect(soon).toEqual({ coming_soon: 1, subcategory: null }); // coming soon without a price, and no subcategory (it is optional)
       const [code] = await sql`select sku from product_variants where sku = 'E2E-CHINO-32'`;

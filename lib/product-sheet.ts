@@ -11,7 +11,9 @@ export type SheetColumn = { key: string; label: string; required?: boolean; widt
 export const SHEET_COLUMNS: SheetColumn[] = [
   { key: "name", label: "Product name*", required: true, width: 30, help: "The name customers see, e.g. Olive Cargo Pants. Use the same name on every size row.", aliases: ["product name", "name", "title", "item", "item name"] },
   { key: "category", label: "Category*", required: true, width: 20, help: "Pick from the list, e.g. Shirts. For a category inside another, write the path with > between the names, e.g. Shirts > Formal Shirts > Business Formal Shirts. A new name creates a new category.", aliases: ["category", "collection", "group"] },
-  { key: "subcategory", label: "Subcategory (optional)", width: 20, help: "Optional, e.g. Casual or Embroidered. It is added to the category's list of subcategories if it is new; the shop shows it as a chip on the category page.", aliases: ["subcategory", "sub category", "sub-category", "subcategories"] },
+  { key: "subcategory", label: "Subcategory (optional)", width: 20, help: "Optional, the category inside the Category, e.g. Formal Shirts inside Shirts. A new name makes a new folder; the product goes inside it (or inside the Sub-subcategory when that is filled).", aliases: ["subcategory", "sub category", "sub-category", "subcategories"] },
+  { key: "sub2", label: "Sub-subcategory (optional)", width: 22, help: "Optional, the category inside the Subcategory, e.g. Business Formal Shirts inside Formal Shirts. Needs the Subcategory to be filled first.", aliases: ["sub subcategory", "sub-subcategory", "subsubcategory", "sub sub category", "level 3", "third category"] },
+  { key: "sub3", label: "Level 4 (optional)", width: 18, help: "Optional, one more level inside the Sub-subcategory. Needs the Sub-subcategory first.", aliases: ["level 4", "fourth category"] },
   { key: "type", label: "What is it?*", required: true, width: 18, help: "Pick or type: Shirt, Pants, Shalwar Kameez, Wallet…", aliases: ["what is it", "type", "product type", "kind"] },
   { key: "colour", label: "Colour*", required: true, width: 14, help: "One colour on each row. The same shirt in another colour? Use the same product name and a different colour — we put them together on one page.", aliases: ["colour", "color"] },
   { key: "size", label: "Size", width: 12, help: "S, M, L, XL, 32, 34… or One size. Leave empty if it has no sizes.", aliases: ["size", "sizes"] },
@@ -34,6 +36,8 @@ export type ParsedProduct = {
   name: string;
   category: string;
   subcategory: string;
+  /** The categories inside the subcategory (level 3, level 4). */
+  deeper: string[];
   type: string;
   colour: string;
   fabric: string;
@@ -144,6 +148,11 @@ export function parseProductTable(table: unknown[][]): ParsedSheet {
     if (!type) fail("“What is it?” is empty (for example Shirt or Pants).");
     if (!colour) fail("Colour is empty.");
     if (String(cell(row, "subcategory") ?? "").includes(",")) fail("Subcategory cannot contain a comma (one subcategory per product).");
+    const tidy = (value: unknown) => String(value ?? "").trim().replace(/\s+/g, " ").slice(0, 60);
+    const deeper = [tidy(cell(row, "sub2")), tidy(cell(row, "sub3"))];
+    if (deeper[0] && !tidy(cell(row, "subcategory"))) fail("Sub-subcategory is filled but Subcategory is empty. Fill the Subcategory first.");
+    if (deeper[1] && !deeper[0]) fail("Level 4 is filled but Sub-subcategory is empty. Fill the Sub-subcategory first.");
+    if (deeper.some((part) => part.includes(",") || part.includes(">"))) fail("The category columns cannot contain a comma or a > sign. Use one column for each level.");
 
     const soon = parseYesNo(cell(row, "comingSoon"), false);
     // A "coming soon" product may have no price or stock yet: it cannot be bought anyway.
@@ -171,6 +180,7 @@ export function parseProductTable(table: unknown[][]): ParsedSheet {
         name,
         category,
         subcategory: String(cell(row, "subcategory") ?? "").trim().replace(/\s+/g, " ").slice(0, 60),
+        deeper: deeper.filter(Boolean),
         type,
         colour,
         fabric: String(cell(row, "fabric") ?? "").trim(),
@@ -293,4 +303,9 @@ export function parseUpdateTable(table: unknown[][]): { rows: UpdateRow[]; probl
   }
   if (!rows.length && !problems.length) problems.push({ row: header + 2, message: "No rows to update were found." });
   return { rows, problems };
+}
+
+/** Where a product goes: the Category, then the Subcategory, Sub-subcategory and Level 4 inside it, written as one path ("Shirts > Formal Shirts"). */
+export function categoryPathOf(product: Pick<ParsedProduct, "category" | "subcategory" | "deeper">): string {
+  return [product.category, product.subcategory, ...product.deeper].filter(Boolean).join(" > ");
 }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { DragEvent, useRef, useState } from "react";
 import { ACCEPTED_PICTURES, checkPictureFile, uploadProductPicture } from "@/lib/client-upload";
-import { parseProductTable, parseUpdateTable, type ParsedProduct, type SheetProblem, type UpdateRow } from "@/lib/product-sheet";
+import { categoryPathOf, parseProductTable, parseUpdateTable, type ParsedProduct, type SheetProblem, type UpdateRow } from "@/lib/product-sheet";
 import { downloadProductTemplate, downloadStockSheet, readSheetFile, type StockExportRow } from "@/lib/sheet-client";
 import { splitCategoryPath } from "@/lib/category-tree";
 import { useLockedAction } from "@/lib/use-locked-action";
@@ -60,7 +60,7 @@ function AddProducts({ categoryNames }: { categoryNames: string[] }) {
   const norm = (name: string) => splitCategoryPath(name).join(" > ").toLowerCase();
   // (a plain name such as "Formal Shirts" finds the category with that name wherever it sits)
   const known = new Set(categoryNames.flatMap((name) => [norm(name), norm(splitCategoryPath(name).slice(-1).join(" "))]));
-  const newCategories = [...new Set(products.map((p) => p.category).filter((name) => !known.has(norm(name))))];
+  const newCategories = [...new Set(products.map((p) => categoryPathOf(p)).filter((name) => !known.has(norm(name))))];
   const sizesTotal = products.reduce((sum, p) => sum + p.variants.length, 0);
 
   const pictureFor = (name: string) => pictures.get(fileKey(name)) ?? [...pictures.entries()].find(([key]) => stem(key) === stem(name))?.[1];
@@ -128,7 +128,7 @@ function AddProducts({ categoryNames }: { categoryNames: string[] }) {
         const visible = product.visible && photoFiles.length > 0;
         const payload = {
           name: product.name,
-          category: product.category,
+          category: categoryPathOf(product),
           typeLabel: product.type,
           subcategory: colours.map((entry) => entry.subcategory).find(Boolean) || undefined,
           comingSoon: product.comingSoon || undefined,
@@ -293,7 +293,7 @@ function AddProducts({ categoryNames }: { categoryNames: string[] }) {
                             </td>
                             <td>
                               {p.category}
-                              {!known.has(norm(p.category)) && <small className="a-muted">new category</small>}
+                              {!known.has(norm(categoryPathOf(p))) && <small className="a-muted">new category</small>}
                             </td>
                             <td>{p.variants.map((v) => v.size || "—").join(", ")}</td>
                             <td className="num a-money">{Math.min(...prices) === Math.max(...prices) ? pkr(prices[0]) : `${pkr(Math.min(...prices))} – ${pkr(Math.max(...prices))}`}</td>
