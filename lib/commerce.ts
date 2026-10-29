@@ -31,7 +31,7 @@ export type CatalogVariant = {
  * variants and gallery images stay on the server. */
 export type CardProduct = Pick<
   CatalogProduct,
-  "id" | "slug" | "name" | "price" | "priceOnRequest" | "compareAtPrice" | "imageUrl" | "altImageUrl" | "moreImageUrls" | "blurDataUrl" | "badge" | "stock" | "saleEndsAt" | "category" | "type" | "shortDescription"
+  "id" | "slug" | "name" | "price" | "priceOnRequest" | "comingSoon" | "compareAtPrice" | "imageUrl" | "altImageUrl" | "moreImageUrls" | "blurDataUrl" | "badge" | "stock" | "saleEndsAt" | "category" | "type" | "shortDescription"
 >;
 
 export function toCard(product: CatalogProduct): CardProduct {
@@ -41,6 +41,7 @@ export function toCard(product: CatalogProduct): CardProduct {
     name: product.name,
     price: product.price,
     priceOnRequest: product.priceOnRequest,
+    comingSoon: product.comingSoon,
     compareAtPrice: product.compareAtPrice ?? undefined,
     imageUrl: product.imageUrl,
     altImageUrl: product.altImageUrl,
@@ -94,6 +95,8 @@ export type CatalogProduct = {
   featured: boolean;
   /** No price shown and nothing goes in the bag: the shopper asks for the price on WhatsApp. */
   priceOnRequest: boolean;
+  /** Shown with its name, picture and a "Coming soon" badge; cannot be bought yet. */
+  comingSoon: boolean;
   /** "ready" (ready to wear) or "bespoke" (made to order): decides the delivery time shown. */
   fulfilment: "ready" | "bespoke";
   variants: CatalogVariant[];
@@ -203,7 +206,7 @@ function catalogWhere(query: CatalogQuery) {
   const priced = query.filters && (query.filters.min != null || query.filters.max != null);
   return and(
     variantFilter(query.filters),
-    priced ? eq(products.priceOnRequest, false) : undefined, // a price range never lists "price on request" products
+    priced ? and(eq(products.priceOnRequest, false), eq(products.comingSoon, false)) : undefined, // a price range never lists products that have no price to compare
     eq(products.status, "published"),
     query.categorySlug ? eq(categories.slug, query.categorySlug) : undefined,
     query.ids ? (query.ids.length ? inArray(products.id, query.ids) : sql`false`) : undefined,
@@ -221,7 +224,7 @@ function searchWhere(text: string) {
   return and(
     ...words.map((word) => {
       const like = `%${word.replace(/[\\%_]/g, (character) => `\\${character}`)}%`;
-      return or(likeEsc(products.name, like), likeEsc(products.typeLabel, like), likeEsc(products.shortDescription, like));
+      return or(likeEsc(products.name, like), likeEsc(products.typeLabel, like), likeEsc(products.shortDescription, like), likeEsc(products.subcategory, like));
     }),
   );
 }
@@ -239,9 +242,9 @@ export async function countCatalogProducts(query: CatalogQuery = {}): Promise<nu
 export async function getCatalogProducts(query: CatalogQuery = {}): Promise<CatalogProduct[]> {
   const order =
     query.sort === "low"
-      ? [asc(products.priceOnRequest), asc(productVariants.price), desc(products.publishedAt), desc(products.id)]
+      ? [asc(products.priceOnRequest), asc(products.comingSoon), asc(productVariants.price), desc(products.publishedAt), desc(products.id)]
       : query.sort === "high"
-        ? [asc(products.priceOnRequest), desc(productVariants.price), desc(products.publishedAt), desc(products.id)]
+        ? [asc(products.priceOnRequest), asc(products.comingSoon), desc(productVariants.price), desc(products.publishedAt), desc(products.id)]
         : [desc(products.publishedAt), desc(products.createdAt), desc(products.id)];
   let builder = db
     .select({
@@ -256,6 +259,7 @@ export async function getCatalogProducts(query: CatalogQuery = {}): Promise<Cata
       dimensions: products.dimensions,
       featured: products.featured,
       priceOnRequest: products.priceOnRequest,
+      comingSoon: products.comingSoon,
       fulfilment: products.fulfilment,
       categoryId: products.categoryId,
       categorySlug: categories.slug,
@@ -309,6 +313,7 @@ export async function getCatalogProducts(query: CatalogQuery = {}): Promise<Cata
     dimensions: row.dimensions ?? "",
     featured: row.featured,
     priceOnRequest: row.priceOnRequest,
+    comingSoon: row.comingSoon,
     fulfilment: row.fulfilment === "bespoke" ? "bespoke" : "ready",
     variants: [],
     images: [],
@@ -336,6 +341,7 @@ export async function getProductBySlug(slug: string): Promise<CatalogProduct | n
       seoKeywords: products.seoKeywords,
       featured: products.featured,
       priceOnRequest: products.priceOnRequest,
+      comingSoon: products.comingSoon,
       fulfilment: products.fulfilment,
       categoryId: products.categoryId,
       categorySlug: categories.slug,
@@ -436,6 +442,7 @@ export async function getProductBySlug(slug: string): Promise<CatalogProduct | n
     seoKeywords: row.seoKeywords ?? undefined,
     featured: row.featured,
     priceOnRequest: row.priceOnRequest,
+    comingSoon: row.comingSoon,
     fulfilment: row.fulfilment === "bespoke" ? "bespoke" : "ready",
     variants,
     images,
@@ -516,6 +523,7 @@ export async function getCollectionBySlug(
       badge: products.badge,
       featured: products.featured,
       priceOnRequest: products.priceOnRequest,
+      comingSoon: products.comingSoon,
       fulfilment: products.fulfilment,
       categoryId: products.categoryId,
       categorySlug: categories.slug,
@@ -562,6 +570,7 @@ export async function getCollectionBySlug(
       stock: extras.get(row.id)?.available ?? Math.max(0, row.stock - row.reserved),
       featured: row.featured,
     priceOnRequest: row.priceOnRequest,
+    comingSoon: row.comingSoon,
     fulfilment: row.fulfilment === "bespoke" ? "bespoke" : "ready",
       variants: [],
       images: [],
@@ -738,7 +747,7 @@ export async function getFeedProducts(): Promise<FeedProduct[]> {
     .from(products)
     .innerJoin(productVariants, and(eq(productVariants.productId, products.id), eq(productVariants.status, "active")))
     .leftJoin(productImages, and(eq(productImages.productId, products.id), eq(productImages.isPrimary, true), eq(productImages.status, "active")))
-    .where(and(eq(products.status, "published"), eq(products.priceOnRequest, false)))
+    .where(and(eq(products.status, "published"), eq(products.priceOnRequest, false), eq(products.comingSoon, false)))
     .orderBy(asc(products.createdAt));
 
   const byProduct = new Map<string, FeedProduct>();

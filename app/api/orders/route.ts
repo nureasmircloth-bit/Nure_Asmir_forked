@@ -207,6 +207,7 @@ export async function POST(request: Request) {
       productName: products.name,
       productStatus: products.status,
       priceOnRequest: products.priceOnRequest,
+      comingSoon: products.comingSoon,
     })
     .from(productVariants)
     .innerJoin(products, eq(products.id, productVariants.productId))
@@ -226,6 +227,9 @@ export async function POST(request: Request) {
     const variant = variantById.get(item.variantId);
     if (!variant) {
       return Response.json({ error: "One of the selected products is no longer available." }, { status: 409 });
+    }
+    if (variant.comingSoon) {
+      return Response.json({ error: `${variant.productName} is coming soon and cannot be ordered yet.` }, { status: 409 });
     }
     if (variant.priceOnRequest) {
       return Response.json({ error: `${variant.productName} is priced on request. Please ask us for the price on WhatsApp.` }, { status: 409 });

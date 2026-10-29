@@ -138,6 +138,10 @@ export const products = sqliteTable("products", {
   priceOnRequest: boolean("price_on_request").notNull().default(false),
   // "ready" (ready to wear) or "bespoke" (made to order): decides which delivery time the product page shows.
   fulfilment: text("fulfilment").notNull().default("ready"),
+  // Optional subcategory name (e.g. "Crane"): set by the Excel import's Subcategory column; the category page's chips narrow the page by it.
+  subcategory: text("subcategory"),
+  // "Coming soon": listed with a name, a picture and a badge, but it cannot be put in the bag or ordered yet.
+  comingSoon: boolean("coming_soon").notNull().default(false),
   badge: text("badge"),
   seoTitle: text("seo_title"),
   seoDescription: text("seo_description"),

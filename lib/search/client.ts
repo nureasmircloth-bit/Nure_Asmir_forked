@@ -62,7 +62,7 @@ function loadLocalEngine(): Promise<LocalEngine> {
   return localEngine;
 }
 
-type AlgoliaHit = { objectID: string; name: string; slug: string; price: number; priceOnRequest?: boolean; imageUrl: string | null; category: string; _highlightResult?: { name?: { value: string } } };
+type AlgoliaHit = { objectID: string; name: string; slug: string; price: number; priceOnRequest?: boolean; comingSoon?: boolean; imageUrl: string | null; category: string; _highlightResult?: { name?: { value: string } } };
 
 export async function searchProducts(term: string, limit = 8): Promise<SearchResult> {
   const useLocal = FORCED_LOCAL || !algolia || Date.now() < Math.max(localUntil(), memoryUntil);
@@ -74,7 +74,7 @@ export async function searchProducts(term: string, limit = 8): Promise<SearchRes
             indexName: INDEX,
             query: term,
             hitsPerPage: limit,
-            attributesToRetrieve: ["name", "slug", "price", "priceOnRequest", "imageUrl", "category"],
+            attributesToRetrieve: ["name", "slug", "price", "priceOnRequest", "comingSoon", "imageUrl", "category"],
             attributesToHighlight: ["name"],
             highlightPreTag: "<mark>",
             highlightPostTag: "</mark>",
@@ -86,7 +86,7 @@ export async function searchProducts(term: string, limit = 8): Promise<SearchRes
       return {
         engine: "algolia",
         total: result.nbHits ?? result.hits.length,
-        hits: result.hits.map((hit) => ({ objectID: hit.objectID, name: hit.name, slug: hit.slug, price: hit.price, priceOnRequest: Boolean(hit.priceOnRequest), imageUrl: hit.imageUrl, category: hit.category, highlight: hit._highlightResult?.name?.value })),
+        hits: result.hits.map((hit) => ({ objectID: hit.objectID, name: hit.name, slug: hit.slug, price: hit.price, priceOnRequest: Boolean(hit.priceOnRequest), comingSoon: Boolean(hit.comingSoon), imageUrl: hit.imageUrl, category: hit.category, highlight: hit._highlightResult?.name?.value })),
       };
     } catch (error) {
       countAlgoliaSearch(false);

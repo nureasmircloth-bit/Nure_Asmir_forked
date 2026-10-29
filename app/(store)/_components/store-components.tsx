@@ -170,7 +170,9 @@ export function ProductCard({ product, priority = false, sizes, swipe = true }: 
         <Link href={`/products/${product.slug}`} className="pcard-title">
           {product.name}
         </Link>
-        {product.priceOnRequest ? (
+        {product.comingSoon ? (
+          <p className="pcard-price price-request">Coming soon</p>
+        ) : product.priceOnRequest ? (
           <p className="pcard-price price-request">Price on request</p>
         ) : (
           <p className={`pcard-price${saleLabel ? " is-sale" : ""}`}>

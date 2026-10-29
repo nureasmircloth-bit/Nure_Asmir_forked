@@ -126,6 +126,8 @@ function AddProducts({ categoryNames }: { categoryNames: string[] }) {
           name: product.name,
           category: product.category,
           typeLabel: product.type,
+          subcategory: colours.map((entry) => entry.subcategory).find(Boolean) || undefined,
+          comingSoon: product.comingSoon || undefined,
           visibility: visible ? "published" : "draft",
           badge: product.label || undefined,
           description: product.description || undefined,

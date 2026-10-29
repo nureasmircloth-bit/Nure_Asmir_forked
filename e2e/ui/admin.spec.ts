@@ -749,7 +749,7 @@ test.describe("admin (desktop Chromium)", () => {
     });
 
     test("Excel: download the sheet, fill it in, upload it, add photos, and the products appear (and a bad row is explained)", async ({ page }) => {
-      await sql`delete from products where name like 'E2E Bulk %'`;
+      await sql`delete from products where name like 'E2E Bulk %' or name = 'E2E Soon Jacket'`;
       await login(page);
       await page.goto("/admin/products/bulk");
       const downloadPromise = page.waitForEvent("download");
@@ -764,15 +764,23 @@ test.describe("admin (desktop Chromium)", () => {
       expect(wb.worksheets.map((s) => s.name)).toEqual(["1 - How to fill", "2 - Your products", "3 - Example", "Lists"]);
       const sheet = wb.getWorksheet("2 - Your products")!;
       expect(String(sheet.getRow(1).getCell(1).value)).toBe("Product name*");
+      expect(String(sheet.getRow(1).getCell(3).value)).toBe("Subcategory (optional)");
+      // the owner already wrote subcategories for Shirts: the import must add to them, never replace or reorder them
+      const [shirtsBefore] = (await sql`select subcategories from categories where name = ${"Shirts"}`) as Array<{ subcategories: string | null }>;
+      const originalSubs = shirtsBefore?.subcategories ?? null;
+      try {
+      await sql`update categories set subcategories = ${"Casual, Festive"} where name = ${"Shirts"}`;
       const put = (r: number, v: Array<string | number>) => v.forEach((x, i) => (sheet.getRow(r).getCell(i + 1).value = x));
-      put(2, ["E2E Bulk Polo", "Shirts", "Polo Shirt", "Navy", "M", 3800, "", 6, "", "Cotton", "A soft everyday polo.", "Yes", "polo-front.png", "New"]);
-      put(3, ["E2E Bulk Polo", "Shirts", "Polo Shirt", "Navy", "L", 3800, 4500, 4, "", "", "", "Yes", "", ""]);
-      put(4, ["E2E Bulk Chinos", "E2E Brand New Category", "Chinos", "Khaki", "32", 5200, "", 5, "E2E-CHINO-32", "", "", "Yes", "", ""]);
-      put(5, ["E2E Bulk Broken", "Shirts", "Shirt", "Red", "M", "cheap", "", 1, "", "", "", "Yes", "", ""]);
+      put(2, ["E2E Bulk Polo", "Shirts", "Polo", "Polo Shirt", "Navy", "M", 3800, "", 6, "", "Cotton", "A soft everyday polo.", "Yes", "polo-front.png", "", "New"]);
+      put(3, ["E2E Bulk Polo", "Shirts", "polo", "Polo Shirt", "Navy", "L", 3800, 4500, 4, "", "", "", "Yes", "", "", ""]);
+      put(4, ["E2E Bulk Chinos", "E2E Brand New Category", "E2E Slim Fit", "Chinos", "Khaki", "32", 5200, "", 5, "E2E-CHINO-32", "", "", "Yes", "", "", ""]);
+      // a "coming soon" product: a name, a category (new), no subcategory, no price, no stock; a picture follows in the next step
+      put(6, ["E2E Soon Jacket", "E2E Brand New Category", "", "Jacket", "Black", "", "", "", "", "", "", "", "Yes", "", "Yes", ""]);
+      put(5, ["E2E Bulk Broken", "Shirts", "", "Shirt", "Red", "M", "cheap", "", 1, "", "", "", "Yes", "", "", ""]);
       await wb.xlsx.writeFile(file);
 
       await page.locator('input[type="file"][accept*=".xlsx"]').first().setInputFiles(file);
-      await expect(page.getByText(/2 products · 3 sizes ready/)).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByText(/3 products · 4 sizes ready/)).toBeVisible({ timeout: 30_000 });
       await expect(page.getByText(/1 problem/)).toBeVisible();
       await expect(page.locator("li", { hasText: /Row 5:/ })).toContainText(/Price .*cheap.* is not a number/);
       await expect(page.getByText("E2E Brand New Category").first()).toBeVisible();
@@ -780,20 +788,33 @@ test.describe("admin (desktop Chromium)", () => {
       await page.locator('input[type="file"][accept*="image"]').setInputFiles({ name: "polo-front.png", mimeType: "image/png", buffer: makePng(600, 800, [40, 60, 120]) });
       await expect(page.getByText("1 of 1 found")).toBeVisible();
       await expect(page.getByText(/no photo.*Hidden|add them as Hidden|have no photo/i).first()).toBeVisible();
-      await page.getByRole("button", { name: /Add 2 products now/ }).click();
+      await page.getByRole("button", { name: /Add 3 products now/ }).click();
       await expect(page.getByRole("heading", { name: "Done" })).toBeVisible({ timeout: 120_000 });
       await expect(page.getByText("E2E Bulk Polo")).toBeVisible();
 
-      const products = (await sql`select p.name, p.status, (select count(*)::int from product_variants v where v.product_id = p.id) as sizes, (select count(*)::int from product_images i where i.product_id = p.id) as pics from products p where p.name like 'E2E Bulk %' order by p.name`) as Array<{ name: string; status: string; sizes: number; pics: number }>;
+      const products = (await sql`select p.name, p.status, (select count(*)::int from product_variants v where v.product_id = p.id) as sizes, (select count(*)::int from product_images i where i.product_id = p.id) as pics from products p where p.name like 'E2E Bulk %' or p.name = 'E2E Soon Jacket' order by p.name`) as Array<{ name: string; status: string; sizes: number; pics: number }>;
       expect(products).toEqual([
         { name: "E2E Bulk Chinos", status: "draft", sizes: 1, pics: 0 },
         { name: "E2E Bulk Polo", status: "published", sizes: 2, pics: 1 },
+        { name: "E2E Soon Jacket", status: "draft", sizes: 1, pics: 0 },
       ]);
       const [category] = await sql`select name from categories where name = 'E2E Brand New Category'`;
       expect(category).toBeTruthy();
+      // the Subcategory column: saved on the product, added once (any capitals) to its category's list, existing names untouched
+      const subs = (await sql`select p.name, p.subcategory from products p where p.name in ('E2E Bulk Polo', 'E2E Bulk Chinos') order by p.name`) as Array<{ name: string; subcategory: string | null }>;
+      expect(subs).toEqual([{ name: "E2E Bulk Chinos", subcategory: "E2E Slim Fit" }, { name: "E2E Bulk Polo", subcategory: "Polo" }]);
+      const [shirts] = (await sql`select subcategories from categories where name = 'Shirts'`) as Array<{ subcategories: string }>;
+      expect(shirts.subcategories).toBe("Casual, Festive, Polo");
+      const [fresh] = (await sql`select subcategories from categories where name = 'E2E Brand New Category'`) as Array<{ subcategories: string }>;
+      expect(fresh.subcategories).toBe("E2E Slim Fit");
+      const [soon] = (await sql`select coming_soon, subcategory from products where name = 'E2E Soon Jacket'`) as Array<{ coming_soon: number; subcategory: string | null }>;
+      expect(soon).toEqual({ coming_soon: 1, subcategory: null }); // coming soon without a price, and no subcategory (it is optional)
       const [code] = await sql`select sku from product_variants where sku = 'E2E-CHINO-32'`;
       expect(code).toBeTruthy();
-      fs.rmSync(file, { force: true });
+      } finally {
+        await sql`update categories set subcategories = ${originalSubs} where name = ${"Shirts"}`;
+        fs.rmSync(file, { force: true });
+      }
     });
 
     test("Excel: change prices and stock by product code", async ({ page }) => {
