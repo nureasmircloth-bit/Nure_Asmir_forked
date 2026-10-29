@@ -1,5 +1,6 @@
-import { and, eq, notInArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
+import { chunked } from "@/db/sql-compat";
 import { flashSaleProducts, flashSales } from "@/db/schema";
 import { getAdminUser } from "@/lib/auth/admin-auth";
 import { auditLogEntry } from "@/lib/admin/audit";
@@ -36,8 +37,13 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   // The Neon HTTP driver has no transactions: add the new links first, then remove the ones no longer wanted, so a failure in between
   // leaves a sale with too many products rather than a live sale with none.
   const wanted = data.appliesToAll ? [] : data.productIds;
-  if (wanted.length) await db.insert(flashSaleProducts).values(wanted.map((productId) => ({ saleId: id, productId }))).onConflictDoNothing();
-  await db.delete(flashSaleProducts).where(wanted.length ? and(eq(flashSaleProducts.saleId, id), notInArray(flashSaleProducts.productId, wanted)) : eq(flashSaleProducts.saleId, id));
+  // (in pieces: the database takes at most 100 values in one statement)
+  for (const part of chunked(wanted, 40)) await db.insert(flashSaleProducts).values(part.map((productId) => ({ saleId: id, productId }))).onConflictDoNothing();
+  const have = await db.select({ productId: flashSaleProducts.productId }).from(flashSaleProducts).where(eq(flashSaleProducts.saleId, id));
+  const keep = new Set(wanted);
+  for (const part of chunked(have.map((row) => row.productId).filter((productId) => !keep.has(productId)))) {
+    await db.delete(flashSaleProducts).where(and(eq(flashSaleProducts.saleId, id), inArray(flashSaleProducts.productId, part)));
+  }
   await auditLogEntry({ actorEmail: admin.email, action: "flash-sale.update", entityType: "flash_sale", entityId: id, detail: { name: data.name } });
   return Response.json({ sale: { ...sale, productIds: data.appliesToAll ? [] : data.productIds } });
 }

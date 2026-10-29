@@ -3,7 +3,7 @@ import { promisify } from "node:util";
 import { eq, like as likeCi, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { adminOwners } from "@/db/schema";
-import { isLoginRateLimited, recordLoginAttempt } from "@/lib/auth/rate-limit";
+import { isLoginRateLimited, recordLoginAttempt, requestIp } from "@/lib/auth/rate-limit";
 import { createSession } from "@/lib/auth/session";
 import { isPracticeRequest } from "@/lib/practice-context";
 
@@ -48,8 +48,7 @@ export async function POST(request: Request) {
   const password = typeof body.password === "string" ? body.password : "";
   if (!name) return Response.json({ error: "Please type your name." }, { status: 400 });
 
-  const forwarded = request.headers.get("x-forwarded-for");
-  const ip = forwarded?.split(",")[0]?.trim() || request.headers.get("cf-connecting-ip") || "unknown";
+  const ip = requestIp(request); // never the visitor-supplied x-forwarded-for first: rotating it would dodge the guess limit on the shared password
   if (await isLoginRateLimited("training-lab", ip)) return Response.json({ error: "Too many tries. Please wait a few minutes and try again." }, { status: 429 });
   const ok = await samePassword(password, training);
   await recordLoginAttempt("training-lab", ip, ok);

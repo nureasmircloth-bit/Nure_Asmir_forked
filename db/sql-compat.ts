@@ -37,3 +37,10 @@ export function chunked<T>(items: readonly T[], size = D1_MAX_PARAMS): T[][] {
 
 /** `column LIKE pattern` where a backslash in the pattern escapes % and _ (SQLite has no default escape character). Case-insensitive for letters a-z. */
 export const likeEsc = (column: unknown, pattern: string): SQL => sql`${column} like ${pattern} escape '\\'`;
+
+/** Runs a lookup for every piece of a long list (each piece fits one D1 statement) and joins the answers. */
+export async function inChunks<T, R>(list: readonly T[], run: (part: T[]) => PromiseLike<R[]>, size = D1_MAX_PARAMS): Promise<R[]> {
+  const out: R[] = [];
+  for (const part of chunked(list, size)) out.push(...(await run(part)));
+  return out;
+}

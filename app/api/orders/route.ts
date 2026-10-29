@@ -28,8 +28,9 @@ import {
   reclaimStaleIdempotencyKey,
   releaseIdempotencyKey,
 } from "@/lib/idempotency";
-import { isCheckoutRateLimited } from "@/lib/auth/rate-limit";
+import { isCheckoutRateLimited, requestIp } from "@/lib/auth/rate-limit";
 import { expireReservations } from "@/lib/orders";
+import { visitorCountry } from "@/lib/visitor-country";
 import { cleanPhone } from "@/lib/slug";
 import { checkCoupon, computeDiscountAmount } from "@/lib/coupons";
 import { isOtpTokenValid } from "@/lib/checkout/otp";
@@ -126,14 +127,14 @@ export async function POST(request: Request) {
     return Response.json(orderSummary(existingOrder, settings), { status: 200 });
   }
 
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const ip = requestIp(request);
   if (isCheckoutRateLimited(ip)) {
     return Response.json({ error: "Too many checkout attempts. Please wait a moment and try again." }, { status: 429 });
   }
 
   // Orders from outside Pakistan are arranged on WhatsApp (DHL, freight quoted per order), never through the website checkout.
-  const visitorCountry = (request.headers.get("x-vercel-ip-country") ?? "").toUpperCase();
-  if (/^[A-Z]{2}$/.test(visitorCountry) && visitorCountry !== "PK") {
+  const country = visitorCountry(request.headers);
+  if (country && country !== "PK") {
     return Response.json({ error: "Orders from outside Pakistan are arranged on WhatsApp. Please contact us there and we will quote the delivery.", international: true }, { status: 403 });
   }
   await expireReservations();

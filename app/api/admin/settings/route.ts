@@ -92,6 +92,17 @@ function cleanVerification(value: string): string {
   return (fromTag ?? value).trim().replace(/[^A-Za-z0-9_\-.]/g, "").slice(0, 120);
 }
 
+/**
+ * Saves the one settings row. An UPDATE first (the row is created by the first migration, so this is what always happens); an INSERT only if the row is
+ * missing. Not "insert ... on conflict do update": that sends every column twice, and the D1 database refuses a statement with more than 100 values.
+ */
+async function saveSettingsRow(values: Partial<typeof siteSettings.$inferInsert>) {
+  const [updated] = await db.update(siteSettings).set(values).where(eq(siteSettings.id, "store")).returning();
+  if (updated) return updated;
+  const [inserted] = await db.insert(siteSettings).values({ id: "store", ...values }).returning();
+  return inserted;
+}
+
 export async function GET() {
   const admin = await getAdminUser();
   if (!admin) return Response.json({ error: "Unauthorized" }, { status: 401 });
@@ -256,11 +267,7 @@ export async function PATCH(request: Request) {
       previousSettings: null,
       updatedAt: new Date(),
     };
-    const [row] = await db
-      .insert(siteSettings)
-      .values({ id: "store", ...fullValues })
-      .onConflictDoUpdate({ target: siteSettings.id, set: fullValues })
-      .returning();
+    const row = await saveSettingsRow(fullValues);
 
     await auditLogEntry({ actorEmail: admin.email, action: "settings.update", entityType: "site-settings", entityId: "store", detail: data });
     return Response.json({ settings: row, pending: null });
@@ -279,25 +286,12 @@ export async function PATCH(request: Request) {
     previousData = JSON.stringify(cleanCurrent);
   }
 
-  const [row] = await db
-    .insert(siteSettings)
-    .values({
-      id: "store",
-      pendingChanges: pendingData,
-      pendingApplyAt: applyAt,
-      previousSettings: previousData,
-      updatedAt: new Date(),
-    })
-    .onConflictDoUpdate({
-      target: siteSettings.id,
-      set: {
-        pendingChanges: pendingData,
-        pendingApplyAt: applyAt,
-        previousSettings: previousData,
-        updatedAt: new Date(),
-      },
-    })
-    .returning();
+  const row = await saveSettingsRow({
+    pendingChanges: pendingData,
+    pendingApplyAt: applyAt,
+    previousSettings: previousData,
+    updatedAt: new Date(),
+  });
 
   await auditLogEntry({ actorEmail: admin.email, action: "settings.buffered-update", entityType: "site-settings", entityId: "store", detail: { ...data, applyAt } });
 

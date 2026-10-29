@@ -1,5 +1,6 @@
 import { and, eq, gt, inArray, lte } from "drizzle-orm";
 import { db } from "@/db";
+import { inChunks } from "@/db/sql-compat";
 import { flashSaleProducts, flashSales } from "@/db/schema";
 
 /**
@@ -44,15 +45,9 @@ async function loadActiveSales(now: Date): Promise<ActiveSale[]> {
     .from(flashSales)
     .where(and(eq(flashSales.active, true), lte(flashSales.startsAt, now), gt(flashSales.endsAt, now)));
   if (!rows.length) return [];
-  const links = await db
-    .select({ saleId: flashSaleProducts.saleId, productId: flashSaleProducts.productId })
-    .from(flashSaleProducts)
-    .where(
-      inArray(
-        flashSaleProducts.saleId,
-        rows.map((row) => row.id),
-      ),
-    );
+  const links = await inChunks(rows.map((row) => row.id), (part) =>
+    db.select({ saleId: flashSaleProducts.saleId, productId: flashSaleProducts.productId }).from(flashSaleProducts).where(inArray(flashSaleProducts.saleId, part)),
+  );
   return rows.map((row) => ({
     id: row.id,
     name: row.name,

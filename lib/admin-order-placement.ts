@@ -13,6 +13,7 @@ import { randomUUID } from "node:crypto";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
+import { inChunks } from "@/db/sql-compat";
 import { deliveryZones, inventoryMovements, orderItems, orderStatusHistory, orders, productVariants, products, siteSettings } from "@/db/schema";
 import { auditLogEntry } from "@/lib/admin/audit";
 import {
@@ -170,24 +171,17 @@ export async function loadCatalog(inputs: unknown[]): Promise<Catalog> {
     stockQuantity: productVariants.stockQuantity,
     reservedQuantity: productVariants.reservedQuantity,
   };
-  const conditions = [
-    skus.size ? inArray(sql<string>`lower(${productVariants.sku})`, [...skus]) : undefined,
-    ids.size ? inArray(productVariants.id, [...ids]) : undefined,
-  ].filter((condition): condition is NonNullable<typeof condition> => Boolean(condition));
-
   const [zones, settingsRows, variantRows] = await Promise.all([
     db
       .select({ id: deliveryZones.id, name: deliveryZones.name, deliveryCharge: deliveryZones.deliveryCharge, estimatedDaysMax: deliveryZones.estimatedDaysMax })
       .from(deliveryZones)
       .where(eq(deliveryZones.active, true)),
     db.select({ freeDeliveryThreshold: siteSettings.freeDeliveryThreshold, deliveryMode: siteSettings.deliveryMode, flatDeliveryCharge: siteSettings.flatDeliveryCharge }).from(siteSettings).where(eq(siteSettings.id, "store")).limit(1),
-    conditions.length
-      ? db
-          .select(select)
-          .from(productVariants)
-          .innerJoin(products, eq(products.id, productVariants.productId))
-          .where(conditions.length === 1 ? conditions[0] : sql`(${conditions[0]} or ${conditions[1]})`)
-      : Promise.resolve([] as VariantRow[]),
+    // Long lists (a big sheet of orders) are looked up in pieces: the database takes at most 100 values in one statement.
+    Promise.all([
+      inChunks([...skus], (part) => db.select(select).from(productVariants).innerJoin(products, eq(products.id, productVariants.productId)).where(inArray(sql<string>`lower(${productVariants.sku})`, part))),
+      inChunks([...ids], (part) => db.select(select).from(productVariants).innerJoin(products, eq(products.id, productVariants.productId)).where(inArray(productVariants.id, part))),
+    ]).then(([bySku, byId]) => [...bySku, ...byId] as VariantRow[]),
   ]);
 
   return {

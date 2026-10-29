@@ -61,6 +61,7 @@ const serverEnv = {
   // The app under test reads and writes this SQLite file instead of a Cloudflare D1 binding (see db/index.ts).
   LOCAL_DB_PATH: E2E_DB,
   D1_HTTP_DATABASE_ID: "", // never a real D1 database
+  D1_STRICT: "1", // refuse statements D1 would refuse (more than 100 bound values)
   NEXT_PUBLIC_SITE_URL: `http://localhost:${APP_PORT}`,
   // Settings apply at once in tests (in production a save waits 5 minutes in a safety buffer).
   SETTINGS_BUFFER_SECONDS: "0",

@@ -1,5 +1,6 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
+import { chunked } from "@/db/sql-compat";
 import { categories, productImages, products, productVariants } from "@/db/schema";
 import { mediaUrl } from "@/lib/media-url";
 import type { SearchDoc } from "./types";
@@ -26,8 +27,9 @@ export async function buildSearchDocs(productId?: string): Promise<SearchDoc[]> 
     .where(productId ? and(eq(products.id, productId), eq(products.status, "published")) : eq(products.status, "published"));
   if (!rows.length) return [];
 
-  const ids = rows.map((row) => row.id);
-  const [variantRows, imageRows] = await Promise.all([
+  const allIds = rows.map((row) => row.id);
+  // The whole catalogue is looked up in pieces: the database takes at most 100 values in one statement.
+  const loadPart = (ids: string[]) => Promise.all([
     db
       .select()
       .from(productVariants)
@@ -46,6 +48,9 @@ export async function buildSearchDocs(productId?: string): Promise<SearchDoc[]> 
       .where(and(inArray(productImages.productId, ids), eq(productImages.status, "active")))
       .orderBy(asc(productImages.sortOrder)),
   ]);
+  const parts = await Promise.all(chunked(allIds).map(loadPart));
+  const variantRows = parts.flatMap((part) => part[0]);
+  const imageRows = parts.flatMap((part) => part[1]);
 
   return rows.map((row) => {
     const variants = variantRows.filter((v) => v.productId === row.id);

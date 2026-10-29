@@ -1,5 +1,6 @@
 import { and, eq, gt, inArray, isNull, lte } from "drizzle-orm";
 import { db } from "@/db";
+import { inChunks } from "@/db/sql-compat";
 import { customerPushDevices, flashSaleProducts, flashSales, products } from "@/db/schema";
 import { sendToCustomerTokens } from "@/lib/push/notify";
 
@@ -42,7 +43,7 @@ export async function announceStartedSales(): Promise<{ announced: number }> {
     const names = new Map<string, string>();
     const wanted = [...new Set(devices.flatMap((device) => device.wishlist))].filter((id) => sale.appliesToAll || saleProductIds.has(id));
     if (wanted.length) {
-      const rows = await db.select({ id: products.id, name: products.name }).from(products).where(inArray(products.id, wanted));
+      const rows = await inChunks(wanted, (part) => db.select({ id: products.id, name: products.name }).from(products).where(inArray(products.id, part)));
       for (const row of rows) names.set(row.id, row.name);
     }
 

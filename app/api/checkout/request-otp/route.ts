@@ -1,3 +1,4 @@
+import { requestIp } from "@/lib/auth/rate-limit";
 import { requestOtp } from "@/lib/checkout/otp";
 import { isPlausibleEmail } from "@/lib/email-address";
 import { verifyTurnstileToken } from "@/lib/turnstile";
@@ -20,7 +21,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Enter a valid email address." }, { status: 400 });
   }
 
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const ip = requestIp(request);
 
   const humanVerified = await verifyTurnstileToken(turnstileToken, ip);
   if (!humanVerified) {

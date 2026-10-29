@@ -106,7 +106,7 @@ test.describe("price on request, delivery times and international orders", () =>
     await expect(page.locator("form.checkout-layout")).toHaveCount(0);
 
     // and the order API refuses a shopper abroad even if the form is bypassed (Vercel sets this header from the connection)
-    const refused = await request.post(`${BASE}/api/orders`, { headers: { "x-vercel-ip-country": "AE", "Idempotency-Key": `e2e-abroad-${Date.now()}`, "x-forwarded-for": `10.9.${Date.now() % 250}.7` }, data: { items: [{ variantId: variant.id, quantity: 1 }] } });
+    const refused = await request.post(`${BASE}/api/orders`, { headers: { "cf-ipcountry": "AE", "Idempotency-Key": `e2e-abroad-${Date.now()}`, "x-forwarded-for": `10.9.${Date.now() % 250}.7` }, data: { items: [{ variantId: variant.id, quantity: 1 }] } });
     expect(refused.status()).toBe(403);
     expect(String(((await refused.json()) as { error?: string }).error)).toMatch(/WhatsApp/);
   });

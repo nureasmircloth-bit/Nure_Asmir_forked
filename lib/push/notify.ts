@@ -1,5 +1,6 @@
 import { inArray } from "drizzle-orm";
 import { db } from "@/db";
+import { chunked } from "@/db/sql-compat";
 import { adminPushDevices, customerPushDevices } from "@/db/schema";
 import { runInBackground } from "@/lib/background";
 import { pushConfigured, sendPush, type PushPayload } from "./fcm";
@@ -22,7 +23,7 @@ async function deliverToAdmins(payload: PushPayload): Promise<void> {
   const devices = await db.select({ token: adminPushDevices.token }).from(adminPushDevices);
   if (!devices.length) return;
   const dead = await fanOut(devices.map((device) => device.token), payload);
-  if (dead.length) await db.delete(adminPushDevices).where(inArray(adminPushDevices.token, dead));
+  for (const part of chunked(dead)) await db.delete(adminPushDevices).where(inArray(adminPushDevices.token, part));
 }
 
 /** Pushes an alert to every registered admin device without delaying the request that triggered it. */
@@ -34,5 +35,5 @@ export function notifyAdmins(payload: PushPayload): void {
 export async function sendToCustomerTokens(tokens: string[], payload: PushPayload): Promise<void> {
   if (!tokens.length || !pushConfigured()) return;
   const dead = await fanOut(tokens, payload);
-  if (dead.length) await db.delete(customerPushDevices).where(inArray(customerPushDevices.token, dead));
+  for (const part of chunked(dead)) await db.delete(customerPushDevices).where(inArray(customerPushDevices.token, part));
 }

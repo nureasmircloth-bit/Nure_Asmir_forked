@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
+import { chunked } from "@/db/sql-compat";
 import { collections, productCollections } from "@/db/schema";
 import { getAdminUser } from "@/lib/auth/admin-auth";
 import { slugify } from "@/lib/slug";
@@ -63,7 +64,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (data.productIds !== undefined) {
     await db.delete(productCollections).where(eq(productCollections.collectionId, id));
     if (data.productIds.length) {
-      await db.insert(productCollections).values(data.productIds.map((productId) => ({ productId, collectionId: id })));
+      // in pieces: the database takes at most 100 values in one statement
+      for (const part of chunked(data.productIds, 40)) await db.insert(productCollections).values(part.map((productId) => ({ productId, collectionId: id })));
     }
   }
 
