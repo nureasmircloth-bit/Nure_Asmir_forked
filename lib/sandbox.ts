@@ -43,10 +43,14 @@ const TABLE_FOR: Record<SandboxThing, string> = {
 
 /** How much room the practice tables take on disk (data and indexes). */
 export async function practiceBytes(): Promise<number> {
-  const result = (await practice().execute(
-    sql`select (select page_count from pragma_page_count) * (select page_size from pragma_page_size) as bytes`,
-  )) as unknown as Rows<{ bytes: string | number }>;
-  return Number(result.rows[0]?.bytes ?? 0);
+  try {
+    const result = (await practice().execute(
+      sql`select (select page_count from pragma_page_count) * (select page_size from pragma_page_size) as bytes`,
+    )) as unknown as Rows<{ bytes: string | number }>;
+    return Number(result.rows[0]?.bytes ?? 0);
+  } catch {
+    return 0; // some D1 connections do not allow the PRAGMA functions: the size limit then simply is not measured
+  }
 }
 
 const START_KEY = "__start_bytes";

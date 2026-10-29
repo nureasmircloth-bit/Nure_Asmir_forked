@@ -28,5 +28,7 @@
     "NEXT_PUBLIC_ADMIN_URL": "https://admin.nureasmir.com"
   },
   "observability": { "enabled": true },
-  "workers_dev": true
+  "workers_dev": true,
+  // The lab on its own address (the zone is on Cloudflare now: the record and certificate are made automatically).
+  "routes": [{ "pattern": "training.nureasmir.com", "custom_domain": true }]
 }

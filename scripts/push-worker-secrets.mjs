@@ -25,9 +25,10 @@ const SHOP = [
 // The training lab never receives a real service key. Its pictures live in its own R2 bucket (binding MEDIA_R2), so it needs no Neon Storage
 // credentials either (those open the real shop's public pictures and the private payment proofs). TRAINING_PASSWORD is set by hand:
 //   npx wrangler secret put TRAINING_PASSWORD -c wrangler.training.jsonc
-const TRAINING = ["CSP_NONCE"];
+// AWS_ENDPOINT_URL_S3 is only the public address of the picture bucket (not a key): it lets the lab show the demo pictures, which are read-only there.
+const TRAINING = ["CSP_NONCE", "AWS_ENDPOINT_URL_S3"];
 // Left over from earlier deploys (Neon Storage keys, and the old practice database URLs from before the move to D1): removed from the training Worker so nothing real stays there.
-const TRAINING_REMOVE = ["AWS_ENDPOINT_URL_S3", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_REGION", "DATABASE_URL", "PRACTICE_DATABASE_URL"];
+const TRAINING_REMOVE = ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_REGION", "DATABASE_URL", "PRACTICE_DATABASE_URL"];
 const config = { store: "wrangler.jsonc", admin: "wrangler.admin.jsonc", developer: "wrangler.developer.jsonc", training: "wrangler.training.jsonc" };
 
 if (!targets.length || targets.some((t) => !config[t])) {
