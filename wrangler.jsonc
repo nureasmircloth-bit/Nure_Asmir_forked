@@ -6,7 +6,11 @@
   "compatibility_date": "2026-07-29",
   "compatibility_flags": ["nodejs_compat"],
   // The database (Cloudflare D1, SQLite). The store and the admin share one database.
-  "d1_databases": [{ "binding": "DB", "database_name": "nure-asmir-prod", "database_id": "55b97328-231b-4fa7-ba88-8b825dfcb337", "migrations_dir": "drizzle" }],
+  "d1_databases": [
+    { "binding": "DB", "database_name": "nure-asmir-prod", "database_id": "55b97328-231b-4fa7-ba88-8b825dfcb337", "migrations_dir": "drizzle" },
+    // The same database again, under the name OpenNext looks for (its page-cache tags, see open-next.config.ts).
+    { "binding": "NEXT_TAG_CACHE_D1", "database_name": "nure-asmir-prod", "database_id": "55b97328-231b-4fa7-ba88-8b825dfcb337" }
+  ],
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"

@@ -65,10 +65,31 @@ function resolve(): Db {
   return drizzleD1(env.DB, { schema }) as unknown as Db;
 }
 
+/** A hand-written query over the HTTP API: its /query endpoint answers with objects (column name -> value), which `execute` callers expect. */
+async function httpRows(query: SQL): Promise<Array<Record<string, unknown>>> {
+  const { CLOUDFLARE_ACCOUNT_ID: account, CLOUDFLARE_API_TOKEN: token, D1_HTTP_DATABASE_ID: database } = process.env;
+  const req = eval("require") as NodeRequire;
+  const { SQLiteSyncDialect } = req("drizzle-orm/sqlite-core") as { SQLiteSyncDialect: new () => { sqlToQuery(sql: SQL): { sql: string; params: unknown[] } } };
+  const compiled = new SQLiteSyncDialect().sqlToQuery(query);
+  const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${account}/d1/database/${database}/query`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+    body: JSON.stringify({ sql: compiled.sql, params: compiled.params }),
+  });
+  const body = (await response.json()) as { success: boolean; errors?: Array<{ message: string }>; result?: Array<{ results?: Array<Record<string, unknown>> }> };
+  if (!body.success) throw new Error(`D1: ${body.errors?.map((e) => e.message).join("; ") ?? response.status}`);
+  return body.result?.[0]?.results ?? [];
+}
+
 export const db: Db = new Proxy({} as Db, {
   get(_target, property) {
     if (property === "execute") {
       return async (query: SQL) => {
+        if (!process.env.LOCAL_DB_PATH && process.env.D1_HTTP_DATABASE_ID) {
+          const rows = await httpRows(query);
+          for (const row of rows) for (const key of Object.keys(row)) if (/(^|_)widths$/i.test(key) && typeof row[key] === "string") row[key] = JSON.parse(row[key] as string);
+          return { rows };
+        }
         const target = resolve() as unknown as { all(query: SQL): Promise<unknown[]> | unknown[]; run(query: SQL): unknown };
         let rows: Array<Record<string, unknown>>;
         try {
