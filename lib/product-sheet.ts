@@ -10,7 +10,7 @@ export type SheetColumn = { key: string; label: string; required?: boolean; widt
 
 export const SHEET_COLUMNS: SheetColumn[] = [
   { key: "name", label: "Product name*", required: true, width: 30, help: "The name customers see, e.g. Olive Cargo Pants. Use the same name on every size row.", aliases: ["product name", "name", "title", "item", "item name"] },
-  { key: "category", label: "Category*", required: true, width: 20, help: "Pick from the list, e.g. Shirts. A new name creates a new category.", aliases: ["category", "collection", "group"] },
+  { key: "category", label: "Category*", required: true, width: 20, help: "Pick from the list, e.g. Shirts. For a category inside another, write the path with > between the names, e.g. Shirts > Formal Shirts > Business Formal Shirts. A new name creates a new category.", aliases: ["category", "collection", "group"] },
   { key: "subcategory", label: "Subcategory (optional)", width: 20, help: "Optional, e.g. Casual or Embroidered. It is added to the category's list of subcategories if it is new; the shop shows it as a chip on the category page.", aliases: ["subcategory", "sub category", "sub-category", "subcategories"] },
   { key: "type", label: "What is it?*", required: true, width: 18, help: "Pick or type: Shirt, Pants, Shalwar Kameez, Wallet…", aliases: ["what is it", "type", "product type", "kind"] },
   { key: "colour", label: "Colour*", required: true, width: 14, help: "One colour on each row. The same shirt in another colour? Use the same product name and a different colour — we put them together on one page.", aliases: ["colour", "color"] },

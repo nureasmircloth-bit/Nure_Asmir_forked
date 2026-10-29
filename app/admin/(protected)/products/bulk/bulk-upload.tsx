@@ -5,6 +5,7 @@ import { DragEvent, useRef, useState } from "react";
 import { ACCEPTED_PICTURES, checkPictureFile, uploadProductPicture } from "@/lib/client-upload";
 import { parseProductTable, parseUpdateTable, type ParsedProduct, type SheetProblem, type UpdateRow } from "@/lib/product-sheet";
 import { downloadProductTemplate, downloadStockSheet, readSheetFile, type StockExportRow } from "@/lib/sheet-client";
+import { splitCategoryPath } from "@/lib/category-tree";
 import { useLockedAction } from "@/lib/use-locked-action";
 import { callApi, HelpBox, useToast } from "../../../_ui/client";
 import { Icon } from "../../../_ui/icons";
@@ -55,8 +56,11 @@ function AddProducts({ categoryNames }: { categoryNames: string[] }) {
   const sheetInput = useRef<HTMLInputElement>(null);
   const photoInput = useRef<HTMLInputElement>(null);
 
-  const known = new Set(categoryNames.map((name) => name.toLowerCase()));
-  const newCategories = [...new Set(products.map((p) => p.category).filter((name) => !known.has(name.toLowerCase())))];
+  // A category may be written as a path ("Shirts > Formal Shirts"); spaces around the > and capitals do not matter.
+  const norm = (name: string) => splitCategoryPath(name).join(" > ").toLowerCase();
+  // (a plain name such as "Formal Shirts" finds the category with that name wherever it sits)
+  const known = new Set(categoryNames.flatMap((name) => [norm(name), norm(splitCategoryPath(name).slice(-1).join(" "))]));
+  const newCategories = [...new Set(products.map((p) => p.category).filter((name) => !known.has(norm(name))))];
   const sizesTotal = products.reduce((sum, p) => sum + p.variants.length, 0);
 
   const pictureFor = (name: string) => pictures.get(fileKey(name)) ?? [...pictures.entries()].find(([key]) => stem(key) === stem(name))?.[1];
@@ -289,7 +293,7 @@ function AddProducts({ categoryNames }: { categoryNames: string[] }) {
                             </td>
                             <td>
                               {p.category}
-                              {!known.has(p.category.toLowerCase()) && <small className="a-muted">new category</small>}
+                              {!known.has(norm(p.category)) && <small className="a-muted">new category</small>}
                             </td>
                             <td>{p.variants.map((v) => v.size || "—").join(", ")}</td>
                             <td className="num a-money">{Math.min(...prices) === Math.max(...prices) ? pkr(prices[0]) : `${pkr(Math.min(...prices))} – ${pkr(Math.max(...prices))}`}</td>
@@ -365,7 +369,7 @@ function AddProducts({ categoryNames }: { categoryNames: string[] }) {
                   <button type="button" className="a-btn" onClick={() => setStep("review")}>
                     ← Back
                   </button>
-                  <button type="button" className="a-btn a-btn-primary a-btn-lg" disabled={importing.pending || (newCategories.length > 0 && !createCategories && products.every((p) => !known.has(p.category.toLowerCase())))} onClick={runImport}>
+                  <button type="button" className="a-btn a-btn-primary a-btn-lg" disabled={importing.pending || (newCategories.length > 0 && !createCategories && products.every((p) => !known.has(norm(p.category))))} onClick={runImport}>
                     Add {products.length} product{products.length === 1 ? "" : "s"} now
                   </button>
                 </div>

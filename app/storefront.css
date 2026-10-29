@@ -784,3 +784,6 @@ p, .pcard-title { text-wrap: pretty; }
 
 /* A "coming soon" product: shown, but it cannot be bought. */
 .add-button.coming-soon { background: transparent; color: var(--muted); border-color: var(--line); cursor: not-allowed; letter-spacing: .16em; }
+.drawer-group.is-nested .drawer-cat-link { font-size: 12.5px; padding: 10px 8px; letter-spacing: .04em; text-transform: capitalize; }
+.drawer-group.is-nested .drawer-expand-btn { width: 36px; height: 36px; }
+.drawer-group.is-nested .drawer-sub-list { margin-left: 8px; padding-left: 12px; }

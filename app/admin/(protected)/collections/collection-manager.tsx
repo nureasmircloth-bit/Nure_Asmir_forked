@@ -2,9 +2,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { cropImageClientSide, processImageClientSide } from "@/lib/client-image-processing";
 import { ImageCropper } from "../campaign/image-cropper";
+import { descendantIds, flattenTree, MAX_DEPTH, pathLabel } from "@/lib/category-tree";
 
 const CARD_ASPECT = 3 / 4;
 const HERO_ASPECT = 21 / 9;
@@ -34,6 +35,7 @@ type Category = {
   slug: string;
   description: string | null;
   subcategories: string | null;
+  parentId: string | null;
   status: string;
   sortOrder: number;
   imageUrl: string | null;
@@ -89,9 +91,14 @@ export function CollectionManager({ products }: { products: Product[] }) {
     return () => window.clearTimeout(timer);
   }, [refreshCategories, refreshCollections]);
 
+  // The categories as a folder tree: parents first, each followed by what is inside it.
+  const tree = useMemo(() => flattenTree(categories), [categories]);
+  /** A category cannot be put inside itself or inside one of its own categories. */
+  const blocked = (id: string) => new Set(descendantIds(categories, id));
+
   async function createCategory(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const body = Object.fromEntries(new FormData(event.currentTarget));
+    const body = { ...Object.fromEntries(new FormData(event.currentTarget)), parentId: new FormData(event.currentTarget).get("parentId") || null };
     const response = await fetch("/api/admin/categories", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -199,13 +206,14 @@ export function CollectionManager({ products }: { products: Product[] }) {
 
   async function saveCategory(event: FormEvent<HTMLFormElement>, id: string) {
     event.preventDefault();
-    const body = Object.fromEntries(new FormData(event.currentTarget));
+    const body = { ...Object.fromEntries(new FormData(event.currentTarget)), parentId: new FormData(event.currentTarget).get("parentId") || null };
     const response = await fetch(`/api/admin/categories/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    setMessage(response.ok ? "Category updated." : "Category could not be updated.");
+    const result = await response.json().catch(() => ({}));
+    setMessage(response.ok ? "Category updated." : result.error ?? "Category could not be updated.");
     if (response.ok) await refreshCategories();
   }
 
@@ -293,6 +301,7 @@ export function CollectionManager({ products }: { products: Product[] }) {
                     <tr>
                       <th>Photo</th>
                       <th>Name</th>
+                      <th>Inside</th>
                       <th>Slug</th>
                       <th>Subcategories</th>
                       <th>Description</th>
@@ -302,7 +311,7 @@ export function CollectionManager({ products }: { products: Product[] }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {categories.map((category) => (
+                    {tree.map((category) => (
                       <tr key={category.id}>
                         <td>
                           <div className="category-photo-cell">
@@ -374,7 +383,16 @@ export function CollectionManager({ products }: { products: Product[] }) {
                           )}
                         </td>
                         <td>
-                          <input form={`category-${category.id}`} name="name" defaultValue={category.name} aria-label="Name" />
+                          <input form={`category-${category.id}`} name="name" defaultValue={category.name} aria-label="Name" style={{ marginInlineStart: Math.min(category.depth, 5) * 18 }} />
+                          {category.depth > 0 && <small className="category-trail">{category.path.slice(0, -1).join(" › ")}</small>}
+                        </td>
+                        <td>
+                          <select form={`category-${category.id}`} name="parentId" defaultValue={category.parentId ?? ""} aria-label="Inside category">
+                            <option value="">Top level</option>
+                            {tree.filter((other) => !blocked(category.id).has(other.id) && other.depth + 1 < MAX_DEPTH).map((other) => (
+                              <option key={other.id} value={other.id}>{pathLabel(other.path)}</option>
+                            ))}
+                          </select>
                         </td>
                         <td>
                           <input form={`category-${category.id}`} name="slug" defaultValue={category.slug} aria-label="Slug" />
@@ -440,6 +458,15 @@ export function CollectionManager({ products }: { products: Product[] }) {
             <label>
               <span>Name</span>
               <input required name="name" placeholder="Eid Edit" />
+            </label>
+            <label>
+              <span>Inside category (optional)</span>
+              <select name="parentId" defaultValue="">
+                <option value="">Top level (not inside another)</option>
+                {tree.filter((other) => other.depth + 1 < MAX_DEPTH).map((other) => (
+                  <option key={other.id} value={other.id}>{pathLabel(other.path)}</option>
+                ))}
+              </select>
             </label>
             <label>
               <span>URL slug (optional)</span>

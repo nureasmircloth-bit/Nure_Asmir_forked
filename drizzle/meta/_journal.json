@@ -50,6 +50,13 @@
       "when": 1793262481791,
       "tag": "0006_product_coming_soon",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1793349000000,
+      "tag": "0007_category_tree",
+      "breakpoints": true
     }
   ]
 }

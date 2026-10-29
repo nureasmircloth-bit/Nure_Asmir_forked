@@ -2,7 +2,7 @@ import { runInBackground } from "@/lib/background";
 import { reindexAll } from "@/lib/search/algolia";
 import { db } from "@/db";
 import { products, productVariants } from "@/db/schema";
-import { addSubcategory, ensureCategory } from "@/lib/categories";
+import { addSubcategory, CategoryInputError, ensureCategory } from "@/lib/categories";
 import { getAdminUser } from "@/lib/auth/admin-auth";
 import { slugify } from "@/lib/slug";
 import { auditLogEntry } from "@/lib/admin/audit";
@@ -195,6 +195,10 @@ export async function POST(request: Request) {
     try {
       results.push(await importOne(items[index], index));
     } catch (error) {
+      if (error instanceof CategoryInputError) {
+        results.push({ index, name: items[index].name, success: false, error: error.message });
+        continue;
+      }
       console.error("product.import failed", error);
       results.push({ index, name: items[index].name, success: false, error: "Unexpected server error — see logs." });
     }

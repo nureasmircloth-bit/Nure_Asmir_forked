@@ -13,13 +13,16 @@ import { useWishlist } from "@/lib/wishlist";
 import { Price } from "./currency";
 import { discountLabel } from "./sale";
 
-type NavCategory = {
+export type NavNode = {
   name: string;
   slug: string;
   subcategories?: string[];
   /** Biggest percentage off in this category right now (0/undefined = none). */
   discount?: number;
+  /** The categories inside this one (Shirts -> Formal Shirts -> ...), each with its own. */
+  kids?: NavNode[];
 };
+type NavCategory = NavNode;
 
 type Hit = SearchHit;
 
@@ -54,6 +57,49 @@ export function HeaderClient({
 
   const toggleCategory = (slug: string) => {
     setExpandedCategories((prev) => ({ ...prev, [slug]: !prev[slug] }));
+  };
+
+  /** One category in the menu drawer, with the categories inside it (and theirs) shown when it is opened. A category with none keeps the old
+   * comma-separated subcategory links, if the owner wrote any. */
+  const renderNode = (category: NavNode, depth: number): React.ReactNode => {
+    const kids = category.kids ?? [];
+    const legacy = kids.length === 0 ? (category.subcategories ?? []) : [];
+    const hasSubs = kids.length > 0 || legacy.length > 0;
+    const isOpen = Boolean(expandedCategories[category.slug]);
+    return (
+      <div key={category.slug} className={`drawer-group ${isOpen ? "is-expanded" : ""}${depth ? " is-nested" : ""}`}>
+        <div className="drawer-cat-row">
+          <Link href={`/collections/${category.slug}`} onClick={closeAll} className="drawer-cat-link">
+            <span>{category.name}</span>
+            {category.discount ? <em className="nav-sale">Up to −{category.discount}%</em> : null}
+          </Link>
+          {hasSubs && (
+            <button
+              type="button"
+              className="drawer-expand-btn"
+              onClick={() => toggleCategory(category.slug)}
+              aria-expanded={isOpen}
+              aria-label={`${isOpen ? "Collapse" : "Expand"} ${category.name} subcategories`}
+            >
+              {Icon.chevronDown}
+            </button>
+          )}
+        </div>
+        {hasSubs && isOpen && (
+          <div className="drawer-sub-list">
+            {kids.map((kid) => renderNode(kid, depth + 1))}
+            {legacy.length > 0 && (
+              <>
+                <Link href={`/collections/${category.slug}`} onClick={closeAll} className="drawer-sub-link is-all">All {category.name}</Link>
+                {legacy.map((sub) => (
+                  <Link key={sub} href={`/collections/${category.slug}?q=${encodeURIComponent(sub)}`} onClick={closeAll} className="drawer-sub-link">{sub}</Link>
+                ))}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    );
   };
 
   useEffect(() => {
@@ -204,56 +250,7 @@ export function HeaderClient({
             <span>New arrivals</span>
             <span className="drawer-new-pill">New</span>
           </Link>
-          {categories.map((category) => {
-            const hasSubs = Boolean(category.subcategories && category.subcategories.length > 0);
-            const isOpen = Boolean(expandedCategories[category.slug]);
-            return (
-              <div key={category.slug} className={`drawer-group ${isOpen ? "is-expanded" : ""}`}>
-                <div className="drawer-cat-row">
-                  <Link
-                    href={`/collections/${category.slug}`}
-                    onClick={closeAll}
-                    className="drawer-cat-link"
-                  >
-                    <span>{category.name}</span>
-                    {category.discount ? <em className="nav-sale">Up to −{category.discount}%</em> : null}
-                  </Link>
-                  {hasSubs && (
-                    <button
-                      type="button"
-                      className="drawer-expand-btn"
-                      onClick={() => toggleCategory(category.slug)}
-                      aria-expanded={isOpen}
-                      aria-label={`${isOpen ? "Collapse" : "Expand"} ${category.name} subcategories`}
-                    >
-                      {Icon.chevronDown}
-                    </button>
-                  )}
-                </div>
-                {hasSubs && isOpen && (
-                  <div className="drawer-sub-list">
-                    <Link
-                      href={`/collections/${category.slug}`}
-                      onClick={closeAll}
-                      className="drawer-sub-link is-all"
-                    >
-                      All {category.name}
-                    </Link>
-                    {category.subcategories!.map((sub) => (
-                      <Link
-                        key={sub}
-                        href={`/collections/${category.slug}?q=${encodeURIComponent(sub)}`}
-                        onClick={closeAll}
-                        className="drawer-sub-link"
-                      >
-                        {sub}
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          {categories.map((category) => renderNode(category, 0))}
           <Link href="/about" onClick={closeAll} className="drawer-nav-item">Our story</Link>
           <Link href="/track-order" onClick={closeAll} className="drawer-nav-item">Track order</Link>
           <Link href="/contact" onClick={closeAll} className="drawer-nav-item">Contact</Link>

@@ -1,13 +1,14 @@
 import { z } from "zod";
 import { runInBackground } from "@/lib/background";
 import { reindexAll } from "@/lib/search/algolia";
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { categories } from "@/db/schema";
 import { getAdminUser } from "@/lib/auth/admin-auth";
 import { slugify } from "@/lib/slug";
 import { auditLogEntry } from "@/lib/admin/audit";
 import { isUniqueViolation } from "@/lib/db/errors";
+import { parentProblem } from "@/lib/categories";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,7 @@ const updateSchema = z.object({
   subcategories: z.string().optional(),
   status: z.enum(["active", "inactive"]).optional(),
   sortOrder: z.coerce.number().int().optional(),
+  parentId: z.string().min(1).nullable().optional(),
 });
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -28,6 +30,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const parsed = updateSchema.safeParse(await request.json().catch(() => ({})));
   if (!parsed.success) return Response.json({ error: "Invalid category payload." }, { status: 400 });
   const data = parsed.data;
+
+  if (data.parentId) {
+    const problem = await parentProblem(id, data.parentId);
+    if (problem) return Response.json({ error: problem }, { status: 400 });
+  }
 
   const nextSlug = data.slug !== undefined ? slugify(data.slug) : undefined;
 
@@ -42,9 +49,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         ...(data.subcategories !== undefined ? { subcategories: data.subcategories || null } : {}),
         ...(data.status !== undefined ? { status: data.status } : {}),
         ...(data.sortOrder !== undefined ? { sortOrder: data.sortOrder } : {}),
+        ...(data.parentId !== undefined ? { parentId: data.parentId || null } : {}),
         updatedAt: new Date(),
       })
-      .where(eq(categories.id, id))
+      // the loop check is part of the write itself: a category is only moved under a parent that is not inside it, even when two moves race
+      .where(and(eq(categories.id, id), data.parentId ? sql`${data.parentId} not in (with recursive inside(id) as (select ${id} union select c.id from categories c join inside on c.parent_id = inside.id) select id from inside)` : undefined))
       .returning();
   } catch (error) {
     if (isUniqueViolation(error)) {
@@ -53,7 +62,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     throw error;
   }
 
-  if (!row) return Response.json({ error: "Category not found." }, { status: 404 });
+  if (!row) {
+    const [exists] = await db.select({ id: categories.id }).from(categories).where(eq(categories.id, id)).limit(1);
+    if (exists) return Response.json({ error: "A category cannot be moved inside itself or inside one of its own categories." }, { status: 400 });
+    return Response.json({ error: "Category not found." }, { status: 404 });
+  }
 
   await auditLogEntry({ actorEmail: admin.email, action: "category.update", entityType: "category", entityId: id, detail: data });
 

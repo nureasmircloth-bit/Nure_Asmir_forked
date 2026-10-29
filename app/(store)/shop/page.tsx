@@ -1,4 +1,5 @@
-import type { Metadata } from "next";
+import type { Metadata } from "next";
+import { topLevel } from "@/lib/category-tree";
 import { StoreFooter } from "../_components/store-footer";
 import { Breadcrumbs } from "../_components/breadcrumbs";
 import { ProductListJsonLd } from "../_components/product-list-jsonld";
@@ -20,7 +21,7 @@ export const metadata: Metadata = {
 
 export default async function ShopPage() {
   // Only the first page is read here; tabs, sorting and Show more come from the cached /api/catalog/page.
-  const [products, total, categories] = await Promise.all([getCatalogProducts({ limit: CATALOG_PAGE_SIZE }), countCatalogProducts(), getActiveCategories()]);
+  const [products, total, categories] = await Promise.all([getCatalogProducts({ limit: CATALOG_PAGE_SIZE }), countCatalogProducts(), getActiveCategories().then(topLevel)]);
   return (
     <main className="page-fade-in">
       <header className="listing-head">

@@ -215,7 +215,10 @@ function catalogWhere(query: CatalogQuery) {
     variantFilter(query.filters),
     priced ? and(eq(products.priceOnRequest, false), eq(products.comingSoon, false)) : undefined, // a price range never lists products that have no price to compare
     eq(products.status, "published"),
-    query.categorySlug ? eq(categories.slug, query.categorySlug) : undefined,
+    // a category page lists its own products and those of every category inside it (Shirts shows the formal shirts too)
+    query.categorySlug
+      ? sql`${products.categoryId} in (with recursive tree(id) as (select id from categories where slug = ${query.categorySlug} union select c.id from categories c join tree on c.parent_id = tree.id) select id from tree)`
+      : undefined,
     query.ids ? (query.ids.length ? inArray(products.id, query.ids) : sql`false`) : undefined,
     query.featuredOnly ? eq(products.featured, true) : undefined,
     query.search ? searchWhere(query.search) : undefined,
@@ -603,6 +606,8 @@ export type CategoryWithImage = {
   sortOrder: number;
   description?: string;
   subcategories?: string[];
+  /** The category this one sits inside; undefined for a top-level category. */
+  parentId?: string;
   imageUrl?: string;
   blurDataUrl?: string;
   // The wide /collections/[slug] hero crop — undefined whenever no separate hero photo was ever
@@ -628,6 +633,13 @@ export const getCategoryDiscounts = cache(async (): Promise<Map<string, number>>
     const saleProductIds = [...new Set(sales.flatMap((sale) => [...sale.productIds]))];
     if (everything || saleProductIds.length) {
       const published = eq(products.status, "published");
+      const parentOf = new Map((await db.select({ id: categories.id, parentId: categories.parentId }).from(categories)).map((row) => [row.id, row.parentId]));
+      const parents = new Map<string, string[]>(); // category -> every category above it
+      for (const id of parentOf.keys()) {
+        const above: string[] = [];
+        for (let up = parentOf.get(id); up && !above.includes(up) && above.length < 10; up = parentOf.get(up)) above.push(up);
+        parents.set(id, above);
+      }
       const rows = await db
         .select({ id: products.id, categoryId: products.categoryId, price: productVariants.price })
         .from(products)
@@ -637,7 +649,8 @@ export const getCategoryDiscounts = cache(async (): Promise<Map<string, number>>
         const sale = applySales(row.price, row.id, sales);
         if (!sale) continue;
         const percent = Math.round(((sale.originalPrice - sale.price) / sale.originalPrice) * 100);
-        if (percent > (result.get(row.categoryId) ?? 0)) result.set(row.categoryId, percent);
+        // the badge of a category covers the sales inside the categories under it too
+        for (const id of [row.categoryId, ...(parents.get(row.categoryId) ?? [])]) if (percent > (result.get(id) ?? 0)) result.set(id, percent);
       }
     }
   }
@@ -680,6 +693,7 @@ export async function getActiveCategories(): Promise<CategoryWithImage[]> {
         sortOrder: categories.sortOrder,
         description: categories.description,
         subcategories: categories.subcategories,
+        parentId: categories.parentId,
         imageR2Key: categories.imageR2Key,
         imageWidths: categories.imageVariantWidths,
         blurDataUrl: categories.imageBlurDataUrl,
@@ -701,6 +715,7 @@ export async function getActiveCategories(): Promise<CategoryWithImage[]> {
       subcategories: row.subcategories
         ? row.subcategories.split(",").map((s) => s.trim()).filter(Boolean)
         : undefined,
+      parentId: row.parentId ?? undefined,
       imageUrl: row.imageR2Key ? mediaUrl(row.imageR2Key, row.imageWidths) : undefined,
       blurDataUrl: row.blurDataUrl ?? undefined,
       heroImageUrl: row.heroR2Key ? mediaUrl(row.heroR2Key, row.heroWidths) : undefined,

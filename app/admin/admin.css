@@ -845,3 +845,4 @@
 .adm-page { animation: adm-page-in .28s cubic-bezier(.22, .8, .2, 1) backwards; }
 @keyframes adm-page-in { from { transform: translateY(6px); } }
 @media (prefers-reduced-motion: reduce) { .adm-page { animation: none; } }
+.adm .category-trail { display: block; margin-top: 2px; font-size: 11px; color: #777; }

@@ -4,6 +4,7 @@ import { asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { categories, productImages, products, productVariants } from "@/db/schema";
 import { PageHeader } from "../../../_ui/ui";
+import { withPathNames } from "@/lib/category-tree";
 import { ProductEditor } from "../product-editor";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +17,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
   if (!product) notFound();
 
   const [cats, variants, images] = await Promise.all([
-    db.select({ id: categories.id, name: categories.name, subcategories: categories.subcategories }).from(categories).orderBy(asc(categories.sortOrder), asc(categories.name)),
+    db.select({ id: categories.id, name: categories.name, slug: categories.slug, parentId: categories.parentId, sortOrder: categories.sortOrder, subcategories: categories.subcategories }).from(categories).orderBy(asc(categories.sortOrder), asc(categories.name)),
     db.select().from(productVariants).where(eq(productVariants.productId, id)).orderBy(desc(productVariants.isDefault), asc(productVariants.createdAt)),
     db.select().from(productImages).where(eq(productImages.productId, id)).orderBy(desc(productImages.isPrimary), asc(productImages.sortOrder), asc(productImages.createdAt)),
   ]);
@@ -31,7 +32,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
       <PageHeader title={product.name} intro={product.status === "published" ? "This product is on your website." : product.status === "draft" ? "This product is hidden from customers." : "This product has been removed from your website."} />
       <ProductEditor
         key={`${product.id}-${product.updatedAt.getTime()}`}
-        categories={cats.map((row) => ({ id: row.id, name: row.name, subcategories: (row.subcategories ?? "").split(",").map((part) => part.trim()).filter(Boolean) }))}
+        categories={withPathNames(cats).map((row) => ({ id: row.id, name: row.name, subcategories: (row.subcategories ?? "").split(",").map((part) => part.trim()).filter(Boolean) }))}
         product={{
           id: product.id,
           name: product.name,
