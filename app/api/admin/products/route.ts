@@ -4,7 +4,7 @@ import { runInBackground } from "@/lib/background";
 import { syncProductSearch } from "@/lib/search/algolia";
 import { and, desc, eq, like as likeCi, or } from "drizzle-orm";
 import { db } from "@/db";
-import { addSubcategory, ensureCategory } from "@/lib/categories";
+import { addSubcategory, CategoryInputError, ensureCategory } from "@/lib/categories";
 import { categories, productImages, products, productVariants } from "@/db/schema";
 import { getAdminUser } from "@/lib/auth/admin-auth";
 import { slugify } from "@/lib/slug";
@@ -22,7 +22,7 @@ const createSchema = z.object({
   slug: z.string().optional(),
   categoryId: z.string().uuid().optional(),
   // A category typed by name: an existing one is used, a new name creates it on the spot.
-  categoryName: z.string().trim().min(1).max(400).optional(),
+  categoryName: z.string().trim().min(1).max(600).optional(),
   subcategory: z.string().trim().max(60).nullable().optional(),
   comingSoon: z.boolean().optional(),
   typeLabel: z.string().min(1),
@@ -134,7 +134,14 @@ export async function POST(request: Request) {
   const parsed = createSchema.safeParse(await request.json().catch(() => ({})));
   if (!parsed.success) return Response.json({ error: "Invalid product payload." }, { status: 400 });
   const data = parsed.data;
-  if (data.categoryName) data.categoryId = (await ensureCategory(data.categoryName)).id;
+  if (data.categoryName) {
+    try {
+      data.categoryId = (await ensureCategory(data.categoryName)).id;
+    } catch (error) {
+      if (error instanceof CategoryInputError) return Response.json({ error: error.message }, { status: 400 });
+      throw error;
+    }
+  }
   if (!data.categoryId) return Response.json({ error: "Please choose or type a category." }, { status: 400 });
   const categoryId = data.categoryId;
   const slug = slugify(data.slug || data.name);

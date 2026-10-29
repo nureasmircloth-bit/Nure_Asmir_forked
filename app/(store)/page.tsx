@@ -1,4 +1,5 @@
-import Image from "next/image";
+import Image from "next/image";
+import { topLevel } from "@/lib/category-tree";
 import Link from "next/link";
 import { ProductCard, ProductRail } from "./_components/store-components";
 import { StoreFooter } from "./_components/store-footer";
@@ -23,7 +24,7 @@ export default async function Home() {
     getCatalogProducts({ limit: 12 }),
     getCatalogProducts({ featuredOnly: true, limit: 8 }),
     getCampaignSlides(),
-    getActiveCategories().then((all) => all.filter((category) => !category.parentId)), // the cards are the top-level categories; the ones inside are reached from their page
+    getActiveCategories().then(topLevel), // the cards are the top-level categories; the ones inside are reached from their page
     getCategoryDiscounts().catch(() => new Map<string, number>()),
   ]);
 

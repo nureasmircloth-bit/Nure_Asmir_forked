@@ -5,7 +5,7 @@ import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { cropImageClientSide, processImageClientSide } from "@/lib/client-image-processing";
 import { ImageCropper } from "../campaign/image-cropper";
-import { descendantIds, flattenTree, pathLabel } from "@/lib/category-tree";
+import { descendantIds, flattenTree, MAX_DEPTH, pathLabel } from "@/lib/category-tree";
 
 const CARD_ASPECT = 3 / 4;
 const HERO_ASPECT = 21 / 9;
@@ -389,7 +389,7 @@ export function CollectionManager({ products }: { products: Product[] }) {
                         <td>
                           <select form={`category-${category.id}`} name="parentId" defaultValue={category.parentId ?? ""} aria-label="Inside category">
                             <option value="">Top level</option>
-                            {tree.filter((other) => !blocked(category.id).has(other.id)).map((other) => (
+                            {tree.filter((other) => !blocked(category.id).has(other.id) && other.depth + 1 < MAX_DEPTH).map((other) => (
                               <option key={other.id} value={other.id}>{pathLabel(other.path)}</option>
                             ))}
                           </select>
@@ -463,7 +463,7 @@ export function CollectionManager({ products }: { products: Product[] }) {
               <span>Inside category (optional)</span>
               <select name="parentId" defaultValue="">
                 <option value="">Top level (not inside another)</option>
-                {tree.map((other) => (
+                {tree.filter((other) => other.depth + 1 < MAX_DEPTH).map((other) => (
                   <option key={other.id} value={other.id}>{pathLabel(other.path)}</option>
                 ))}
               </select>

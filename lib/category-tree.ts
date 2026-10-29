@@ -87,3 +87,10 @@ export function withPathNames<T extends TreeNode>(nodes: T[]): T[] {
 export function pathLabel(path: string[]): string {
   return path.join(" › ");
 }
+
+/** The categories to show at the top level of the shop: those with no parent, plus any whose parent is not among `items` (for instance a parent the owner
+ * switched off), so a category that is still on is never left without a way to reach it. */
+export function topLevel<T extends { id: string; parentId?: string | null }>(items: T[]): T[] {
+  const ids = new Set(items.map((item) => item.id));
+  return items.filter((item) => !item.parentId || !ids.has(item.parentId));
+}

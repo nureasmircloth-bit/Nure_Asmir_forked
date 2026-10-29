@@ -1,13 +1,14 @@
 import { z } from "zod";
 import { sandboxRoomMessage } from "@/lib/sandbox";
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { categories } from "@/db/schema";
 import { getAdminUser } from "@/lib/auth/admin-auth";
 import { slugify } from "@/lib/slug";
 import { auditLogEntry } from "@/lib/admin/audit";
 import { isUniqueViolation } from "@/lib/db/errors";
-import { parentProblem } from "@/lib/categories";
+import { CategoryInputError, ensureCategory, parentProblem } from "@/lib/categories";
+import { splitCategoryPath } from "@/lib/category-tree";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +50,17 @@ export async function POST(request: Request) {
   if (!parsed.success) return Response.json({ error: "Invalid category payload." }, { status: 400 });
 
   const data = parsed.data;
+  // A path ("Shirts > Formal Shirts") makes every level that is missing, and answers with the last one.
+  if (splitCategoryPath(data.name).length > 1) {
+    try {
+      const made = await ensureCategory(data.name);
+      const [found] = await db.select().from(categories).where(eq(categories.id, made.id)).limit(1);
+      return Response.json({ category: found }, { status: 201 });
+    } catch (error) {
+      if (error instanceof CategoryInputError) return Response.json({ error: error.message }, { status: 400 });
+      throw error;
+    }
+  }
   const slug = slugify(data.slug || data.name);
   if (data.parentId) {
     const problem = await parentProblem(null, data.parentId);

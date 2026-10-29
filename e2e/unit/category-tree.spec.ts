@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { ancestry, descendantIds, flattenTree, splitCategoryPath, withPathNames, wouldLoop, type TreeNode } from "../../lib/category-tree";
+import { topLevel, ancestry, descendantIds, flattenTree, splitCategoryPath, withPathNames, wouldLoop, type TreeNode } from "../../lib/category-tree";
 
 const node = (id: string, name: string, parentId: string | null, sortOrder = 0): TreeNode => ({ id, name, slug: id, parentId, sortOrder });
 const shop = [
@@ -34,6 +34,12 @@ test("a category's descendants and ancestry", () => {
   expect(descendantIds(shop, "pants")).toEqual(["pants"]);
   expect(ancestry(shop, "business").map((item) => item.id)).toEqual(["shirts", "formal", "business"]);
   expect(ancestry(shop, "nope")).toEqual([]);
+});
+
+test("a category whose parent is switched off still shows at the top level", () => {
+  const active = shop.filter((item) => item.id !== "shirts"); // Shirts is off: its children are still on
+  expect(topLevel(active).map((item) => item.id)).toEqual(["formal", "floral", "pants"]);
+  expect(topLevel(shop).map((item) => item.id)).toEqual(["shirts", "pants"]);
 });
 
 test("a category cannot move inside itself, and bad parents never hide or hang a category", () => {

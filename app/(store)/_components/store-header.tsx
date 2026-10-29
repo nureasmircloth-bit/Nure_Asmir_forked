@@ -1,5 +1,6 @@
 import { getActiveCategories, getCategoryDiscounts, getPublicSettings } from "@/lib/commerce";
 import { buildAnnouncements, isAnnouncementMode, isAnnouncementStyle } from "@/lib/shop-rules";
+import { topLevel } from "@/lib/category-tree";
 import { HeaderClient, type NavNode } from "./header-client";
 
 /** Server wrapper: feeds the (client) header the live category list and shipping threshold, so the
@@ -21,7 +22,7 @@ export async function StoreHeader() {
   });
   return (
     <HeaderClient
-      categories={categories.filter((category) => !category.parentId).map((category) => toNav(category))}
+      categories={topLevel(categories).map((category) => toNav(category))}
       messages={buildAnnouncements({
         mode: isAnnouncementMode(settings.announcementMode) ? settings.announcementMode : "auto",
         lines: settings.announcementLines,

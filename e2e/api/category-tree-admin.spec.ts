@@ -29,6 +29,13 @@ test("admin: nested categories are created, cannot loop, and a path in the sheet
     expect(leaves).toHaveLength(1);
     expect(leaves[0].parent_id).toBe(innerRow.id);
     made.push(leaves[0].id);
+    // a plain name that two branches share is not guessed: the owner is asked for the whole path
+    const dup = `Zz Dup ${stamp}`;
+    for (const parent of [`Zz A ${stamp}`, `Zz B ${stamp}`]) await request.post(`${BASE}/api/admin/categories`, { data: { name: `${parent} > ${dup}` } });
+    const ambiguous = await request.post(`${BASE}/api/admin/products/import`, { data: { ...body, name: `Zz Path Shirt Three ${stamp}`, category: dup, variants: [{ ...body.variants[0], sku: `ZZ-PATH3-${stamp}` }] } });
+    expect(JSON.stringify(await ambiguous.json())).toContain("whole path");
+    await sql`delete from categories where name = ${dup}`;
+    await sql`delete from categories where name in (${`Zz A ${stamp}`}, ${`Zz B ${stamp}`})`;
     // the same path again finds the same categories (nothing is duplicated)
     await request.post(`${BASE}/api/admin/products/import`, { data: { ...body, name: `Zz Path Shirt Two ${stamp}`, variants: [{ ...body.variants[0], sku: `ZZ-PATH2-${stamp}` }] } });
     const count = (await sql`select count(*) as n from categories where name like ${`Zz % ${stamp}`}`) as Array<{ n: number }>;
@@ -36,6 +43,7 @@ test("admin: nested categories are created, cannot loop, and a path in the sheet
   } finally {
     await sql`delete from product_variants where sku like ${`ZZ-PATH%-${stamp}`}`;
     await sql`delete from products where name like ${`Zz Path Shirt%${stamp}`}`;
+    await sql`delete from categories where name = ${`Zz Leaf ${stamp}`}`;
     for (const id of made.reverse()) await sql`delete from categories where id = ${id}`;
   }
 });

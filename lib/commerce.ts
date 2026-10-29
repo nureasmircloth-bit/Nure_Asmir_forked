@@ -633,6 +633,13 @@ export const getCategoryDiscounts = cache(async (): Promise<Map<string, number>>
     const saleProductIds = [...new Set(sales.flatMap((sale) => [...sale.productIds]))];
     if (everything || saleProductIds.length) {
       const published = eq(products.status, "published");
+      const parentOf = new Map((await db.select({ id: categories.id, parentId: categories.parentId }).from(categories)).map((row) => [row.id, row.parentId]));
+      const parents = new Map<string, string[]>(); // category -> every category above it
+      for (const id of parentOf.keys()) {
+        const above: string[] = [];
+        for (let up = parentOf.get(id); up && !above.includes(up) && above.length < 10; up = parentOf.get(up)) above.push(up);
+        parents.set(id, above);
+      }
       const rows = await db
         .select({ id: products.id, categoryId: products.categoryId, price: productVariants.price })
         .from(products)
@@ -642,7 +649,8 @@ export const getCategoryDiscounts = cache(async (): Promise<Map<string, number>>
         const sale = applySales(row.price, row.id, sales);
         if (!sale) continue;
         const percent = Math.round(((sale.originalPrice - sale.price) / sale.originalPrice) * 100);
-        if (percent > (result.get(row.categoryId) ?? 0)) result.set(row.categoryId, percent);
+        // the badge of a category covers the sales inside the categories under it too
+        for (const id of [row.categoryId, ...(parents.get(row.categoryId) ?? [])]) if (percent > (result.get(id) ?? 0)) result.set(id, percent);
       }
     }
   }

@@ -1,4 +1,5 @@
-import Image from "next/image";
+import Image from "next/image";
+import { topLevel } from "@/lib/category-tree";
 import Link from "next/link";
 import { getActiveCategories, getPublicSettings } from "@/lib/commerce";
 import { BRAND } from "@/lib/brand";
@@ -7,7 +8,7 @@ import { NewsletterForm } from "./store-components";
 import { FacebookIcon, InstagramIcon, TikTokIcon, WhatsAppIcon } from "./icons";
 
 export async function StoreFooter() {
-  const [settings, categories, locations] = await Promise.all([getPublicSettings(), getActiveCategories().then((all) => all.filter((category) => !category.parentId)), getStoreLocations()]);
+  const [settings, categories, locations] = await Promise.all([getPublicSettings(), getActiveCategories().then(topLevel), getStoreLocations()]);
   const whatsapp = settings.whatsappChatUrl || (settings.whatsappNumber ? `https://wa.me/${settings.whatsappNumber.replace(/[^\d]/g, "")}` : "/contact");
 
   return (

@@ -5,6 +5,9 @@ import { isUniqueViolation } from "@/lib/db/errors";
 import { ancestry, MAX_DEPTH, splitCategoryPath, wouldLoop, type TreeNode } from "@/lib/category-tree";
 import { slugify } from "@/lib/slug";
 
+/** A category name the owner typed that cannot be used (ambiguous, empty, too deep); its message is shown to them as it is. */
+export class CategoryInputError extends Error {}
+
 /** Why a category cannot be put inside this parent (it would loop, or go too deep, or the parent is gone); null when it is fine. `id` is the category being
  * moved, absent for a new one. */
 export async function parentProblem(id: string | null, parentId: string): Promise<string | null> {
@@ -15,12 +18,19 @@ export async function parentProblem(id: string | null, parentId: string): Promis
   return null;
 }
 
+/** "Shirts > Formal" for the category with this id (used to show the owner what to write). */
+function ancestryPath(rows: CategoryRow[], id: string): string {
+  return ancestry(rows.map(nodeOf), id).map((node) => node.name).join(" > ");
+}
+
 const nodeOf = (row: { id: string; name: string; slug: string; parentId: string | null; sortOrder: number }): TreeNode => row;
 
 /** Levels below a category (0 when it has nothing inside). */
-function subtreeHeight(nodes: TreeNode[], id: string): number {
+function subtreeHeight(nodes: TreeNode[], id: string, seen = new Set<string>()): number {
+  if (seen.has(id)) return 0; // a loop in bad data must not run forever
+  seen.add(id);
   const below = nodes.filter((node) => node.parentId === id);
-  return below.length ? 1 + Math.max(...below.map((node) => subtreeHeight(nodes, node.id))) : 0;
+  return below.length ? 1 + Math.max(...below.map((node) => subtreeHeight(nodes, node.id, seen))) : 0;
 }
 
 const tidy = (name: string) => name.trim().replace(/\s+/g, " ");
@@ -33,8 +43,8 @@ const tidy = (name: string) => name.trim().replace(/\s+/g, " ");
  */
 export async function ensureCategory(rawName: string): Promise<{ id: string; name: string }> {
   const parts = splitCategoryPath(rawName);
-  if (!parts.length) throw new Error("Category name is empty.");
-  if (parts.length > MAX_DEPTH) throw new Error(`A category can be at most ${MAX_DEPTH} levels deep.`);
+  if (!parts.length) throw new CategoryInputError("Category name is empty.");
+  if (parts.length > MAX_DEPTH) throw new CategoryInputError(`A category can be at most ${MAX_DEPTH} levels deep.`);
   const load = () => db.select({ id: categories.id, name: categories.name, slug: categories.slug, parentId: categories.parentId, sortOrder: categories.sortOrder }).from(categories);
   // A shop has a handful of categories: reading them all is cheaper and safer than a pattern search.
   const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
@@ -43,6 +53,8 @@ export async function ensureCategory(rawName: string): Promise<{ id: string; nam
     const rows = await load();
     const matches = rows.filter((row) => same(row.name, parts[0]));
     const existing = matches.find((row) => !row.parentId) ?? matches[0];
+    // the same name in two places inside the tree: guessing would put the product in the wrong one
+    if (existing?.parentId && matches.length > 1) throw new CategoryInputError(`"${parts[0]}" is the name of more than one category. Write the whole path, for example ${ancestryPath(rows, matches[0].id)}.`);
     if (existing) return { id: existing.id, name: existing.name };
   }
 
@@ -75,7 +87,8 @@ async function findOrCreateChild(
   const taken = new Set(rows.map((row) => row.slug));
   const base = slugify(name) || "category";
   const stem = parent ? `${parent.slug}-${base}` : base;
-  const candidates = [base, stem, ...[2, 3, 4, 5].map((n) => `${stem}-${n}`)];
+  const candidates = [base, stem];
+  for (let n = 2; n < 60; n++) candidates.push(`${stem}-${n}`);
   for (const slug of candidates.filter((candidate) => !taken.has(candidate)).slice(0, 5)) {
     try {
       const [created] = await db

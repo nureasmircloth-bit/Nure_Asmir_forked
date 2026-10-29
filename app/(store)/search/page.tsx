@@ -1,4 +1,5 @@
-import type { Metadata } from "next";
+import type { Metadata } from "next";
+import { topLevel } from "@/lib/category-tree";
 import { countCatalogProducts, getActiveCategories, getCatalogProducts, SEARCH_MAX_WORDS, toCard, type CatalogProduct } from "@/lib/commerce";
 import { searchProductIds } from "@/lib/search/server";
 import { Breadcrumbs } from "../_components/breadcrumbs";
@@ -43,7 +44,7 @@ export default async function SearchPage({
 
   const [{ results, total }, categories] = await Promise.all([
     query ? searchProducts(query) : Promise.resolve({ results: [] as CatalogProduct[], total: 0 }),
-    getActiveCategories().then((all) => all.filter((category) => !category.parentId)),
+    getActiveCategories().then(topLevel),
   ]);
 
   return (

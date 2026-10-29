@@ -3,7 +3,7 @@ import { runInBackground } from "@/lib/background";
 import { removeProductFromSearch, syncProductSearch } from "@/lib/search/algolia";
 import { asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { addSubcategory, ensureCategory } from "@/lib/categories";
+import { addSubcategory, CategoryInputError, ensureCategory } from "@/lib/categories";
 import { categories, productImages, products, productVariants } from "@/db/schema";
 import { getAdminUser } from "@/lib/auth/admin-auth";
 import { slugify } from "@/lib/slug";
@@ -31,7 +31,7 @@ const updateSchema = z.object({
   name: z.string().min(1).optional(),
   slug: z.string().optional(),
   categoryId: z.string().uuid().optional(),
-  categoryName: z.string().trim().min(1).max(400).optional(),
+  categoryName: z.string().trim().min(1).max(600).optional(),
   subcategory: z.string().trim().max(60).nullable().optional(),
   comingSoon: z.boolean().optional(),
   typeLabel: z.string().min(1).optional(),
@@ -91,7 +91,15 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const parsed = updateSchema.safeParse(await request.json().catch(() => ({})));
   if (!parsed.success) return Response.json({ error: "Invalid product payload." }, { status: 400 });
   const data = parsed.data;
-  if (data.categoryName) data.categoryId = (await ensureCategory(data.categoryName)).id; // a new name creates the category
+  if (data.categoryName) {
+    // a new name creates the category
+    try {
+      data.categoryId = (await ensureCategory(data.categoryName)).id;
+    } catch (error) {
+      if (error instanceof CategoryInputError) return Response.json({ error: error.message }, { status: 400 });
+      throw error;
+    }
+  }
 
   const [existing] = await db.select().from(products).where(eq(products.id, id)).limit(1);
   if (!existing) return Response.json({ error: "Product not found." }, { status: 404 });
