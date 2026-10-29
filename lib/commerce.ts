@@ -221,7 +221,7 @@ function searchWhere(text: string) {
   return and(
     ...words.map((word) => {
       const like = `%${word.replace(/[\\%_]/g, (character) => `\\${character}`)}%`;
-      return or(likeEsc(products.name, like), likeEsc(products.typeLabel, like), likeEsc(products.shortDescription, like));
+      return or(likeEsc(products.name, like), likeEsc(products.typeLabel, like), likeEsc(products.shortDescription, like), likeEsc(products.subcategory, like));
     }),
   );
 }

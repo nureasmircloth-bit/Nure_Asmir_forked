@@ -1,4 +1,4 @@
-import { like as likeCi } from "drizzle-orm";
+import { and, eq, isNull, like as likeCi } from "drizzle-orm";
 import { runInBackground } from "@/lib/background";
 import { reindexAll } from "@/lib/search/algolia";
 import { db } from "@/db";
@@ -31,6 +31,25 @@ type ImportResult = {
   error?: string;
 };
 
+/** Adds a subcategory name to the category's list when it is not there yet (ignoring capital letters). Names the owner already wrote are never changed, removed or reordered. */
+async function addSubcategory(categoryId: string, name: string): Promise<void> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const [row] = await db.select({ subcategories: categories.subcategories }).from(categories).where(eq(categories.id, categoryId)).limit(1);
+    if (!row) return;
+    const current = row.subcategories ?? "";
+    const names = current.split(",").map((part) => part.trim()).filter(Boolean);
+    if (names.some((existing) => existing.toLowerCase() === name.toLowerCase())) return;
+    const next = [...names, name].join(", ");
+    // Only if nobody changed the list in the meantime (the owner may be editing it); otherwise read again and retry.
+    const changed = await db
+      .update(categories)
+      .set({ subcategories: next, updatedAt: new Date() })
+      .where(and(eq(categories.id, categoryId), current ? eq(categories.subcategories, current) : isNull(categories.subcategories)))
+      .returning({ id: categories.id });
+    if (changed.length) return;
+  }
+}
+
 async function importOne(item: ProductImport, index: number): Promise<ImportResult> {
   const [category] = await db.select({ id: categories.id, name: categories.name }).from(categories).where(likeCi(categories.name, item.category)).limit(1);
   if (!category) {
@@ -38,6 +57,7 @@ async function importOne(item: ProductImport, index: number): Promise<ImportResu
   }
 
   const slug = slugify(item.slug || item.name);
+  const subcategory = item.subcategory?.trim().replace(/\s+/g, " ") || null;
   const dimensions = formatDimensions(item.dimensions);
   const careInstructions = joinCareInstructions(item.careInstructions);
   const pattern = item.attributes?.pattern;
@@ -74,6 +94,7 @@ async function importOne(item: ProductImport, index: number): Promise<ImportResu
         name: item.name,
         slug,
         typeLabel: item.typeLabel,
+        subcategory,
         shortDescription: item.shortDescription || null,
         description: item.description || null,
         material: item.material || null,
@@ -100,6 +121,7 @@ async function importOne(item: ProductImport, index: number): Promise<ImportResu
     }
     throw error;
   }
+  if (subcategory) await addSubcategory(category.id, subcategory);
 
   const variantErrors: string[] = [];
   const images: ImageJob[] = [];

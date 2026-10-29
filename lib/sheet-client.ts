@@ -69,12 +69,12 @@ const XLSX_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.s
 const GREEN = "FF2B6B5E";
 
 const EXAMPLE_ROWS: unknown[][] = [
-  ["Olive Cargo Pants", "Pants", "Cargo Pants", "Olive", "30", 6500, "", 10, "", "Cotton twill", "Relaxed cargo pants with deep pockets. Easy to wear every day.", "Yes", "olive-cargo-1.jpg, olive-cargo-2.jpg", "New"],
-  ["Olive Cargo Pants", "Pants", "Cargo Pants", "Olive", "32", 6500, "", 14, "", "", "", "Yes", "", ""],
-  ["Olive Cargo Pants", "Pants", "Cargo Pants", "Olive", "34", 6500, 7500, 8, "", "", "", "Yes", "", ""],
-  ["Ivory Kameez Shalwar", "Shalwar Kameez", "Kameez Shalwar", "Ivory", "M", 12500, "", 6, "", "Wash & wear", "A clean everyday kameez shalwar in soft wash & wear fabric.", "Yes", "ivory-ks-1.jpg", ""],
-  ["Ivory Kameez Shalwar", "Shalwar Kameez", "Kameez Shalwar", "Ivory", "L", 12500, "", 6, "", "", "", "Yes", "", ""],
-  ["Tan Leather Wallet", "Accessories", "Wallet", "Tan", "One size", 3500, 4500, 20, "", "Leather", "Slim bifold wallet in genuine leather.", "Yes", "tan-wallet.jpg", "Sale"],
+  ["Olive Cargo Pants", "Pants", "Cargo", "Cargo Pants", "Olive", "30", 6500, "", 10, "", "Cotton twill", "Relaxed cargo pants with deep pockets. Easy to wear every day.", "Yes", "olive-cargo-1.jpg, olive-cargo-2.jpg", "New"],
+  ["Olive Cargo Pants", "Pants", "Cargo", "Cargo Pants", "Olive", "32", 6500, "", 14, "", "", "", "Yes", "", ""],
+  ["Olive Cargo Pants", "Pants", "Cargo", "Cargo Pants", "Olive", "34", 6500, 7500, 8, "", "", "", "Yes", "", ""],
+  ["Ivory Kameez Shalwar", "Shalwar Kameez", "Wash & wear", "Kameez Shalwar", "Ivory", "M", 12500, "", 6, "", "Wash & wear", "A clean everyday kameez shalwar in soft wash & wear fabric.", "Yes", "ivory-ks-1.jpg", ""],
+  ["Ivory Kameez Shalwar", "Shalwar Kameez", "Wash & wear", "Kameez Shalwar", "Ivory", "L", 12500, "", 6, "", "", "", "Yes", "", ""],
+  ["Tan Leather Wallet", "Accessories", "Wallets", "Wallet", "Tan", "One size", 3500, 4500, 20, "", "Leather", "Slim bifold wallet in genuine leather.", "Yes", "tan-wallet.jpg", "Sale"],
 ];
 
 const TYPE_SUGGESTIONS = ["Shalwar Kameez", "Kameez Shalwar", "Kurta", "Shirt", "T-Shirt", "Polo Shirt", "Pants", "Cargo Pants", "Jeans", "Waistcoat", "Sweater", "Hoodie", "Wallet", "Belt", "Card Holder", "Cap", "Socks"];
@@ -104,7 +104,7 @@ export async function downloadProductTemplate(categories: string[]) {
     ["1.  Open the sheet called “2 - Your products”.", false],
     ["2.  Type ONE ROW FOR EACH SIZE. A product with 4 sizes needs 4 rows. Copy the product name, category, type and colour down on every row.", false],
     ["3.  Columns with a * are needed. The others you can leave empty.", false],
-    ["4.  Category, Type and Yes/No have a little arrow — click the cell and pick from the list.", false],
+    ["4.  Category, Type and Yes/No have a little arrow — click the cell and pick from the list. Subcategory is optional: type a word like Casual or Embroidered and the website shows it as a button on the category page (it is added to the category's list for you; the ones you already wrote there stay as they are).", false],
     ["5.  Photos: write the picture file names in “Photo file names” (for example olive-cargo-1.jpg). You choose the pictures on the website in the next step. The first name is the main photo.", false],
     ["6.  Look at the sheet “3 - Example” if you are not sure. Then save this file and upload it on the website: Products → Add many with Excel.", false],
     ["", false],

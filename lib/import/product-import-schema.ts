@@ -61,6 +61,7 @@ export const productImportSchema = z.object({
   slug: z.string().optional(),
   category: z.string().min(1),
   typeLabel: z.string().min(1),
+  subcategory: z.string().max(60).optional(),
   visibility: visibilityEnum.optional(),
   featured: z.boolean().optional(),
   badge: z.string().optional(),
