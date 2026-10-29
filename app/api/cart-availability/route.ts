@@ -34,6 +34,7 @@ export async function POST(request: Request) {
         status: productVariants.status,
         productStatus: products.status,
         priceOnRequest: products.priceOnRequest,
+        comingSoon: products.comingSoon,
       })
       .from(productVariants)
       .innerJoin(products, eq(products.id, productVariants.productId))
@@ -44,7 +45,7 @@ export async function POST(request: Request) {
   const byId = new Map(rows.map((row) => [row.id, row]));
   const availability = variantIds.map((id) => {
     const row = byId.get(id);
-    const live = !!row && row.status === "active" && row.productStatus === "published" && !row.priceOnRequest; // priced on request: never in a bag
+    const live = !!row && row.status === "active" && row.productStatus === "published" && !row.priceOnRequest && !row.comingSoon; // priced on request or coming soon: never in a bag
     return {
       variantId: id,
       available: live ? Math.max(0, row.stockQuantity - row.reservedQuantity) : 0,

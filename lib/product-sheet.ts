@@ -23,6 +23,7 @@ export const SHEET_COLUMNS: SheetColumn[] = [
   { key: "description", label: "Description (optional)", width: 40, help: "A few sentences for the product page. Leave empty and we write one later if you ask.", aliases: ["description", "details", "about"] },
   { key: "show", label: "Show on website? (Yes/No)", width: 16, help: "Yes = customers can see it now. No = hidden until you are ready.", aliases: ["show on website", "show", "visible", "publish", "published", "status"] },
   { key: "photos", label: "Photo file names (optional)", width: 30, help: "The names of the pictures for this product, separated by commas, e.g. cargo-1.jpg, cargo-2.jpg. You add the pictures in the next step.", aliases: ["photo file names", "photos", "images", "image", "photo", "pictures"] },
+  { key: "comingSoon", label: "Coming soon? (Yes/No, optional)", width: 16, help: "Yes = the product is shown with its name, picture and a \"Coming soon\" badge but cannot be bought yet. Price and stock may then stay empty.", aliases: ["coming soon", "coming soon yes no", "soon", "upcoming"] },
   { key: "label", label: "Small label (optional)", width: 14, help: "New, Sale, Bestseller or Limited.", aliases: ["small label", "label", "badge", "tag"] },
 ];
 
@@ -38,6 +39,7 @@ export type ParsedProduct = {
   fabric: string;
   description: string;
   visible: boolean;
+  comingSoon: boolean;
   label: string;
   photos: string[];
   variants: ParsedVariant[];
@@ -141,9 +143,13 @@ export function parseProductTable(table: unknown[][]): ParsedSheet {
     if (!category) fail("Category is empty.");
     if (!type) fail("“What is it?” is empty (for example Shirt or Pants).");
     if (!colour) fail("Colour is empty.");
+    if (String(cell(row, "subcategory") ?? "").includes(",")) fail("Subcategory cannot contain a comma (one subcategory per product).");
 
-    const price = parseMoney(cell(row, "price"));
-    if (price === null || price < 1) fail(`Price “${String(cell(row, "price") ?? "")}” is not a number. Type it like 5500.`);
+    const soon = parseYesNo(cell(row, "comingSoon"), false);
+    // A "coming soon" product may have no price or stock yet: it cannot be bought anyway.
+    const priceText = String(cell(row, "price") ?? "").trim();
+    const price = soon && priceText === "" ? 0 : parseMoney(cell(row, "price"));
+    if (price === null || (!soon && price < 1)) fail(`Price “${String(cell(row, "price") ?? "")}” is not a number. Type it like 5500.`);
     const stockText = String(cell(row, "stock") ?? "").trim();
     const stock = stockText === "" ? 0 : parseMoney(cell(row, "stock"));
     if (stock === null || stock < 0) fail(`Stock “${stockText}” is not a number. Type it like 12.`);
@@ -170,6 +176,7 @@ export function parseProductTable(table: unknown[][]): ParsedSheet {
         fabric: String(cell(row, "fabric") ?? "").trim(),
         description: String(cell(row, "description") ?? "").trim(),
         visible: parseYesNo(cell(row, "show"), true),
+        comingSoon: soon,
         label: normalizeLabel(cell(row, "label")),
         photos: [],
         variants: [],
@@ -179,6 +186,7 @@ export function parseProductTable(table: unknown[][]): ParsedSheet {
     // Later rows may fill in details the first row left empty.
     product.fabric ||= String(cell(row, "fabric") ?? "").trim();
     product.description ||= String(cell(row, "description") ?? "").trim();
+    product.subcategory ||= String(cell(row, "subcategory") ?? "").trim().replace(/\s+/g, " ").slice(0, 60);
     for (const file of String(cell(row, "photos") ?? "").split(/[,;\n]/).map((f) => f.trim()).filter(Boolean)) {
       if (!product.photos.some((p) => p.toLowerCase() === file.toLowerCase())) product.photos.push(file);
     }

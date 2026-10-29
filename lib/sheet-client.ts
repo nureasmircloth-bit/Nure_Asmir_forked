@@ -69,12 +69,12 @@ const XLSX_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.s
 const GREEN = "FF2B6B5E";
 
 const EXAMPLE_ROWS: unknown[][] = [
-  ["Olive Cargo Pants", "Pants", "Cargo", "Cargo Pants", "Olive", "30", 6500, "", 10, "", "Cotton twill", "Relaxed cargo pants with deep pockets. Easy to wear every day.", "Yes", "olive-cargo-1.jpg, olive-cargo-2.jpg", "New"],
-  ["Olive Cargo Pants", "Pants", "Cargo", "Cargo Pants", "Olive", "32", 6500, "", 14, "", "", "", "Yes", "", ""],
-  ["Olive Cargo Pants", "Pants", "Cargo", "Cargo Pants", "Olive", "34", 6500, 7500, 8, "", "", "", "Yes", "", ""],
-  ["Ivory Kameez Shalwar", "Shalwar Kameez", "Wash & wear", "Kameez Shalwar", "Ivory", "M", 12500, "", 6, "", "Wash & wear", "A clean everyday kameez shalwar in soft wash & wear fabric.", "Yes", "ivory-ks-1.jpg", ""],
-  ["Ivory Kameez Shalwar", "Shalwar Kameez", "Wash & wear", "Kameez Shalwar", "Ivory", "L", 12500, "", 6, "", "", "", "Yes", "", ""],
-  ["Tan Leather Wallet", "Accessories", "Wallets", "Wallet", "Tan", "One size", 3500, 4500, 20, "", "Leather", "Slim bifold wallet in genuine leather.", "Yes", "tan-wallet.jpg", "Sale"],
+  ["Olive Cargo Pants", "Pants", "Cargo", "Cargo Pants", "Olive", "30", 6500, "", 10, "", "Cotton twill", "Relaxed cargo pants with deep pockets. Easy to wear every day.", "Yes", "olive-cargo-1.jpg, olive-cargo-2.jpg", "", "New"],
+  ["Olive Cargo Pants", "Pants", "Cargo", "Cargo Pants", "Olive", "32", 6500, "", 14, "", "", "", "Yes", "", "", ""],
+  ["Olive Cargo Pants", "Pants", "Cargo", "Cargo Pants", "Olive", "34", 6500, 7500, 8, "", "", "", "Yes", "", "", ""],
+  ["Ivory Kameez Shalwar", "Shalwar Kameez", "Wash & wear", "Kameez Shalwar", "Ivory", "M", 12500, "", 6, "", "Wash & wear", "A clean everyday kameez shalwar in soft wash & wear fabric.", "Yes", "ivory-ks-1.jpg", "", ""],
+  ["Ivory Kameez Shalwar", "Shalwar Kameez", "Wash & wear", "Kameez Shalwar", "Ivory", "L", 12500, "", 6, "", "", "", "Yes", "", "", ""],
+  ["Tan Leather Wallet", "Accessories", "Wallets", "Wallet", "Tan", "One size", 3500, 4500, 20, "", "Leather", "Slim bifold wallet in genuine leather.", "Yes", "tan-wallet.jpg", "", "Sale"],
 ];
 
 const TYPE_SUGGESTIONS = ["Shalwar Kameez", "Kameez Shalwar", "Kurta", "Shirt", "T-Shirt", "Polo Shirt", "Pants", "Cargo Pants", "Jeans", "Waistcoat", "Sweater", "Hoodie", "Wallet", "Belt", "Card Holder", "Cap", "Socks"];
@@ -155,6 +155,7 @@ export async function downloadProductTemplate(categories: string[]) {
     ws.getRow(r).getCell(col("category")).dataValidation = { type: "list", allowBlank: true, showErrorMessage: false, formulae: [`Lists!$A$2:$A$${cats.length + 30}`] };
     ws.getRow(r).getCell(col("type")).dataValidation = { type: "list", allowBlank: true, showErrorMessage: false, formulae: [`Lists!$B$2:$B$${TYPE_SUGGESTIONS.length + 1}`] };
     ws.getRow(r).getCell(col("show")).dataValidation = { type: "list", allowBlank: true, formulae: [`Lists!$C$2:$C$3`] };
+    ws.getRow(r).getCell(col("comingSoon")).dataValidation = { type: "list", allowBlank: true, formulae: [`Lists!$C$2:$C$3`] };
     ws.getRow(r).getCell(col("label")).dataValidation = { type: "list", allowBlank: true, formulae: [`Lists!$D$2:$D$5`] };
     ws.getRow(r).getCell(col("price")).dataValidation = { type: "decimal", operator: "greaterThan", formulae: [0], allowBlank: true, showErrorMessage: true, errorTitle: "Price", error: "Please type the price as a number, like 5500." };
     ws.getRow(r).getCell(col("stock")).dataValidation = { type: "whole", operator: "greaterThanOrEqual", formulae: [0], allowBlank: true, showErrorMessage: true, errorTitle: "Stock", error: "Please type how many you have, as a whole number." };

@@ -89,7 +89,9 @@ export function ProductView({
           <Link href={`/collections/${product.category}`}>{product.type}</Link>
         </nav>
         <h1>{product.name}</h1>
-        {product.priceOnRequest ? (
+        {product.comingSoon ? (
+          <p className="product-price price-request">Coming soon</p>
+        ) : product.priceOnRequest ? (
           <p className="product-price price-request">Price on request</p>
         ) : (
           <p className="product-price">
@@ -101,7 +103,7 @@ export function ProductView({
             <Price amount={shown.price} />
           </p>
         )}
-        {!product.priceOnRequest && shown.saleEndsAt && (
+        {!product.priceOnRequest && !product.comingSoon && shown.saleEndsAt && (
           <div className="sale-banner">
             <span className="sale-tag">{discountLabel(shown.price, shown.compareAtPrice) ?? "Sale"}</span>
             <SaleCountdown endsAt={shown.saleEndsAt} />

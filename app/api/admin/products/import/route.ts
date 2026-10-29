@@ -1,8 +1,8 @@
-import { and, eq, isNull, like as likeCi } from "drizzle-orm";
 import { runInBackground } from "@/lib/background";
 import { reindexAll } from "@/lib/search/algolia";
 import { db } from "@/db";
-import { categories, products, productVariants } from "@/db/schema";
+import { products, productVariants } from "@/db/schema";
+import { addSubcategory, ensureCategory } from "@/lib/categories";
 import { getAdminUser } from "@/lib/auth/admin-auth";
 import { slugify } from "@/lib/slug";
 import { auditLogEntry } from "@/lib/admin/audit";
@@ -31,30 +31,9 @@ type ImportResult = {
   error?: string;
 };
 
-/** Adds a subcategory name to the category's list when it is not there yet (ignoring capital letters). Names the owner already wrote are never changed, removed or reordered. */
-async function addSubcategory(categoryId: string, name: string): Promise<void> {
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const [row] = await db.select({ subcategories: categories.subcategories }).from(categories).where(eq(categories.id, categoryId)).limit(1);
-    if (!row) return;
-    const current = row.subcategories ?? "";
-    const names = current.split(",").map((part) => part.trim()).filter(Boolean);
-    if (names.some((existing) => existing.toLowerCase() === name.toLowerCase())) return;
-    const next = [...names, name].join(", ");
-    // Only if nobody changed the list in the meantime (the owner may be editing it); otherwise read again and retry.
-    const changed = await db
-      .update(categories)
-      .set({ subcategories: next, updatedAt: new Date() })
-      .where(and(eq(categories.id, categoryId), current ? eq(categories.subcategories, current) : isNull(categories.subcategories)))
-      .returning({ id: categories.id });
-    if (changed.length) return;
-  }
-}
-
 async function importOne(item: ProductImport, index: number): Promise<ImportResult> {
-  const [category] = await db.select({ id: categories.id, name: categories.name }).from(categories).where(likeCi(categories.name, item.category)).limit(1);
-  if (!category) {
-    return { index, name: item.name, success: false, error: `Category "${item.category}" not found — check spelling or create it first.` };
-  }
+  // A category name that does not exist yet is created on the spot (the owner types a new one in the sheet and it simply appears).
+  const category = await ensureCategory(item.category);
 
   const slug = slugify(item.slug || item.name);
   const subcategory = item.subcategory?.trim().replace(/\s+/g, " ") || null;
@@ -95,6 +74,7 @@ async function importOne(item: ProductImport, index: number): Promise<ImportResu
         slug,
         typeLabel: item.typeLabel,
         subcategory,
+        comingSoon: item.comingSoon ?? false,
         shortDescription: item.shortDescription || null,
         description: item.description || null,
         material: item.material || null,
@@ -121,9 +101,15 @@ async function importOne(item: ProductImport, index: number): Promise<ImportResu
     }
     throw error;
   }
-  if (subcategory) await addSubcategory(category.id, subcategory);
-
   const variantErrors: string[] = [];
+  if (subcategory) {
+    // The product is already saved: a failure here must not fail the row, only be reported.
+    const listed = await addSubcategory(category.id, subcategory).catch((error) => {
+      console.error("product.import: subcategory list not updated", error);
+      return false;
+    });
+    if (!listed) variantErrors.push(`Subcategory "${subcategory}" was saved on the product but could not be added to the category's list; add it under Collections.`);
+  }
   const images: ImageJob[] = [];
   // A product sold in several colours keeps each colour's photos with that colour (the shop shows them when the colour is picked).
   const multiColour = new Set(item.variants.map((variant) => variant.color.trim().toLowerCase())).size > 1;

@@ -88,7 +88,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
             color: variant.color,
             ...(variant.size ? { size: variant.size } : {}),
             image: [photoFor(variant.color)],
-            ...(product.priceOnRequest ? {} : { offers: offer(variant.price, variant.available) }),
+            ...(product.priceOnRequest || product.comingSoon ? {} : { offers: offer(variant.price, variant.available) }),
           })),
         }
       : {
@@ -100,7 +100,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           ...(keywordList ? { keywords: keywordList } : {}),
           sku: product.sku,
           brand: { "@type": "Brand", name: BRAND.name },
-          ...(product.priceOnRequest ? {} : { offers: offer(product.price, product.stock) }),
+          ...(product.priceOnRequest || product.comingSoon ? {} : { offers: offer(product.price, product.stock) }),
         };
 
   return (
