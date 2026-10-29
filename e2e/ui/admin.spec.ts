@@ -294,6 +294,7 @@ test.describe("admin (desktop Chromium)", () => {
       await page.goto("/admin/products/new");
       await page.getByLabel("Product name").fill("E2E Linen Shirt");
       await page.getByLabel("What is it?").fill("Shirt");
+      await page.getByRole("combobox", { name: /^Category/ }).fill("Shirts"); // a category is required since typed categories were added
       await page.getByLabel("Colour", { exact: true }).fill("Sand");
       await page.locator('input[type="file"]').first().setInputFiles({ name: "front.png", mimeType: "image/png", buffer: makePng() });
       await expect(page.locator(".a-photo .main-tag")).toBeVisible();
@@ -372,6 +373,7 @@ test.describe("admin (desktop Chromium)", () => {
       await page.goto("/admin/products/new");
       await page.getByLabel("Product name").fill("E2E Denim Shirt");
       await page.getByLabel("What is it?").fill("Shirt");
+      await page.getByRole("combobox", { name: /^Category/ }).fill("Shirts");
       await page.getByLabel("Colour", { exact: true }).fill("Indigo");
       await page.locator('input[type="file"]').first().setInputFiles({ name: "indigo.png", mimeType: "image/png", buffer: makePng() });
       await page.getByRole("button", { name: "S M L XL XXL" }).click();
@@ -474,6 +476,7 @@ test.describe("admin (desktop Chromium)", () => {
       await page.goto("/admin/products/new");
       await page.getByLabel("Product name").fill("E2E Formats Kurta");
       await page.getByLabel("What is it?").fill("Kurta");
+      await page.getByRole("combobox", { name: /^Category/ }).fill("Shirts");
       await page.getByLabel("Colour", { exact: true }).fill("Ivory");
       await page.getByRole("button", { name: "One size only" }).click();
       await page.getByLabel("Price", { exact: true }).first().fill("4900");

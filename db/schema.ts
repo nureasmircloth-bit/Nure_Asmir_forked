@@ -88,6 +88,8 @@ export const categories = sqliteTable("categories", {
   status: text("status").notNull().default("active"),
   sortOrder: integer("sort_order").notNull().default(0),
   subcategories: text("subcategories"),
+  // The category this one sits inside (empty for a top-level category); see lib/category-tree.ts.
+  parentId: text("parent_id"),
   // Cover image for the homepage "Objects of everyday elegance" cards (a tall 3:4 crop) — all
   // nullable since a category can exist (and did, for every category before this feature) without
   // one; the storefront falls back to a static placeholder in that case.
@@ -108,7 +110,7 @@ export const categories = sqliteTable("categories", {
   heroBlurDataUrl: text("hero_blur_data_url"),
   heroVariantWidths: jsonb("hero_variant_widths").$type<number[]>(),
   ...timestamps,
-}, (table) => [index("categories_status_idx").on(table.status)]);
+}, (table) => [index("categories_status_idx").on(table.status), index("categories_parent_idx").on(table.parentId)]);
 
 export const collections = sqliteTable("collections", {
   id: uuid("id").primaryKey().default(uuidSql),

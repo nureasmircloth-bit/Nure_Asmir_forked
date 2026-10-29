@@ -8,6 +8,7 @@ import { getAdminUser } from "@/lib/auth/admin-auth";
 import { slugify } from "@/lib/slug";
 import { auditLogEntry } from "@/lib/admin/audit";
 import { isUniqueViolation } from "@/lib/db/errors";
+import { parentProblem } from "@/lib/categories";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,7 @@ const updateSchema = z.object({
   subcategories: z.string().optional(),
   status: z.enum(["active", "inactive"]).optional(),
   sortOrder: z.coerce.number().int().optional(),
+  parentId: z.string().min(1).nullable().optional(),
 });
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -28,6 +30,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const parsed = updateSchema.safeParse(await request.json().catch(() => ({})));
   if (!parsed.success) return Response.json({ error: "Invalid category payload." }, { status: 400 });
   const data = parsed.data;
+
+  if (data.parentId) {
+    const problem = await parentProblem(id, data.parentId);
+    if (problem) return Response.json({ error: problem }, { status: 400 });
+  }
 
   const nextSlug = data.slug !== undefined ? slugify(data.slug) : undefined;
 
@@ -42,6 +49,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         ...(data.subcategories !== undefined ? { subcategories: data.subcategories || null } : {}),
         ...(data.status !== undefined ? { status: data.status } : {}),
         ...(data.sortOrder !== undefined ? { sortOrder: data.sortOrder } : {}),
+        ...(data.parentId !== undefined ? { parentId: data.parentId || null } : {}),
         updatedAt: new Date(),
       })
       .where(eq(categories.id, id))

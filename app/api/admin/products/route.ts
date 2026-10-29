@@ -22,7 +22,7 @@ const createSchema = z.object({
   slug: z.string().optional(),
   categoryId: z.string().uuid().optional(),
   // A category typed by name: an existing one is used, a new name creates it on the spot.
-  categoryName: z.string().trim().min(1).max(80).optional(),
+  categoryName: z.string().trim().min(1).max(400).optional(),
   subcategory: z.string().trim().max(60).nullable().optional(),
   comingSoon: z.boolean().optional(),
   typeLabel: z.string().min(1),

@@ -7,7 +7,7 @@ import { NewsletterForm } from "./store-components";
 import { FacebookIcon, InstagramIcon, TikTokIcon, WhatsAppIcon } from "./icons";
 
 export async function StoreFooter() {
-  const [settings, categories, locations] = await Promise.all([getPublicSettings(), getActiveCategories(), getStoreLocations()]);
+  const [settings, categories, locations] = await Promise.all([getPublicSettings(), getActiveCategories().then((all) => all.filter((category) => !category.parentId)), getStoreLocations()]);
   const whatsapp = settings.whatsappChatUrl || (settings.whatsappNumber ? `https://wa.me/${settings.whatsappNumber.replace(/[^\d]/g, "")}` : "/contact");
 
   return (

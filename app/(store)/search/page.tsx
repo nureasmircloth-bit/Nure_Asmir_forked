@@ -43,7 +43,7 @@ export default async function SearchPage({
 
   const [{ results, total }, categories] = await Promise.all([
     query ? searchProducts(query) : Promise.resolve({ results: [] as CatalogProduct[], total: 0 }),
-    getActiveCategories(),
+    getActiveCategories().then((all) => all.filter((category) => !category.parentId)),
   ]);
 
   return (

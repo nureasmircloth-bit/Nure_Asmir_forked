@@ -7,6 +7,7 @@ import { getAdminUser } from "@/lib/auth/admin-auth";
 import { slugify } from "@/lib/slug";
 import { auditLogEntry } from "@/lib/admin/audit";
 import { isUniqueViolation } from "@/lib/db/errors";
+import { parentProblem } from "@/lib/categories";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,7 @@ const createSchema = z.object({
   subcategories: z.string().optional(),
   status: z.enum(["active", "inactive"]).optional(),
   sortOrder: z.coerce.number().int().optional(),
+  parentId: z.string().min(1).nullable().optional(),
 });
 
 export async function GET() {
@@ -48,6 +50,10 @@ export async function POST(request: Request) {
 
   const data = parsed.data;
   const slug = slugify(data.slug || data.name);
+  if (data.parentId) {
+    const problem = await parentProblem(null, data.parentId);
+    if (problem) return Response.json({ error: problem }, { status: 400 });
+  }
 
   let row;
   try {
@@ -58,6 +64,7 @@ export async function POST(request: Request) {
         slug,
         description: data.description || null,
         subcategories: data.subcategories || null,
+        parentId: data.parentId || null,
         status: data.status ?? "active",
         sortOrder: data.sortOrder ?? 0,
       })

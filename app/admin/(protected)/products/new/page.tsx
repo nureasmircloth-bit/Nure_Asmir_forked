@@ -3,14 +3,15 @@ import { asc } from "drizzle-orm";
 import { db } from "@/db";
 import { categories } from "@/db/schema";
 import { Note, PageHeader } from "../../../_ui/ui";
+import { withPathNames } from "@/lib/category-tree";
 import { ProductEditor } from "../product-editor";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Add product" };
 
 export default async function NewProductPage() {
-  const rows = await db.select({ id: categories.id, name: categories.name, subcategories: categories.subcategories }).from(categories).orderBy(asc(categories.sortOrder), asc(categories.name));
-  const list = rows.map((row) => ({ id: row.id, name: row.name, subcategories: (row.subcategories ?? "").split(",").map((part) => part.trim()).filter(Boolean) }));
+  const rows = await db.select({ id: categories.id, name: categories.name, slug: categories.slug, parentId: categories.parentId, sortOrder: categories.sortOrder, subcategories: categories.subcategories }).from(categories).orderBy(asc(categories.sortOrder), asc(categories.name));
+  const list = withPathNames(rows).map((row) => ({ id: row.id, name: row.name, subcategories: (row.subcategories ?? "").split(",").map((part) => part.trim()).filter(Boolean) }));
   return (
     <>
       <p style={{ marginBottom: 10 }}>

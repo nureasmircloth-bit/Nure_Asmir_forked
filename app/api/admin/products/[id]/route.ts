@@ -31,7 +31,7 @@ const updateSchema = z.object({
   name: z.string().min(1).optional(),
   slug: z.string().optional(),
   categoryId: z.string().uuid().optional(),
-  categoryName: z.string().trim().min(1).max(80).optional(),
+  categoryName: z.string().trim().min(1).max(400).optional(),
   subcategory: z.string().trim().max(60).nullable().optional(),
   comingSoon: z.boolean().optional(),
   typeLabel: z.string().min(1).optional(),
