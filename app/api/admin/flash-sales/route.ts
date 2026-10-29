@@ -1,6 +1,7 @@
 import { desc, inArray } from "drizzle-orm";
 import { sandboxRoomMessage } from "@/lib/sandbox";
 import { db } from "@/db";
+import { chunked, inChunks } from "@/db/sql-compat";
 import { flashSaleProducts, flashSales } from "@/db/schema";
 import { getAdminUser } from "@/lib/auth/admin-auth";
 import { auditLogEntry } from "@/lib/admin/audit";
@@ -13,17 +14,7 @@ export async function GET() {
   if (!admin) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const sales = await db.select().from(flashSales).orderBy(desc(flashSales.startsAt)).limit(100);
-  const links = sales.length
-    ? await db
-        .select()
-        .from(flashSaleProducts)
-        .where(
-          inArray(
-            flashSaleProducts.saleId,
-            sales.map((sale) => sale.id),
-          ),
-        )
-    : [];
+  const links = await inChunks(sales.map((sale) => sale.id), (part) => db.select().from(flashSaleProducts).where(inArray(flashSaleProducts.saleId, part)));
   return Response.json({
     sales: sales.map((sale) => ({ ...sale, productIds: links.filter((link) => link.saleId === sale.id).map((link) => link.productId) })),
   });
@@ -53,7 +44,7 @@ export async function POST(request: Request) {
     })
     .returning();
   if (!data.appliesToAll && data.productIds.length) {
-    await db.insert(flashSaleProducts).values(data.productIds.map((productId) => ({ saleId: sale.id, productId })));
+    for (const part of chunked(data.productIds, 40)) await db.insert(flashSaleProducts).values(part.map((productId) => ({ saleId: sale.id, productId })));
   }
   await auditLogEntry({ actorEmail: admin.email, action: "flash-sale.create", entityType: "flash_sale", entityId: sale.id, detail: { name: data.name } });
   return Response.json({ sale: { ...sale, productIds: data.appliesToAll ? [] : data.productIds } }, { status: 201 });

@@ -1,3 +1,5 @@
+import { visitorCountry } from "@/lib/visitor-country";
+
 export const dynamic = "force-dynamic";
 
 /**
@@ -5,7 +7,6 @@ export const dynamic = "force-dynamic";
  * `CF-IPCountry`) – no outside service, no tracking. Used once, to start the currency selector on the shopper's own currency. Never cached for others.
  */
 export async function GET(request: Request) {
-  const raw = request.headers.get("x-vercel-ip-country") ?? request.headers.get("cf-ipcountry") ?? "";
-  const country = /^[A-Za-z]{2}$/.test(raw) && raw.toUpperCase() !== "XX" && raw.toUpperCase() !== "T1" ? raw.toUpperCase() : null;
+  const country = visitorCountry(request.headers);
   return Response.json({ country }, { headers: { "Cache-Control": "private, max-age=3600" } });
 }

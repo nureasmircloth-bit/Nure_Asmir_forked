@@ -51,16 +51,21 @@ const { privateKey, publicKey } = crypto.generateKeyPairSync("rsa", {
   privateKeyEncoding: { type: "pkcs8", format: "pem" },
   publicKeyEncoding: { type: "spki", format: "pem" },
 });
-const MOCK_PORT = 4010;
-const TCS_PORT = 4011;
-const APP_PORT = 3100;
-const PROD_PORT = 3200;
+// (each port can be moved with E2E_MOCK_FCM_PORT, so two people or two sessions can run the suite side by side)
+const MOCK_PORT = Number(process.env.E2E_MOCK_FCM_PORT ?? 4010);
+// (each port can be moved with E2E_MOCK_TCS_PORT, so two people or two sessions can run the suite side by side)
+const TCS_PORT = Number(process.env.E2E_MOCK_TCS_PORT ?? 4011);
+// (each port can be moved with E2E_APP_PORT, so two people or two sessions can run the suite side by side)
+const APP_PORT = Number(process.env.E2E_APP_PORT ?? 3100);
+// (each port can be moved with E2E_PROD_PORT, so two people or two sessions can run the suite side by side)
+const PROD_PORT = Number(process.env.E2E_PROD_PORT ?? 3200);
 
 const serverEnv = {
   ...testEnv,
   // The app under test reads and writes this SQLite file instead of a Cloudflare D1 binding (see db/index.ts).
   LOCAL_DB_PATH: E2E_DB,
   D1_HTTP_DATABASE_ID: "", // never a real D1 database
+  D1_STRICT: "1", // refuse statements D1 would refuse (more than 100 bound values)
   NEXT_PUBLIC_SITE_URL: `http://localhost:${APP_PORT}`,
   // Settings apply at once in tests (in production a save waits 5 minutes in a safety buffer).
   SETTINGS_BUFFER_SECONDS: "0",
@@ -113,6 +118,7 @@ const only = (project: string, device: Record<string, unknown>) => ({
 });
 
 export default defineConfig({
+  globalSetup: unitOnly ? undefined : "./e2e/support/global-setup.ts",
   testDir: "./e2e",
   timeout: 60_000,
   expect: { timeout: 10_000 },

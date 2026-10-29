@@ -26,10 +26,20 @@ function localDb(path: string): Db {
   const req = eval("require") as NodeRequire;
   const Database = req("better-sqlite3") as new (file: string) => { pragma(sql: string): unknown };
   const { drizzle } = req("drizzle-orm/better-sqlite3") as { drizzle: (client: unknown, config: unknown) => unknown };
-  const client = new Database(path);
+  const client = new Database(path) as unknown as { pragma(sql: string): unknown; prepare: (sql: string) => unknown };
   client.pragma("journal_mode = WAL");
   client.pragma("busy_timeout = 5000");
   client.pragma("foreign_keys = ON");
+  if (process.env.D1_STRICT === "1") {
+    // Cloudflare D1 refuses a statement with more than 100 bound values; a plain SQLite file does not. In strict mode (the test server) the same
+    // limit is enforced here, so a query that would only fail on the real database fails in the tests instead.
+    const prepare = client.prepare.bind(client) as (sql: string) => unknown;
+    (client as unknown as { prepare: (sql: string) => unknown }).prepare = (statement: string) => {
+      const bound = (statement.match(/\?/g) ?? []).length;
+      if (bound > 100) throw new Error(`D1 allows at most 100 bound values per statement, this one has ${bound}: ${statement.slice(0, 120)}`);
+      return prepare(statement);
+    };
+  }
   local = drizzle(client, { schema }) as unknown as Db;
   return local;
 }

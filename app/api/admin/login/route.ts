@@ -3,15 +3,9 @@ import { db } from "@/db";
 import { adminOwners } from "@/db/schema";
 import { verifyPassword } from "@/lib/auth/password";
 import { createSession } from "@/lib/auth/session";
-import { isLoginRateLimited, recordLoginAttempt } from "@/lib/auth/rate-limit";
+import { isLoginRateLimited, recordLoginAttempt, requestIp } from "@/lib/auth/rate-limit";
 
 export const dynamic = "force-dynamic";
-
-function clientIp(request: Request): string {
-  const forwarded = request.headers.get("x-forwarded-for");
-  if (!forwarded) return "unknown";
-  return forwarded.split(",")[0]?.trim() || "unknown";
-}
 
 export async function POST(request: Request) {
   // The training lab has its own entrance (/api/admin/sandbox/enter); real sign-in does not exist there.
@@ -25,7 +19,7 @@ export async function POST(request: Request) {
 
   const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
   const password = typeof body.password === "string" ? body.password : "";
-  const ip = clientIp(request);
+  const ip = requestIp(request); // (the address the host vouches for, never a header the visitor can set)
 
   if (!email || !password) {
     return Response.json({ error: "Invalid email or password." }, { status: 401 });

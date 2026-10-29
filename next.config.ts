@@ -22,6 +22,7 @@ const BUILD_ID = (
 ).slice(0, 16);
 
 const nextConfig: NextConfig = {
+  poweredByHeader: false, // do not announce the framework in every response
   // Synchronize internal Next.js build ID with the service worker cache version
   generateBuildId: async () => BUILD_ID,
   // Lets the e2e suite build/serve a production copy next to a running `next dev` (.next is locked by dev).

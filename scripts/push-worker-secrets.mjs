@@ -15,7 +15,7 @@ const env = process.env;
 
 // Everything the store, the admin and the developer console read at run time (the deploy workflow sets the same list from GitHub secrets).
 const SHOP = [
-  "SESSION_SECRET", "ADMIN_EMAIL", "ADMIN_INITIAL_PASSWORD", "CRON_SECRET", "CSP_NONCE",
+  "SESSION_SECRET", "ADMIN_EMAIL", "CRON_SECRET", "CSP_NONCE",
   "AWS_ENDPOINT_URL_S3", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_REGION",
   "ALGOLIA_APP_ID", "ALGOLIA_ADMIN_KEY", "FIREBASE_SERVICE_ACCOUNT", "GROQ_API_KEY", "GROQ_API_KEY_2", "GROQ_API_KEY_3", "GEOAPIFY_API_KEY",
   "RESEND_API_KEY", "RESEND_API_KEY_2", "RESEND_FROM_EMAIL", "RESEND_FROM_NAME", "BREVO_API_KEY", "EMAIL_REPLY_TO",
@@ -28,6 +28,8 @@ const SHOP = [
 // AWS_ENDPOINT_URL_S3 is only the public address of the picture bucket (not a key): it lets the lab show the demo pictures, which are read-only there.
 const TRAINING = ["CSP_NONCE", "AWS_ENDPOINT_URL_S3"];
 // Left over from earlier deploys (Neon Storage keys, and the old practice database URLs from before the move to D1): removed from the training Worker so nothing real stays there.
+// ADMIN_INITIAL_PASSWORD is only for the seed script run on a laptop; the app never reads it, so no Worker keeps a plain-text password.
+const SHOP_REMOVE = ["ADMIN_INITIAL_PASSWORD"];
 const TRAINING_REMOVE = ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_REGION", "DATABASE_URL", "PRACTICE_DATABASE_URL"];
 const config = { store: "wrangler.jsonc", admin: "wrangler.admin.jsonc", developer: "wrangler.developer.jsonc", training: "wrangler.training.jsonc" };
 
@@ -57,8 +59,8 @@ for (const target of targets) {
       console.log(`FAILED ${target} ${name}`);
     }
   }
-  if (target === "training") {
-    for (const name of TRAINING_REMOVE) if (wrangler("delete", name, target, "y\n").status !== 0) console.log(`(training: ${name} was not there, or could not be removed)`);
+  for (const name of target === "training" ? TRAINING_REMOVE : SHOP_REMOVE) {
+    if (wrangler("delete", name, target, "y\n").status !== 0 && target === "training") console.log(`(training: ${name} was not there, or could not be removed)`);
   }
   console.log(`${target}: ${ok} secrets set; no value found for: ${missing.join(", ") || "none"}`);
 }

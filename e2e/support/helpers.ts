@@ -59,7 +59,7 @@ export async function setStock(sku: string, stock: number, reserved = 0): Promis
 let cachedZone: string | null = null;
 export async function zoneId(request: APIRequestContext): Promise<string> {
   if (cachedZone) return cachedZone;
-  for (let attempt = 0; attempt < 5; attempt++) {
+  for (let attempt = 0; attempt < 40; attempt++) {
     const res = await request.get(`${BASE}/api/checkout/options`).catch(() => null);
     if (res?.ok()) {
       const json = (await res.json()) as { zones: Array<{ id: string }> };

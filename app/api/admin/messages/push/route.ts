@@ -1,6 +1,7 @@
 import { and, asc, eq, gt, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
+import { chunked } from "@/db/sql-compat";
 import { adminMessages, adminPushDevices, customerPushDevices } from "@/db/schema";
 import { auditLogEntry } from "@/lib/admin/audit";
 import { getAdminUser } from "@/lib/auth/admin-auth";
@@ -67,7 +68,7 @@ export async function POST(request: Request) {
   const results = await Promise.all(rows.map(async (row) => ({ token: row.token, result: await sendPush(row.token, { title, body, url, tag: `msg-${messageId}` }) })));
   const delivered = results.filter((entry) => entry.result === "ok").length;
   const dead = results.filter((entry) => entry.result === "dead").map((entry) => entry.token);
-  if (dead.length) await db.delete(table).where(inArray(table.token, dead)).catch((error) => console.error("could not remove dead devices", error));
+  for (const part of chunked(dead)) await db.delete(table).where(inArray(table.token, part)).catch((error) => console.error("could not remove dead devices", error));
   // The notifications of this slice are already out: a failed record must not stop the answer, or the page would lose its place and send again.
   if (delivered) await db.update(adminMessages).set({ delivered: sql`${adminMessages.delivered} + ${delivered}` }).where(eq(adminMessages.id, messageId)).catch((error) => console.error("could not record the delivery", error));
 

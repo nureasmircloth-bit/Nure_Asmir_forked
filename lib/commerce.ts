@@ -2,7 +2,7 @@ import { hasFilters, type CatalogFilters } from "@/lib/catalog-filters";
 import { cache } from "react";
 import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { likeEsc } from "@/db/sql-compat";
+import { chunked, likeEsc } from "@/db/sql-compat";
 import { BRAND } from "@/lib/brand";
 import { mediaUrl } from "@/lib/media-url";
 import { applySales, getActiveSales, getActiveSalesChecked } from "@/lib/sales";
@@ -123,6 +123,13 @@ const CARD_EXTRA_PHOTOS = 4;
  * size (so a product isn't "sold out" just because its default size is), and the second photo for
  * the hover swap. Two small queries for the whole page rather than one per product. */
 async function getListingExtras(productIds: string[]): Promise<Map<string, ListingExtras>> {
+  const extras = new Map<string, ListingExtras>();
+  // A long list is looked up in pieces (the database takes at most 100 values in one statement).
+  for (const part of chunked(productIds)) for (const [id, value] of await listingExtrasPart(part)) extras.set(id, value);
+  return extras;
+}
+
+async function listingExtrasPart(productIds: string[]): Promise<Map<string, ListingExtras>> {
   const extras = new Map<string, ListingExtras>();
   if (!productIds.length) return extras;
 

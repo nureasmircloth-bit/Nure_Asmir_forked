@@ -1,3 +1,4 @@
+import { RETURN_SUMMARY } from "@/lib/care-and-returns";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -57,6 +58,10 @@ const policies: Record<string, Policy> = {
     title: "Returns & exchanges",
     intro: "A straightforward, fair process for pieces that are not quite right.",
     sections: [
+      [
+        "Damaged, defective or incorrect items",
+        RETURN_SUMMARY,
+      ],
       [
         "Return window",
         "You may request a return or exchange within 7 days of delivery. To be eligible, the item must be unworn, unwashed and unused, with all original packaging, tags and protective materials intact.",

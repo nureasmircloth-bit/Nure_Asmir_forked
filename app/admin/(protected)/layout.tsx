@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
@@ -81,6 +82,11 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
               </div>
               <div className="adm-foot-actions">
                 {!lab && <PushToggle compact />}
+                {!lab && (
+                  <Link className="a-icon-btn" href="/admin/account" aria-label="Your account and password" title="Your account and password">
+                    <Icon name="lock" />
+                  </Link>
+                )}
                 <LogoutButton compact to={lab ? "/admin/training-login" : "/admin/login"} />
               </div>
             </div>

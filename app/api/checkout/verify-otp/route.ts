@@ -1,3 +1,4 @@
+import { requestIp } from "@/lib/auth/rate-limit";
 import { verifyOtp } from "@/lib/checkout/otp";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +24,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Enter the 6-digit code." }, { status: 400 });
   }
 
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const ip = requestIp(request);
   const outcome = await verifyOtp(email, code, ip);
   if (!outcome.ok) {
     return Response.json({ error: REASON_MESSAGES[outcome.reason] ?? "Could not verify that code." }, { status: 400 });
