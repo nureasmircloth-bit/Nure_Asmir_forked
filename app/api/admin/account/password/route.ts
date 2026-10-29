@@ -10,7 +10,7 @@ import { hashToken, SESSION_COOKIE } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
-export const MIN_PASSWORD_LENGTH = 12;
+const MIN_PASSWORD_LENGTH = 12;
 
 /**
  * The signed-in owner / developer changes their own password. The current password is asked for again (a stolen session alone cannot take the account
