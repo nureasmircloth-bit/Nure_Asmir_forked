@@ -2,6 +2,7 @@ import { runInBackground } from "@/lib/background";
 import { reindexAll } from "@/lib/search/algolia";
 import { db } from "@/db";
 import { products, productVariants } from "@/db/schema";
+import { splitCategoryPath } from "@/lib/category-tree";
 import { addSubcategory, CategoryInputError, ensureCategory } from "@/lib/categories";
 import { getAdminUser } from "@/lib/auth/admin-auth";
 import { slugify } from "@/lib/slug";
@@ -102,7 +103,8 @@ async function importOne(item: ProductImport, index: number): Promise<ImportResu
     throw error;
   }
   const variantErrors: string[] = [];
-  if (subcategory) {
+  // (a category written as a path already holds the subcategory as a folder; the old comma list is only for a plain category name)
+  if (subcategory && splitCategoryPath(item.category).length === 1) {
     // The product is already saved: a failure here must not fail the row, only be reported.
     const listed = await addSubcategory(category.id, subcategory).catch((error) => {
       console.error("product.import: subcategory list not updated", error);
