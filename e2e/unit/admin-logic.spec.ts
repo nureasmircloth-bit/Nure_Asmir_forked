@@ -125,6 +125,26 @@ test.describe("product sheet (Excel / Google Sheets)", () => {
     expect(parsed.products.map((p) => p.name)).not.toContain("Bad Price");
   });
 
+  test("the same product in two colours: the made-up codes differ (the colour is in them), written codes are kept, and the colours stay one product name", () => {
+    const table = [
+      header,
+      row({ name: "Royal Shirt", category: "Shirts", type: "Shirt", colour: "Navy", size: "M", price: 5000, stock: 3 }),
+      row({ name: "Royal Shirt", category: "Shirts", type: "Shirt", colour: "Navy", size: "L", price: 5000, stock: 3 }),
+      row({ name: "Royal Shirt", category: "Shirts", type: "Shirt", colour: "Maroon", size: "M", price: 5200, stock: 2 }),
+      row({ name: "Royal Shirt", category: "Shirts", type: "Shirt", colour: "Maroon", size: "L", price: 5200, stock: 2, code: "RS-MAR-L" }),
+    ];
+    const parsed = parseProductTable(table);
+    expect(parsed.problems).toEqual([]);
+    expect(parsed.products.map((p) => p.colour)).toEqual(["Navy", "Maroon"]);
+    const codes = parsed.products.flatMap((p) => p.variants.map((v) => v.sku));
+    expect(new Set(codes).size).toBe(4);
+    expect(codes).toContain("RS-MAR-L");
+    expect(codes[0]).toBe(suggestSku("Royal Shirt", "Shirt", "M", "Navy"));
+    // a product in one colour keeps the plain code
+    const single = parseProductTable([header, row({ name: "Olive Cargo Pants", category: "Pants", type: "Cargo Pants", colour: "Olive", size: "30", price: 100, stock: 1 })]);
+    expect(single.products[0].variants[0].sku).toBe(suggestSku("Olive Cargo Pants", "Cargo Pants", "30"));
+  });
+
   test("a sheet without titles explains what to do, titles may be in any order and any wording we know", () => {
     expect(parseProductTable([["a", "b"], [1, 2]]).problems[0].message).toMatch(/column titles/i);
     const shuffled = parseProductTable([

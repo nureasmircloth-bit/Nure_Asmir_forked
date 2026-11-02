@@ -18,7 +18,7 @@ export const SHEET_COLUMNS: SheetColumn[] = [
   { key: "price", label: "Price (PKR)*", required: true, width: 14, help: "Selling price in rupees, numbers only, e.g. 5500.", aliases: ["price", "price pkr", "selling price", "sale price", "rs"] },
   { key: "oldPrice", label: "Old price (optional)", width: 18, help: "Only if this item is on discount. Must be higher than the price.", aliases: ["old price", "compare at price", "compare price", "was price", "mrp", "cut price"] },
   { key: "stock", label: "Stock*", required: true, width: 10, help: "How many you have right now, e.g. 12.", aliases: ["stock", "quantity", "qty", "in stock", "inventory"] },
-  { key: "code", label: "Product code (optional)", width: 22, help: "Leave empty — we make one for you. Every size needs a different code.", aliases: ["product code", "code", "sku"] },
+  { key: "code", label: "Product code (optional)", width: 22, help: "Leave empty — we make one for you (it includes the colour when the product comes in several). Every size, in every colour, needs its own different code.", aliases: ["product code", "code", "sku"] },
   { key: "fabric", label: "Fabric (optional)", width: 18, help: "e.g. Cotton, Wash & Wear, Leather.", aliases: ["fabric", "material"] },
   { key: "description", label: "Description (optional)", width: 40, help: "A few sentences for the product page. Leave empty and we write one later if you ask.", aliases: ["description", "details", "about"] },
   { key: "show", label: "Show on website? (Yes/No)", width: 16, help: "Yes = customers can see it now. No = hidden until you are ready.", aliases: ["show on website", "show", "visible", "publish", "published", "status"] },
@@ -195,6 +195,18 @@ export function parseProductTable(table: unknown[][]): ParsedSheet {
       continue;
     }
     product.variants.push({ row: excelRow, size, sku: given || suggestSku(name, type, size), skuGiven: Boolean(given), price: price as number, oldPrice, stock: stock as number });
+  }
+
+  // The same product in more than one colour: the codes we make up must not collide (the same size in two colours), so the colour goes into them.
+  // A code the owner wrote is never touched.
+  const coloursOf = new Map<string, Set<string>>();
+  for (const product of groups.values()) {
+    const key = product.name.toLowerCase();
+    coloursOf.set(key, (coloursOf.get(key) ?? new Set()).add(product.colour.toLowerCase()));
+  }
+  for (const product of groups.values()) {
+    if ((coloursOf.get(product.name.toLowerCase())?.size ?? 0) < 2) continue;
+    for (const variant of product.variants) if (!variant.skuGiven) variant.sku = suggestSku(product.name, product.type, variant.size, product.colour);
   }
 
   // Product codes must be different everywhere in the sheet.

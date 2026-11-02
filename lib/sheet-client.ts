@@ -105,6 +105,7 @@ export async function downloadProductTemplate(categories: string[]) {
     ["How to add many products at once", true],
     ["1.  Open the sheet called “2 - Your products”.", false],
     ["2.  Type ONE ROW FOR EACH SIZE. A product with 4 sizes needs 4 rows. Copy the product name, category, type and colour down on every row.", false],
+    ["    Same product in another colour? Add its rows with the SAME product name and the other colour. The website joins them on one page: the shopper swipes through the photos and the colour, price and sizes follow. Put each colour's photo names on that colour's rows. Each size of each colour needs its own product code (leave it empty and we make it).", false],
     ["3.  Columns with a * are needed. The others you can leave empty.", false],
     ["4.  Category, Type and Yes/No have a little arrow — click the cell and pick from the list. Subcategory is optional: type a word like Casual or Embroidered and the website shows it as a button on the category page (it is added to the category's list for you; the ones you already wrote there stay as they are).", false],
     ["5.  Photos: write the picture file names in “Photo file names” (for example olive-cargo-1.jpg). You choose the pictures on the website in the next step. The first name is the main photo.", false],
