@@ -50,38 +50,48 @@ const Chevron = ({ left }: { left?: boolean }) => (
   </svg>
 );
 
+/** A photo of the product, tagged with the colour it shows (so swiping into another colour's photos can switch the colour). */
+export type GallerySlide = CatalogImage & { color: string };
+
 /**
- * Product photos. The photos sit in a row that slides: drag it with a finger (it follows and snaps), use the arrows, or tap a thumbnail.
+ * Product photos. The photos of every colour sit in one row that loops (after the last photo it goes round to the first, and back): swiping from one
+ * colour's photos into the next changes the chosen colour, and so the price, the size choices and the cart line, as on Daraz. The photos sit in a row that slides: drag it with a finger (it follows and snaps), use the arrows, or tap a thumbnail.
  * On a computer, resting the mouse on the main photo magnifies the spot under it. Tapping the photo – or the magnifier button, which also
  * works from the keyboard – opens it full size, where the arrows, swiping or the keyboard step through the other photos.
  */
-export function ProductGallery({ name, images, fallback }: { name: string; images: CatalogImage[]; fallback: string }) {
-  const gallery = images.length ? images : [{ id: "fallback", url: fallback, altText: name, sortOrder: 0, isPrimary: true }];
-  const [active, setActive] = useState(0);
+export function ProductGallery({ name, slides, fallback, activeColor, onColorChange }: { name: string; slides: GallerySlide[]; fallback: string; activeColor: string; onColorChange: (color: string) => void }) {
+  const gallery: GallerySlide[] = slides.length ? slides : [{ id: "fallback", url: fallback, altText: name, sortOrder: 0, isPrimary: true, color: activeColor }];
+  const total = gallery.length;
+  const looped = total > 1;
+  const firstOfColor = gallery.findIndex((slide) => slide.color === activeColor);
+  const [active, setActive] = useState(Math.max(0, firstOfColor));
+  // where the row is: with a copy of the last photo in front and of the first behind, so going round looks seamless
+  const [pos, setPos] = useState(looped ? Math.max(0, firstOfColor) + 1 : 0);
   const [lens, setLens] = useState<{ x: number; y: number } | null>(null);
   const [box, setBox] = useState(false);
   const stage = useRef<HTMLDivElement>(null);
   const track = useRef<HTMLDivElement>(null);
   const [direction, setDirection] = useState<1 | -1>(1); // which way the last change went (for the viewer's slide-in)
 
-  const index = Math.min(active, gallery.length - 1);
+  const index = Math.min(active, total - 1);
   const current = gallery[index];
-  const last = gallery.length - 1;
+  const last = total - 1;
 
   // Only the photo on show and its neighbours are loaded, so a phone does not download the whole set up front.
-  const [seen, setSeen] = useState<ReadonlySet<number>>(new Set([0, 1]));
+  const [seen, setSeen] = useState<ReadonlySet<number>>(() => new Set([0, 1, total - 1, Math.max(0, firstOfColor)]));
   const loaded = useRef<Set<number>>(new Set([0])); // which photos have really arrived (the first is already on the page)
   const [waiting, setWaiting] = useState(false); // an arrow or thumbnail was tapped and its photo is still arriving: the arrows pulse
   const currentRequest = useRef(0);
   // Slides to a photo once it has arrived (at most ~1 s of waiting): sliding to a photo that is still downloading shows an empty frame.
-  const show = useCallback(async (to: number, moveDirection?: 1 | -1) => {
+  // `silent` means the colour already says so (a colour was chosen by hand), so the colour is not announced again.
+  const show = useCallback(async (to: number, moveDirection?: 1 | -1, silent = false) => {
     const id = ++currentRequest.current;
     setSeen((before) => {
       const next = new Set(before);
       next.add(to);
       if (!saveDataMode()) {
-        if (to > 0) next.add(to - 1);
-        if (to + 1 < gallery.length) next.add(to + 1);
+        next.add((to + 1) % total);
+        next.add((to - 1 + total) % total);
       }
       return next;
     });
@@ -93,17 +103,42 @@ export function ProductGallery({ name, images, fallback }: { name: string; image
       setWaiting(false);
     }
     if (currentRequest.current !== id) return;
+    const wrapForward = looped && moveDirection === 1 && to === 0 && index === last;
+    const wrapBack = looped && moveDirection === -1 && to === last && index === 0;
+    const quick = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     setDirection(moveDirection ?? (to >= index ? 1 : -1));
     setActive(to);
+    // going round slides onto the copy first and is moved onto the real photo, unseen, when the slide ends
+    setPos(wrapForward && !quick ? total + 1 : wrapBack && !quick ? 0 : to + 1);
+    if ((wrapForward || wrapBack) && !quick) window.setTimeout(() => settle(), 700);
     trackEvent("gallery_photo_changed", { to: to + 1 });
-  }, [index, gallery.length]);
-  const go = useCallback((next: number) => show(Math.max(0, Math.min(last, next))), [show, last]);
-  /** Used by the full-size viewer, where the photos wrap round. */
+    if (!silent && gallery[to].color !== activeColor) onColorChange(gallery[to].color);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index, total, looped, activeColor, onColorChange]);
+  /** Moves the row from a copy to the real photo without any animation. */
+  function settle() {
+    const el = track.current;
+    setPos((where) => {
+      if (where !== total + 1 && where !== 0) return where;
+      el?.classList.add("is-jumping");
+      window.requestAnimationFrame(() => window.requestAnimationFrame(() => el?.classList.remove("is-jumping")));
+      return where === 0 ? total : 1;
+    });
+  }
+  const go = useCallback((next: number, delta?: 1 | -1) => show(((next % total) + total) % total, delta), [show, total]);
+  /** Used by the arrows and the full-size viewer: photos wrap round. */
   const stepLoop = useCallback((delta: number) => {
-    show((index + delta + gallery.length) % gallery.length, delta > 0 ? 1 : -1);
-  }, [show, index, gallery.length]);
+    show((index + delta + total) % total, delta > 0 ? 1 : -1);
+  }, [show, index, total]);
 
-  const drag = useSlideDrag(track, gallery.length, index, go);
+  // A colour chosen by hand (the swatches) jumps to that colour's first photo.
+  useEffect(() => {
+    const target = gallery.findIndex((slide) => slide.color === activeColor);
+    if (target >= 0 && gallery[index]?.color !== activeColor) void show(target, target > index ? 1 : -1, true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeColor]);
+
+  const drag = useSlideDrag(track, total, index, go, true, looped);
 
   function follow(event: React.PointerEvent) {
     if (event.pointerType !== "mouse" || !stage.current) return;
@@ -132,10 +167,10 @@ export function ProductGallery({ name, images, fallback }: { name: string; image
 
   return (
     <div className="product-gallery">
-      {gallery.length > 1 && (
+      {looped && (
         <div className="product-thumbnails">
-          {gallery.map((image, position) => (
-            <button key={image.id} type="button" className={position === index ? "active" : ""} onClick={() => go(position)} aria-label={`View image ${position + 1}`}>
+          {gallery.map((image, position) => ({ image, position })).filter(({ image }) => image.color === current.color).map(({ image, position }, shownAt) => (
+            <button key={image.id} type="button" className={position === index ? "active" : ""} onClick={() => go(position)} aria-label={`View image ${shownAt + 1}`}>
               <Image src={image.url} alt="" fill sizes="76px" />
             </button>
           ))}
@@ -152,16 +187,16 @@ export function ProductGallery({ name, images, fallback }: { name: string; image
           if (drag.clickable()) setBox(true);
         }}
       >
-        <div className="slide-track" ref={track} style={{ "--i": index } as CSSProperties}>
-          {gallery.map((image, position) => (
-            <div className="slide" key={image.id} aria-hidden={position !== index}>
+        <div className="slide-track" ref={track} style={{ "--i": looped ? pos : index } as CSSProperties} onTransitionEnd={(event) => { if (event.target === track.current && event.propertyName === "transform") settle(); }}>
+          {(looped ? [{ image: gallery[last], position: last, copy: "before" }, ...gallery.map((image, position) => ({ image, position, copy: "" })), { image: gallery[0], position: 0, copy: "after" }] : gallery.map((image, position) => ({ image, position, copy: "" }))).map(({ image, position, copy }) => (
+            <div className="slide" key={`${image.id}${copy}`} aria-hidden={position !== index || Boolean(copy)}>
               {(position === 0 || seen.has(position) || position === index) && (
                 <Image
                   src={image.url}
                   alt={image.altText}
                   fill
-                  priority={position === 0}
-                  loading={position === 0 ? undefined : "eager"}
+                  priority={position === 0 && !copy}
+                  loading={position === 0 && !copy ? undefined : "eager"}
                   className={position === 0 ? undefined : "slide-late"}
                   ref={(element) => {
                     if (position > 0 && element?.complete && element.naturalWidth) {
@@ -184,12 +219,12 @@ export function ProductGallery({ name, images, fallback }: { name: string; image
         {gallery.length > 1 && (
           <>
             <span>
-              {String(index + 1).padStart(2, "0")} / {String(gallery.length).padStart(2, "0")}
+              {String(gallery.filter((slide, at) => slide.color === current.color && at <= index).length).padStart(2, "0")} / {String(gallery.filter((slide) => slide.color === current.color).length).padStart(2, "0")}
             </span>
-            <button type="button" className="slide-arrow prev" aria-label="Previous photo" disabled={index === 0} data-busy={waiting || undefined} onClick={(event) => { event.stopPropagation(); go(index - 1); }}>
+            <button type="button" className="slide-arrow prev" aria-label="Previous photo" data-busy={waiting || undefined} onClick={(event) => { event.stopPropagation(); stepLoop(-1); }}>
               <Chevron left />
             </button>
-            <button type="button" className="slide-arrow next" aria-label="Next photo" disabled={index === last} data-busy={waiting || undefined} onClick={(event) => { event.stopPropagation(); go(index + 1); }}>
+            <button type="button" className="slide-arrow next" aria-label="Next photo" data-busy={waiting || undefined} onClick={(event) => { event.stopPropagation(); stepLoop(1); }}>
               <Chevron />
             </button>
             <div className="slide-dots" aria-hidden="true">

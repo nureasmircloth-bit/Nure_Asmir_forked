@@ -7,7 +7,7 @@ import { Price } from "../../_components/currency";
 import { discountLabel, SaleCountdown } from "../../_components/sale";
 import { WishlistButton } from "../../_components/wishlist-button";
 import { CARE_INTRO, CARE_STEPS, RETURN_SUMMARY } from "@/lib/care-and-returns";
-import { ProductGallery } from "./product-gallery";
+import { ProductGallery, type GallerySlide } from "./product-gallery";
 import { ProductPurchase } from "./product-purchase";
 import { BackButton } from "./back-button";
 
@@ -70,18 +70,30 @@ export function ProductView({
   const selected: CatalogVariant | null = choosesSize ? (colorVariants.find((variant) => variant.id === sizeId) ?? null) : (colorVariants[0] ?? null);
   const shown = selected ?? colorVariants.find((variant) => variant.isDefault) ?? colorVariants[0] ?? defaultVariant;
 
-  const gallery = useMemo(() => {
-    const colorVariantIds = new Set(variants.filter((variant) => variant.color === color).map((variant) => variant.id));
-    const own = product.images.filter((image) => image.variantId && colorVariantIds.has(image.variantId));
-    if (own.length) return own;
+  // One row of photos for the whole product: each colour's own photos in turn (the default colour first, then the others in order), so swiping from the
+  // last photo of one colour carries on into the next colour's. Photos that belong to no colour in particular follow the default colour's own.
+  // A colour with no photos of its own has no place in the row (choosing it leaves the photos as they are).
+  const slides = useMemo<GallerySlide[]>(() => {
+    const idsOf = (name: string) => new Set(variants.filter((variant) => variant.color === name).map((variant) => variant.id));
+    const ordered = [defaultVariant.color, ...colors.filter((name) => name !== defaultVariant.color)];
+    const own = new Map(ordered.map((name) => [name, product.images.filter((image) => image.variantId && idsOf(name).has(image.variantId))]));
     const shared = product.images.filter((image) => !image.variantId);
-    return shared.length ? shared : product.images;
-  }, [product.images, variants, color]);
+    if (![...own.values()].some((list) => list.length)) return product.images.map((image) => ({ ...image, color: defaultVariant.color }));
+    return ordered.flatMap((name) => [...(own.get(name) ?? []), ...(name === defaultVariant.color ? shared : [])].map((image) => ({ ...image, color: name })));
+  }, [product.images, variants, colors, defaultVariant.color]);
+
+  /** Choosing a colour (a swatch, or swiping into its photos). The same size is kept when the new colour has it, otherwise the shopper picks again. */
+  function chooseColor(next: string) {
+    if (next === color) return;
+    const sizeLabel = variants.find((variant) => variant.id === sizeId)?.size;
+    const kept = sizeLabel ? variants.find((variant) => variant.color === next && variant.size === sizeLabel) : undefined;
+    setColor(next);
+    setSizeId(kept?.id ?? null);
+  }
 
   return (
     <>
-      {/* Keyed by the image set so switching colour restarts on the first photo. */}
-      <ProductGallery key={gallery.map((image) => image.id).join("|")} name={product.name} images={gallery} fallback={fallback} />
+      <ProductGallery name={product.name} slides={slides} fallback={fallback} activeColor={color} onColorChange={chooseColor} />
       <div className="product-buy">
         <nav aria-label="Breadcrumb">
           <BackButton />
@@ -115,10 +127,7 @@ export function ProductView({
           product={product}
           colors={colors}
           color={color}
-          onColor={(next) => {
-            setColor(next);
-            setSizeId(null);
-          }}
+          onColor={chooseColor}
           colorVariants={colorVariants}
           choosesSize={choosesSize}
           fixedSize={!choosesSize ? sizeOptions[0]?.size : undefined}

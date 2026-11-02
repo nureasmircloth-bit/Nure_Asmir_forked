@@ -363,20 +363,75 @@ test.describe("storefront overhaul", () => {
       expect(dots).toBeLessThanOrEqual(5);
     });
 
-    test("the product page photo slides with a swipe and the arrows, and a swipe does not open the full-size viewer", async ({ page }) => {
+    test("the product page photo slides with a swipe and the arrows, goes round at both ends, and a swipe does not open the full-size viewer", async ({ page }) => {
       await page.setViewportSize({ width: 375, height: 760 });
       await page.goto("/products/olive-cargo-pants");
       const stage = page.locator(".product-stage");
       const photos = await page.locator(".product-thumbnails button").count();
       test.skip(photos < 2, "this product has one photo");
-      expect(await position(stage)).toBe(0);
+      // (the row has a copy of the last photo in front, so the first photo is at place 1)
+      const place = async () => (await position(stage)) - 1;
+      expect(await place()).toBe(0);
       await swipe(stage, 300, 60);
-      await expect.poll(() => position(stage)).toBe(1);
+      await expect.poll(place).toBe(1);
       await expect(page.getByRole("dialog")).toHaveCount(0);
       await stage.getByRole("button", { name: "Previous photo" }).click();
-      await expect.poll(() => position(stage)).toBe(0);
+      await expect.poll(place).toBe(0);
       await stage.getByRole("button", { name: "Next photo" }).click();
-      await expect.poll(() => position(stage)).toBe(1);
+      await expect.poll(place).toBe(1);
+      // from the last photo the next one is the first again (and the other way round), however many photos there are
+      for (let i = 1; i < photos - 1; i++) await stage.getByRole("button", { name: "Next photo" }).click();
+      await expect.poll(place).toBe(photos - 1);
+      await stage.getByRole("button", { name: "Next photo" }).click();
+      await expect.poll(place, { timeout: 5000 }).toBe(0);
+      await swipe(stage, 60, 300); // a swipe to the right on the first photo goes round to the last
+      await expect.poll(place, { timeout: 5000 }).toBe(photos - 1);
+      await expect(stage.getByRole("button", { name: "Next photo" })).toBeEnabled();
+      await expect(stage.getByRole("button", { name: "Previous photo" })).toBeEnabled();
+    });
+
+    test("one product in several colours is one row of photos: swiping into the next colour changes the colour, price and sizes, and it goes round", async ({ page }) => {
+      const slug = "oxblood-paisley-tee";
+      const [product] = (await sql`select id from products where slug = ${slug}`) as Array<{ id: string }>;
+      const images = (await sql`select id from product_images where product_id = ${product.id} order by sort_order`) as Array<{ id: string }>;
+      test.skip(images.length < 3, "needs three photos");
+      const navy = ["navy-s", "navy-m"].map((tag) => `${tag}-${Date.now()}`);
+      const ids = navy.map(() => crypto.randomUUID());
+      try {
+        for (const [i, id] of ids.entries()) {
+          await sql`insert into product_variants (id, product_id, name, sku, color, size, price, stock_quantity, is_default) values (${id}, ${product.id}, ${"Navy"}, ${"E2E-" + navy[i]}, ${"Navy"}, ${i ? "M" : "S"}, ${6200}, ${5}, ${0})`;
+        }
+        await sql`update product_images set variant_id = ${ids[0]} where id = ${images[2].id}`; // the third photo shows the navy one
+        await page.setViewportSize({ width: 375, height: 760 });
+        await page.goto(`/products/${slug}`);
+        const stage = page.locator(".product-stage");
+        const place = async () => (await position(stage)) - 1;
+        const price = page.locator(".product-price");
+        await expect(page.locator(".color-options button.active")).toHaveText("Oxblood");
+        await expect(price).toContainText("5,500");
+        // a size chosen on the first colour is kept on the next one when that has it
+        await page.getByRole("radio", { name: "M", exact: true }).click();
+        await swipe(stage, 300, 60);
+        await expect.poll(place).toBe(1);
+        await expect(page.locator(".color-options button.active")).toHaveText("Oxblood");
+        await swipe(stage, 300, 60);
+        await expect.poll(place).toBe(2);
+        await expect(page.locator(".color-options button.active")).toHaveText("Navy"); // the colour followed the photo
+        await expect(price).toContainText("6,200");
+        await expect(page.getByRole("radio", { name: "M", exact: true })).toHaveAttribute("aria-checked", "true");
+        // after the last photo it goes round to the first, and the colour goes back with it
+        await swipe(stage, 300, 60);
+        await expect.poll(place, { timeout: 5000 }).toBe(0);
+        await expect(page.locator(".color-options button.active")).toHaveText("Oxblood");
+        await expect(price).toContainText("5,500");
+        // choosing a colour by hand jumps to its photo
+        await page.locator(".color-options button", { hasText: "Navy" }).click();
+        await expect.poll(place).toBe(2);
+        await expect(price).toContainText("6,200");
+      } finally {
+        await sql`update product_images set variant_id = null where product_id = ${product.id}`;
+        for (const id of ids) await sql`delete from product_variants where id = ${id}`;
+      }
     });
 
     test("on a slow connection a card waits for the next photo to arrive before sliding, so no empty frame slides in", async ({ page }) => {

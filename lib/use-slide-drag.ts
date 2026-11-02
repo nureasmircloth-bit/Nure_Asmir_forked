@@ -7,11 +7,11 @@ import { useRef, type RefObject, type TouchEvent } from "react";
  * on release it snaps to the next or previous slide when the drag was far enough or a quick flick, otherwise it springs back.
  * The row's position at rest comes from the slide number (`--i`) set by the caller, so a slide change animates with plain CSS.
  *
- * - At the first or last slide the row resists (rubber band) instead of moving freely.
+ * - At the first or last slide the row resists (rubber band) instead of moving freely, unless `loop` is on: then the row keeps going and wraps round.
  * - Mostly-vertical drags are ignored, so the page still scrolls.
  * - `clickable()` is false for a moment after a swipe, so lifting the finger never counts as a tap on a link underneath.
  */
-export function useSlideDrag(track: RefObject<HTMLElement | null>, count: number, index: number, go: (next: number) => void, enabled = true) {
+export function useSlideDrag(track: RefObject<HTMLElement | null>, count: number, index: number, go: (next: number, delta?: 1 | -1) => void, enabled = true, loop = false) {
   const gesture = useRef<{ x: number; y: number; at: number; width: number; axis: "" | "x" | "y" } | null>(null);
   const quietUntil = useRef(0);
 
@@ -49,7 +49,7 @@ export function useSlideDrag(track: RefObject<HTMLElement | null>, count: number
           g.axis = Math.abs(dx) > Math.abs(dy) * 1.2 ? "x" : "y";
         }
         if (g.axis !== "x") return;
-        const atEdge = (index === 0 && dx > 0) || (index === count - 1 && dx < 0);
+        const atEdge = !loop && ((index === 0 && dx > 0) || (index === count - 1 && dx < 0));
         drag(atEdge ? dx * 0.3 : dx);
       },
       onTouchEnd: (event: TouchEvent) => {
@@ -62,8 +62,9 @@ export function useSlideDrag(track: RefObject<HTMLElement | null>, count: number
         quietUntil.current = performance.now() + 350;
         drag(null);
         if (!(flick || far)) return;
-        const next = Math.max(0, Math.min(count - 1, index + (dx < 0 ? 1 : -1)));
-        if (next !== index) go(next);
+        const delta = dx < 0 ? 1 : -1;
+        const next = loop ? (index + delta + count) % count : Math.max(0, Math.min(count - 1, index + delta));
+        if (next !== index) go(next, delta);
       },
       onTouchCancel: () => {
         gesture.current = null;
