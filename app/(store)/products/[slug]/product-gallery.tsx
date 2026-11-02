@@ -78,13 +78,15 @@ export function ProductGallery({ name, slides, fallback, activeColor, onColorCha
   const last = total - 1;
 
   // Only the photo on show and its neighbours are loaded, so a phone does not download the whole set up front.
-  const [seen, setSeen] = useState<ReadonlySet<number>>(() => new Set([0, 1, total - 1, Math.max(0, firstOfColor)]));
+  const [seen, setSeen] = useState<ReadonlySet<number>>(() => new Set([0, 1, Math.max(0, firstOfColor)]));
+  const [jumping, setJumping] = useState(false); // the row is being moved from a copy onto the real photo: no animation for that
   const loaded = useRef<Set<number>>(new Set([0])); // which photos have really arrived (the first is already on the page)
   const [waiting, setWaiting] = useState(false); // an arrow or thumbnail was tapped and its photo is still arriving: the arrows pulse
   const currentRequest = useRef(0);
   // Slides to a photo once it has arrived (at most ~1 s of waiting): sliding to a photo that is still downloading shows an empty frame.
   // `silent` means the colour already says so (a colour was chosen by hand), so the colour is not announced again.
   const show = useCallback(async (to: number, moveDirection?: 1 | -1, silent = false) => {
+    // (a colour chosen by hand moves the photo at once, like the price and sizes, instead of waiting for the picture)
     const id = ++currentRequest.current;
     setSeen((before) => {
       const next = new Set(before);
@@ -95,7 +97,7 @@ export function ProductGallery({ name, slides, fallback, activeColor, onColorCha
       }
       return next;
     });
-    const needsWait = !loaded.current.has(to);
+    const needsWait = !silent && !loaded.current.has(to);
     setWaiting(needsWait);
     if (needsWait) {
       await waitUntil(() => loaded.current.has(to), 2500);
@@ -117,14 +119,28 @@ export function ProductGallery({ name, slides, fallback, activeColor, onColorCha
   }, [index, total, looped, activeColor, onColorChange]);
   /** Moves the row from a copy to the real photo without any animation. */
   function settle() {
-    const el = track.current;
-    setPos((where) => {
-      if (where !== total + 1 && where !== 0) return where;
-      el?.classList.add("is-jumping");
-      window.requestAnimationFrame(() => window.requestAnimationFrame(() => el?.classList.remove("is-jumping")));
-      return where === 0 ? total : 1;
-    });
+    if (pos !== total + 1 && pos !== 0) return;
+    setJumping(true);
+    setPos(pos === 0 ? total : 1);
   }
+  // the "no animation" flag is lifted two frames after the jump has really been drawn
+  useEffect(() => {
+    if (!jumping) return;
+    let second = 0;
+    const first = window.requestAnimationFrame(() => {
+      second = window.requestAnimationFrame(() => setJumping(false));
+    });
+    return () => {
+      window.cancelAnimationFrame(first);
+      window.cancelAnimationFrame(second);
+    };
+  }, [jumping]);
+  // the last photo is the copy in front of the first one: load it early too, unless the shopper is saving data
+  useEffect(() => {
+    if (saveDataMode()) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSeen((before) => (before.has(total - 1) ? before : new Set(before).add(total - 1)));
+  }, [total]);
   const go = useCallback((next: number, delta?: 1 | -1) => show(((next % total) + total) % total, delta), [show, total]);
   /** Used by the arrows and the full-size viewer: photos wrap round. */
   const stepLoop = useCallback((delta: number) => {
@@ -134,7 +150,13 @@ export function ProductGallery({ name, slides, fallback, activeColor, onColorCha
   // A colour chosen by hand (the swatches) jumps to that colour's first photo.
   useEffect(() => {
     const target = gallery.findIndex((slide) => slide.color === activeColor);
-    if (target >= 0 && gallery[index]?.color !== activeColor) void show(target, target > index ? 1 : -1, true);
+    if (target >= 0 && gallery[index]?.color !== activeColor) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      void show(target, target > index ? 1 : -1, true);
+    } else {
+      currentRequest.current++; // nothing to move to: a move that was still on its way must not happen
+      setWaiting(false);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeColor]);
 
@@ -187,7 +209,7 @@ export function ProductGallery({ name, slides, fallback, activeColor, onColorCha
           if (drag.clickable()) setBox(true);
         }}
       >
-        <div className="slide-track" ref={track} style={{ "--i": looped ? pos : index } as CSSProperties} onTransitionEnd={(event) => { if (event.target === track.current && event.propertyName === "transform") settle(); }}>
+        <div className={`slide-track${jumping ? " is-jumping" : ""}`} ref={track} style={{ "--i": looped ? pos : index } as CSSProperties} onTransitionEnd={(event) => { if (event.target === track.current && event.propertyName === "transform") settle(); }}>
           {(looped ? [{ image: gallery[last], position: last, copy: "before" }, ...gallery.map((image, position) => ({ image, position, copy: "" })), { image: gallery[0], position: 0, copy: "after" }] : gallery.map((image, position) => ({ image, position, copy: "" }))).map(({ image, position, copy }) => (
             <div className="slide" key={`${image.id}${copy}`} aria-hidden={position !== index || Boolean(copy)}>
               {(position === 0 || seen.has(position) || position === index) && (

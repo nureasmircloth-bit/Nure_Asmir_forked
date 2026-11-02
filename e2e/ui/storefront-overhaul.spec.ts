@@ -395,6 +395,9 @@ test.describe("storefront overhaul", () => {
       const [product] = (await sql`select id from products where slug = ${slug}`) as Array<{ id: string }>;
       const images = (await sql`select id from product_images where product_id = ${product.id} order by sort_order`) as Array<{ id: string }>;
       test.skip(images.length < 3, "needs three photos");
+      // (a run that was stopped before its clean-up must not leave a second Navy behind)
+      await sql`update product_images set variant_id = null where product_id = ${product.id}`;
+      await sql`delete from product_variants where product_id = ${product.id} and sku like ${"E2E-navy-%"}`;
       const navy = ["navy-s", "navy-m"].map((tag) => `${tag}-${Date.now()}`);
       const ids = navy.map(() => crypto.randomUUID());
       try {

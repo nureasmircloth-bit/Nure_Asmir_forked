@@ -60,16 +60,6 @@ export function ProductView({
 
   const colors = useMemo(() => [...new Set(variants.map((variant) => variant.color))], [variants]);
   const defaultVariant = variants.find((variant) => variant.isDefault) ?? variants[0];
-  const [color, setColor] = useState(defaultVariant.color);
-  const [sizeId, setSizeId] = useState<string | null>(null);
-
-  const colorVariants = variants.filter((variant) => variant.color === color);
-  const sizeOptions = colorVariants.filter((variant) => variant.size);
-  // A shopper is only asked for a size when there is a real choice. One size (or none) is implied: colour is a choice, a single size is not.
-  const choosesSize = sizeOptions.length > 1;
-  const selected: CatalogVariant | null = choosesSize ? (colorVariants.find((variant) => variant.id === sizeId) ?? null) : (colorVariants[0] ?? null);
-  const shown = selected ?? colorVariants.find((variant) => variant.isDefault) ?? colorVariants[0] ?? defaultVariant;
-
   // One row of photos for the whole product: each colour's own photos in turn (the default colour first, then the others in order), so swiping from the
   // last photo of one colour carries on into the next colour's. Photos that belong to no colour in particular follow the default colour's own.
   // A colour with no photos of its own has no place in the row (choosing it leaves the photos as they are).
@@ -78,9 +68,20 @@ export function ProductView({
     const ordered = [defaultVariant.color, ...colors.filter((name) => name !== defaultVariant.color)];
     const own = new Map(ordered.map((name) => [name, product.images.filter((image) => image.variantId && idsOf(name).has(image.variantId))]));
     const shared = product.images.filter((image) => !image.variantId);
-    if (![...own.values()].some((list) => list.length)) return product.images.map((image) => ({ ...image, color: defaultVariant.color }));
+    if (![...own.values()].some((list) => list.length)) return (shared.length ? shared : product.images).map((image) => ({ ...image, color: defaultVariant.color }));
     return ordered.flatMap((name) => [...(own.get(name) ?? []), ...(name === defaultVariant.color ? shared : [])].map((image) => ({ ...image, color: name })));
   }, [product.images, variants, colors, defaultVariant.color]);
+
+  // The shop opens on the default colour; when that colour has no photos at all but another does, on that one (so the photo and the price agree).
+  const [color, setColor] = useState(() => (!slides.length || slides.some((slide) => slide.color === defaultVariant.color) ? defaultVariant.color : slides[0].color));
+  const [sizeId, setSizeId] = useState<string | null>(null);
+
+  const colorVariants = variants.filter((variant) => variant.color === color);
+  const sizeOptions = colorVariants.filter((variant) => variant.size);
+  // A shopper is only asked for a size when there is a real choice. One size (or none) is implied: colour is a choice, a single size is not.
+  const choosesSize = sizeOptions.length > 1;
+  const selected: CatalogVariant | null = choosesSize ? (colorVariants.find((variant) => variant.id === sizeId) ?? null) : (colorVariants[0] ?? null);
+  const shown = selected ?? colorVariants.find((variant) => variant.isDefault) ?? colorVariants[0] ?? defaultVariant;
 
   /** Choosing a colour (a swatch, or swiping into its photos). The same size is kept when the new colour has it, otherwise the shopper picks again. */
   function chooseColor(next: string) {

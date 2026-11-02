@@ -50,7 +50,8 @@ export function useSlideDrag(track: RefObject<HTMLElement | null>, count: number
         }
         if (g.axis !== "x") return;
         const atEdge = !loop && ((index === 0 && dx > 0) || (index === count - 1 && dx < 0));
-        drag(atEdge ? dx * 0.3 : dx);
+        // (never further than one slide: past that the row would show an empty gap beside the copy of the end photo)
+        drag(atEdge ? dx * 0.3 : Math.max(-g.width, Math.min(g.width, dx)));
       },
       onTouchEnd: (event: TouchEvent) => {
         const g = gesture.current;
