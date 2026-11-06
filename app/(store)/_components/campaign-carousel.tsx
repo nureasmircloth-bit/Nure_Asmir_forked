@@ -30,18 +30,34 @@ export function CampaignCarousel({ slides }: { slides: CampaignSlide[] }) {
   const [paused, setPaused] = useState(false);
   const touchStart = useRef<{ x: number; y: number; time: number } | null>(null);
   const quietUntil = useRef(0);
+  // A picture chosen while another one is still fading in waits for that fade to end, so the half-faded picture never snaps to solid. Only the latest choice is kept.
+  const fading = useRef(false);
+  const queued = useRef<((index: number) => number) | null>(null);
 
   const show = useCallback((next: (index: number) => number) => {
+    if (fading.current) {
+      queued.current = next;
+      return;
+    }
     setView((current) => {
+      if (current.prev >= 0) return current;
       const index = next(current.active);
       return index === current.active ? current : { active: index, prev: current.active };
     });
   }, []);
 
-  // Once the new picture has fully faded in, the one underneath is no longer needed.
+  // Once the new picture has fully faded in, the one underneath is no longer needed, and a choice made meanwhile is carried out.
   useEffect(() => {
+    fading.current = view.prev >= 0;
     if (view.prev < 0) return;
-    const timer = window.setTimeout(() => setView((current) => ({ ...current, prev: -1 })), 900);
+    const timer = window.setTimeout(() => {
+      const waiting = queued.current;
+      queued.current = null;
+      setView((current) => {
+        const index = waiting ? waiting(current.active) : current.active;
+        return index === current.active ? { active: current.active, prev: -1 } : { active: index, prev: current.active };
+      });
+    }, 900);
     return () => window.clearTimeout(timer);
   }, [view]);
 

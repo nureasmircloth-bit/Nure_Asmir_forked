@@ -797,12 +797,11 @@ p, .pcard-title { text-wrap: pretty; }
 .drawer-group.is-nested .drawer-sub-list { margin-left: 8px; padding-left: 12px; }
 
 /* Every picture switch stays smooth, also for visitors whose device asks to reduce motion. The site-wide rule above makes animations instant, and an instant
-   swap shows up as a flash while the next photograph is still being drawn. These are soft slides and fades, not the kind of movement that setting is about. */
+   swap shows up as a flash while the next photograph is still being drawn. The product gallery keeps its short (.42s) slide, the owner asked for it; the full-screen viewer,
+   which used to fly in from the side, now only fades. */
 @media (prefers-reduced-motion: reduce) {
   .slide-track { transition: transform .42s cubic-bezier(.22, .8, .2, 1) !important; }
   .slide-track.is-dragging, .slide-track.is-jumping { transition: none !important; }
   .slide-late { transition: opacity .35s ease !important; }
-  .lightbox { animation: lb-fade .22s ease both !important; }
-  .lightbox-frame { animation: lb-in-next .32s cubic-bezier(.22, .8, .2, 1) both !important; }
-  .lightbox-frame[data-dir="-1"] { animation-name: lb-in-prev !important; }
+  .lightbox, .lightbox-frame { animation: lb-fade .22s ease both !important; }
 }
