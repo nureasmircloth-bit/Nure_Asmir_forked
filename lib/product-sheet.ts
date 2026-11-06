@@ -86,23 +86,28 @@ export function splitList(value: unknown): string[] {
     .filter(Boolean);
 }
 
+export type Spread = { cells: string[] } | { error: "count" | "ambiguous"; found: number };
+
 /**
  * A cell that holds one value for every size ("3", "6800") or one value for each size ("3, 5, 2" – in the order of the sizes).
- * Returns one text for each size, or null when the cell has the wrong number of values. With a single size the whole cell is the value, so "1,000" is a thousand.
- * `singleThousands`: for prices, "6,500" (a comma followed by exactly three digits, no space) is one amount, not two.
+ * Gives one text for each size, or says why it cannot: the wrong number of values ("count"), or a number like 1,000 that could be one amount or a list of two ("ambiguous").
+ * Empty places count: "14000, , 15000" has no old price for the second size, and "6000," is a price for the first size and nothing for the second.
+ * With a single size the whole cell is the value, so "1,000" is a thousand.
+ * `kind`: "price" reads "6,500" (a comma followed by exactly three digits, no space) as one amount, since a price list of numbers under a thousand does not occur;
+ * "stock" refuses to guess when "1,000" could also be a list for that many sizes, and asks to be written as 1000 (or "100, 200" with a space).
  */
-export function spreadList(value: unknown, count: number, singleThousands = false): string[] | null {
+export function spreadList(value: unknown, count: number, kind: "price" | "stock" = "stock"): Spread {
   const whole = String(value ?? "").trim();
-  if (count <= 1) return [whole];
-  const oneAmount = /^(rs\.?\s*|pkr\s*)?\d{1,3}(,\d{3})+(\.\d+)?(\/-)?$/i.test(whole);
-  if (oneAmount && singleThousands) return Array.from({ length: count }, () => whole);
-  // Empty places are kept ("14000, , 15000": no old price for the second size); empty places at the end are not counted.
+  if (count <= 1) return { cells: [whole] };
+  const single = { cells: Array.from({ length: count }, () => whole) };
   const parts = whole.split(/[,;\n]/).map((part) => part.trim());
-  while (parts.length && parts[parts.length - 1] === "") parts.pop();
-  if (parts.length === 0) return Array.from({ length: count }, () => "");
-  if (parts.length === 1) return Array.from({ length: count }, () => parts[0]);
-  if (parts.length === count) return parts;
-  return oneAmount ? Array.from({ length: count }, () => whole) : null;
+  if (parts.length === 1) return single;
+  const oneAmount = /^(rs\.?\s*|pkr\s*)?\d{1,3}(,\d{3})+(\.\d+)?(\/-)?$/i.test(whole);
+  if (oneAmount) {
+    if (kind === "price") return single;
+    return parts.length === count ? { error: "ambiguous", found: parts.length } : single;
+  }
+  return parts.length === count ? { cells: parts } : { error: "count", found: parts.length };
 }
 
 export function normalizeSize(value: unknown): string {
@@ -185,27 +190,33 @@ export function parseProductTable(table: unknown[][]): ParsedSheet {
     // Several sizes may share one row ("14.5, 15, 15.5, 16"). Stock, price and old price then hold one value for all of them, or one value for each size in the same order.
     const sizeParts = splitList(cell(row, "size"));
     const count = Math.max(1, sizeParts.length);
-    const spreadOrFail = (key: string, label: string, plural: string, singleThousands = false) => {
-      const cells = spreadList(cell(row, key), count, singleThousands);
-      if (!cells) fail(`${count} sizes but ${splitList(cell(row, key)).length} ${plural}. Type one ${label} for all of them, or one for each size in the same order (${sizeParts.join(", ")}).`);
-      return cells ?? Array.from({ length: count }, () => "");
+    // Gives the texts for each size, or says in plain words what is wrong with the cell (and then nothing else is checked for that cell).
+    const spreadOrFail = (key: string, label: string, plural: string, kind: "price" | "stock") => {
+      const spread = spreadList(cell(row, key), count, kind);
+      if ("cells" in spread) return spread.cells;
+      if (spread.error === "ambiguous") fail(`“${String(cell(row, key)).trim()}” could be one number or a list of ${spread.found}. Write one number without a comma (1000), or put a space after every comma in a list (100, 200).`);
+      else fail(`${count} sizes but ${spread.found} ${plural}. Type one ${label} for all of them, or one for each size in the same order (${sizeParts.join(", ")}).`);
+      return null;
     };
     // A "coming soon" product may have no price or stock yet: it cannot be bought anyway.
-    const prices = spreadOrFail("price", "price", "prices", true).map((text) => {
+    const priceCells = spreadOrFail("price", "price", "prices", "price");
+    const prices = (priceCells ?? []).map((text) => {
       const value = soon && text === "" ? 0 : parseMoney(text);
       if (value === null || (!soon && value < 1)) fail(`Price “${text}” is not a number. Type it like 5500.`);
       return value as number;
     });
-    const stocks = spreadOrFail("stock", "stock number", "stock numbers").map((text) => {
+    const stockCells = spreadOrFail("stock", "stock number", "stock numbers", "stock");
+    const stocks = (stockCells ?? []).map((text) => {
       const value = text === "" ? 0 : parseMoney(text);
       if (value === null || value < 0) fail(`Stock “${text}” is not a number. Type it like 12.`);
       return value as number;
     });
-    const oldPrices = spreadOrFail("oldPrice", "old price", "old prices", true).map((text, i) => {
+    const oldCells = spreadOrFail("oldPrice", "old price", "old prices", "price");
+    const oldPrices = (oldCells ?? []).map((text, i) => {
       if (text === "") return null;
       const value = parseMoney(text);
       if (value === null) fail(`Old price “${text}” is not a number.`);
-      else if (Number.isFinite(prices[i]) && value <= prices[i]) fail("The old price must be higher than the price (or leave it empty).");
+      else if (typeof prices[i] === "number" && value <= prices[i]) fail("The old price must be higher than the price (or leave it empty).");
       return value;
     });
 
@@ -214,6 +225,13 @@ export function parseProductTable(table: unknown[][]): ParsedSheet {
     const sizes = (sizeParts.length ? sizeParts : [""]).map(normalizeSize);
     const given = String(cell(row, "code") ?? "").trim().toUpperCase().replace(/\s+/g, "");
     const key = `${name.toLowerCase()}|${colour.toLowerCase()}`;
+    // Every size of the row is checked before anything is added: a repeated size (in this row, or already given on an earlier row of the same colour) skips the whole row.
+    const taken = new Set((groups.get(key)?.variants ?? []).map((variant) => variant.size.toLowerCase()));
+    const repeated = sizes.find((size) => (taken.has(size.toLowerCase()) ? true : (taken.add(size.toLowerCase()), false)));
+    if (repeated !== undefined) {
+      fail(`Size “${repeated || "(none)"}” of ${name} is listed twice.`);
+      continue;
+    }
     let product = groups.get(key);
     if (!product) {
       product = {
@@ -243,10 +261,6 @@ export function parseProductTable(table: unknown[][]): ParsedSheet {
       if (!product.photos.some((p) => p.toLowerCase() === file.toLowerCase())) product.photos.push(file);
     }
     sizes.forEach((size, index) => {
-      if (product.variants.some((v) => v.size.toLowerCase() === size.toLowerCase())) {
-        fail(`Size “${size || "(none)"}” of ${name} is listed twice.`);
-        return;
-      }
       product.variants.push({ row: excelRow, size, sku: given || suggestSku(name, type, size), skuGiven: Boolean(given), price: prices[index], oldPrice: oldPrices[index], stock: stocks[index] });
     });
   }
@@ -264,11 +278,29 @@ export function parseProductTable(table: unknown[][]): ParsedSheet {
   }
 
   // One code written on every size of a product (FOR-132 on 8 rows) is the code of the product: each size gets its own, made from it (FOR-132-14.5).
-  for (const product of groups.values()) {
+  // The colours of one product page may share it too (FOR-132 on a white row and a beige row): then the colour goes in as well (FOR-132-BEIGE-14.5).
+  // The same code on two DIFFERENT products is not touched here and is refused below.
+  const codePart = (text: string) => text.toUpperCase().replace(/[()]/g, " ").trim().replace(/[^A-Z0-9.]+/g, "-").replace(/^-+|-+$/g, "");
+  const byName = new Map<string, ParsedProduct[]>();
+  for (const product of groups.values()) byName.set(product.name.toLowerCase(), [...(byName.get(product.name.toLowerCase()) ?? []), product]);
+  for (const sameName of byName.values()) {
     const uses = new Map<string, number>();
-    for (const variant of product.variants) if (variant.skuGiven) uses.set(variant.sku.toLowerCase(), (uses.get(variant.sku.toLowerCase()) ?? 0) + 1);
-    for (const variant of product.variants) {
-      if (variant.skuGiven && (uses.get(variant.sku.toLowerCase()) ?? 0) > 1) variant.sku = `${variant.sku}-${variant.size.toUpperCase().replace(/[()]/g, " ").trim().replace(/\s+/g, "-") || "ONE"}`;
+    const coloursUsing = new Map<string, Set<string>>();
+    for (const product of sameName) {
+      for (const variant of product.variants) {
+        if (!variant.skuGiven) continue;
+        const code = variant.sku.toLowerCase();
+        uses.set(code, (uses.get(code) ?? 0) + 1);
+        coloursUsing.set(code, (coloursUsing.get(code) ?? new Set()).add(product.colour.toLowerCase()));
+      }
+    }
+    for (const product of sameName) {
+      for (const variant of product.variants) {
+        const code = variant.sku.toLowerCase();
+        if (!variant.skuGiven || (uses.get(code) ?? 0) < 2) continue;
+        const several = (coloursUsing.get(code)?.size ?? 0) > 1;
+        variant.sku = [variant.sku, several ? codePart(product.colour) : "", codePart(variant.size) || "ONE"].filter(Boolean).join("-");
+      }
     }
   }
 
