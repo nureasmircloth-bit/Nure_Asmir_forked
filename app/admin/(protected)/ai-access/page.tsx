@@ -6,6 +6,7 @@ import { parseScopes, tokenState } from "@/lib/mcp/token";
 import { HelpBox } from "../../_ui/client";
 import { PageHeader } from "../../_ui/ui";
 import { AiAccessManager, type TokenRow } from "./ai-access-manager";
+import { ConnectGuide } from "./connect-guide";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "AI assistants" };
@@ -27,6 +28,7 @@ export default async function AiAccessPage() {
   const list = await headers();
   const host = list.get("x-forwarded-host") ?? list.get("host") ?? "admin.nureasmir.com";
   const protocol = host.startsWith("localhost") ? "http" : "https";
+  const endpoint = `${protocol}://${host}/api/admin/mcp`;
   return (
     <>
       <PageHeader title="AI assistants" intro="Let an AI assistant such as Claude or Gemini look at your shop and answer questions: which sizes are running out, what sold this week, what a product costs." />
@@ -39,7 +41,8 @@ export default async function AiAccessPage() {
         </ol>
         <p>You can switch a token off at any time. Every token stops by itself when its time is up.</p>
       </HelpBox>
-      <AiAccessManager initial={tokens} endpoint={`${protocol}://${host}/api/admin/mcp`} />
+      <AiAccessManager initial={tokens} endpoint={endpoint} />
+      <ConnectGuide endpoint={endpoint} />
     </>
   );
 }
