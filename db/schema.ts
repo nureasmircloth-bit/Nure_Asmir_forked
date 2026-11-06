@@ -80,6 +80,26 @@ export const adminAuditLog = sqliteTable("admin_audit_log", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(nowMs),
 }, (table) => [index("admin_audit_entity_idx").on(table.entityType, table.entityId)]);
 
+/**
+ * Access tokens for AI assistants (the MCP endpoint on the admin site, lib/mcp). Only a SHA-256 hash of the token is kept: the token itself is shown once, when the owner
+ * creates it. A token has a short life, a fixed list of scopes and can be revoked at any time.
+ */
+export const mcpTokens = sqliteTable("mcp_tokens", {
+  id: uuid("id").primaryKey().default(uuidSql),
+  label: text("label").notNull(),
+  tokenHash: text("token_hash").notNull().unique(),
+  // The first characters of the token, so the owner can tell tokens apart in the list.
+  tokenPrefix: text("token_prefix").notNull(),
+  // Comma-separated scopes, e.g. "catalog:read,sales:read".
+  scopes: text("scopes").notNull(),
+  createdBy: text("created_by").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  useCount: integer("use_count").notNull().default(0),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(nowMs),
+}, (table) => [index("mcp_tokens_expires_idx").on(table.expiresAt)]);
+
 export const categories = sqliteTable("categories", {
   id: uuid("id").primaryKey().default(uuidSql),
   name: text("name").notNull(),

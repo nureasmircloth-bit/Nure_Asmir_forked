@@ -57,6 +57,13 @@
       "when": 1793349000000,
       "tag": "0007_category_tree",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1793990875616,
+      "tag": "0008_mcp_tokens",
+      "breakpoints": true
     }
   ]
 }
