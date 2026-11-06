@@ -388,7 +388,7 @@ function AddProducts({ categoryNames }: { categoryNames: string[] }) {
             <strong>Download the sheet</strong> below. It opens in Excel (or Google Sheets).
           </li>
           <li>
-            <strong>Fill it in</strong> — one row for each size. There is an example inside to copy.
+            <strong>Fill it in</strong> — one row for each colour. Pick the sizes from the dropdown or type them with commas (14.5, 15, 15.5). Stock and price can be one number for all sizes, or one for each size (5800, 5800, 6200). The sheet explains every column and has an example to copy.
           </li>
           <li>
             <strong>Upload it here</strong>, choose your photos, and press Add. We check everything first, so nothing goes wrong.

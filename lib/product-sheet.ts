@@ -1,8 +1,8 @@
 // Reading a product sheet (Excel or Google Sheets exported as .xlsx / .csv) into products. Pure functions only
 // – no Excel library, no network – so it runs in the browser, in the e2e unit tests and in the server alike.
 //
-// The sheet has ONE ROW PER SIZE. Rows that share the same product name and colour become one colour with
-// several sizes; the importer then joins colours that share a product name into one product. Every complaint is phrased for a shop owner and names the row number as Excel shows it.
+// One row can list several sizes ("14.5, 15, 15.5") or each size can have its own row. Rows that share the same product name
+// and colour become one colour with several sizes; the importer then joins colours that share a product name into one product. Every complaint is phrased for a shop owner and names the row number as Excel shows it.
 
 import { suggestSku } from "./sku";
 
@@ -16,11 +16,11 @@ export const SHEET_COLUMNS: SheetColumn[] = [
   { key: "sub3", label: "Level 4 (optional)", width: 18, help: "Optional, one more level inside the Sub-subcategory. Needs the Sub-subcategory first.", aliases: ["level 4", "fourth category"] },
   { key: "type", label: "What is it?*", required: true, width: 18, help: "Pick or type: Shirt, Pants, Shalwar Kameez, Wallet…", aliases: ["what is it", "type", "product type", "kind"] },
   { key: "colour", label: "Colour*", required: true, width: 14, help: "One colour on each row. The same shirt in another colour? Use the same product name and a different colour — we put them together on one page.", aliases: ["colour", "color"] },
-  { key: "size", label: "Size", width: 12, help: "S, M, L, XL, 32, 34… or One size. Leave empty if it has no sizes.", aliases: ["size", "sizes"] },
-  { key: "price", label: "Price (PKR)*", required: true, width: 14, help: "Selling price in rupees, numbers only, e.g. 5500.", aliases: ["price", "price pkr", "selling price", "sale price", "rs"] },
-  { key: "oldPrice", label: "Old price (optional)", width: 18, help: "Only if this item is on discount. Must be higher than the price.", aliases: ["old price", "compare at price", "compare price", "was price", "mrp", "cut price"] },
-  { key: "stock", label: "Stock*", required: true, width: 10, help: "How many you have right now, e.g. 12.", aliases: ["stock", "quantity", "qty", "in stock", "inventory"] },
-  { key: "code", label: "Product code (optional)", width: 22, help: "Leave empty — we make one for you (it includes the colour when the product comes in several). Every size, in every colour, needs its own different code.", aliases: ["product code", "code", "sku"] },
+  { key: "size", label: "Size", width: 12, help: "S, M, L, XL, 32, 34… or One size. Several sizes of the same colour can go in one cell, separated by commas: 14.5, 15, 15.5, 16. Leave empty if it has no sizes.", aliases: ["size", "sizes"] },
+  { key: "price", label: "Price (PKR)*", required: true, width: 14, help: "Selling price in rupees, numbers only, e.g. 5500. When the sizes have different prices, type one price for each size in the same order, with a comma and a space: 5800, 5800, 6200, 6200.", aliases: ["price", "price pkr", "selling price", "sale price", "rs"] },
+  { key: "oldPrice", label: "Old price (optional)", width: 18, help: "Only if this item is on discount. Must be higher than the price. Like the price, it can be one number for all sizes or one for each size.", aliases: ["old price", "compare at price", "compare price", "was price", "mrp", "cut price"] },
+  { key: "stock", label: "Stock*", required: true, width: 10, help: "How many you have right now, e.g. 12. With several sizes in one row: one number for all of them (3), or one number for each size in the same order (3, 5, 2, 1).", aliases: ["stock", "quantity", "qty", "in stock", "inventory"] },
+  { key: "code", label: "Product code (optional)", width: 22, help: "Leave empty — we make one for you (it includes the colour when the product comes in several). Or type one code for the whole product (FOR-132) on every size row: each size then gets its own, like FOR-132-14.5. Different products need different codes.", aliases: ["product code", "code", "sku"] },
   { key: "fabric", label: "Fabric (optional)", width: 18, help: "e.g. Cotton, Wash & Wear, Leather.", aliases: ["fabric", "material"] },
   { key: "description", label: "Description (optional)", width: 40, help: "A few sentences for the product page. Leave empty and we write one later if you ask.", aliases: ["description", "details", "about"] },
   { key: "show", label: "Show on website? (Yes/No)", width: 16, help: "Yes = customers can see it now. No = hidden until you are ready.", aliases: ["show on website", "show", "visible", "publish", "published", "status"] },
@@ -76,6 +76,33 @@ export function parseYesNo(value: unknown, fallback: boolean): boolean {
   if (["yes", "y", "true", "1", "show", "published", "on", "haan", "han", "ji"].includes(text)) return true;
   if (["no", "n", "false", "0", "hide", "hidden", "draft", "off", "nahi", "nahin"].includes(text)) return false;
   return fallback;
+}
+
+/** "14.5, 15; 15.5" → ["14.5", "15", "15.5"] (commas, semicolons and line breaks separate the items). */
+export function splitList(value: unknown): string[] {
+  return String(value ?? "")
+    .split(/[,;\n]/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+/**
+ * A cell that holds one value for every size ("3", "6800") or one value for each size ("3, 5, 2" – in the order of the sizes).
+ * Returns one text for each size, or null when the cell has the wrong number of values. With a single size the whole cell is the value, so "1,000" is a thousand.
+ * `singleThousands`: for prices, "6,500" (a comma followed by exactly three digits, no space) is one amount, not two.
+ */
+export function spreadList(value: unknown, count: number, singleThousands = false): string[] | null {
+  const whole = String(value ?? "").trim();
+  if (count <= 1) return [whole];
+  const oneAmount = /^(rs\.?\s*|pkr\s*)?\d{1,3}(,\d{3})+(\.\d+)?(\/-)?$/i.test(whole);
+  if (oneAmount && singleThousands) return Array.from({ length: count }, () => whole);
+  // Empty places are kept ("14000, , 15000": no old price for the second size); empty places at the end are not counted.
+  const parts = whole.split(/[,;\n]/).map((part) => part.trim());
+  while (parts.length && parts[parts.length - 1] === "") parts.pop();
+  if (parts.length === 0) return Array.from({ length: count }, () => "");
+  if (parts.length === 1) return Array.from({ length: count }, () => parts[0]);
+  if (parts.length === count) return parts;
+  return oneAmount ? Array.from({ length: count }, () => whole) : null;
 }
 
 export function normalizeSize(value: unknown): string {
@@ -155,21 +182,36 @@ export function parseProductTable(table: unknown[][]): ParsedSheet {
     if (deeper.some((part) => part.includes(",") || part.includes(">"))) fail("The category columns cannot contain a comma or a > sign. Use one column for each level.");
 
     const soon = parseYesNo(cell(row, "comingSoon"), false);
+    // Several sizes may share one row ("14.5, 15, 15.5, 16"). Stock, price and old price then hold one value for all of them, or one value for each size in the same order.
+    const sizeParts = splitList(cell(row, "size"));
+    const count = Math.max(1, sizeParts.length);
+    const spreadOrFail = (key: string, label: string, plural: string, singleThousands = false) => {
+      const cells = spreadList(cell(row, key), count, singleThousands);
+      if (!cells) fail(`${count} sizes but ${splitList(cell(row, key)).length} ${plural}. Type one ${label} for all of them, or one for each size in the same order (${sizeParts.join(", ")}).`);
+      return cells ?? Array.from({ length: count }, () => "");
+    };
     // A "coming soon" product may have no price or stock yet: it cannot be bought anyway.
-    const priceText = String(cell(row, "price") ?? "").trim();
-    const price = soon && priceText === "" ? 0 : parseMoney(cell(row, "price"));
-    if (price === null || (!soon && price < 1)) fail(`Price “${String(cell(row, "price") ?? "")}” is not a number. Type it like 5500.`);
-    const stockText = String(cell(row, "stock") ?? "").trim();
-    const stock = stockText === "" ? 0 : parseMoney(cell(row, "stock"));
-    if (stock === null || stock < 0) fail(`Stock “${stockText}” is not a number. Type it like 12.`);
-    const oldRaw = cell(row, "oldPrice");
-    const oldPrice = String(oldRaw ?? "").trim() === "" ? null : parseMoney(oldRaw);
-    if (String(oldRaw ?? "").trim() !== "" && oldPrice === null) fail(`Old price “${String(oldRaw)}” is not a number.`);
-    if (oldPrice !== null && price !== null && oldPrice <= price) fail("The old price must be higher than the price (or leave it empty).");
+    const prices = spreadOrFail("price", "price", "prices", true).map((text) => {
+      const value = soon && text === "" ? 0 : parseMoney(text);
+      if (value === null || (!soon && value < 1)) fail(`Price “${text}” is not a number. Type it like 5500.`);
+      return value as number;
+    });
+    const stocks = spreadOrFail("stock", "stock number", "stock numbers").map((text) => {
+      const value = text === "" ? 0 : parseMoney(text);
+      if (value === null || value < 0) fail(`Stock “${text}” is not a number. Type it like 12.`);
+      return value as number;
+    });
+    const oldPrices = spreadOrFail("oldPrice", "old price", "old prices", true).map((text, i) => {
+      if (text === "") return null;
+      const value = parseMoney(text);
+      if (value === null) fail(`Old price “${text}” is not a number.`);
+      else if (Number.isFinite(prices[i]) && value <= prices[i]) fail("The old price must be higher than the price (or leave it empty).");
+      return value;
+    });
 
     if (problems.length > before) continue;
 
-    const size = normalizeSize(cell(row, "size"));
+    const sizes = (sizeParts.length ? sizeParts : [""]).map(normalizeSize);
     const given = String(cell(row, "code") ?? "").trim().toUpperCase().replace(/\s+/g, "");
     const key = `${name.toLowerCase()}|${colour.toLowerCase()}`;
     let product = groups.get(key);
@@ -197,14 +239,16 @@ export function parseProductTable(table: unknown[][]): ParsedSheet {
     product.fabric ||= String(cell(row, "fabric") ?? "").trim();
     product.description ||= String(cell(row, "description") ?? "").trim();
     product.subcategory ||= String(cell(row, "subcategory") ?? "").trim().replace(/\s+/g, " ").slice(0, 60);
-    for (const file of String(cell(row, "photos") ?? "").split(/[,;\n]/).map((f) => f.trim()).filter(Boolean)) {
+    for (const file of splitList(cell(row, "photos"))) {
       if (!product.photos.some((p) => p.toLowerCase() === file.toLowerCase())) product.photos.push(file);
     }
-    if (product.variants.some((v) => v.size.toLowerCase() === size.toLowerCase())) {
-      fail(`Size “${size || "(none)"}” of ${name} is listed twice.`);
-      continue;
-    }
-    product.variants.push({ row: excelRow, size, sku: given || suggestSku(name, type, size), skuGiven: Boolean(given), price: price as number, oldPrice, stock: stock as number });
+    sizes.forEach((size, index) => {
+      if (product.variants.some((v) => v.size.toLowerCase() === size.toLowerCase())) {
+        fail(`Size “${size || "(none)"}” of ${name} is listed twice.`);
+        return;
+      }
+      product.variants.push({ row: excelRow, size, sku: given || suggestSku(name, type, size), skuGiven: Boolean(given), price: prices[index], oldPrice: oldPrices[index], stock: stocks[index] });
+    });
   }
 
   // The same product in more than one colour: the codes we make up must not collide (the same size in two colours), so the colour goes into them.
@@ -217,6 +261,15 @@ export function parseProductTable(table: unknown[][]): ParsedSheet {
   for (const product of groups.values()) {
     if ((coloursOf.get(product.name.toLowerCase())?.size ?? 0) < 2) continue;
     for (const variant of product.variants) if (!variant.skuGiven) variant.sku = suggestSku(product.name, product.type, variant.size, product.colour);
+  }
+
+  // One code written on every size of a product (FOR-132 on 8 rows) is the code of the product: each size gets its own, made from it (FOR-132-14.5).
+  for (const product of groups.values()) {
+    const uses = new Map<string, number>();
+    for (const variant of product.variants) if (variant.skuGiven) uses.set(variant.sku.toLowerCase(), (uses.get(variant.sku.toLowerCase()) ?? 0) + 1);
+    for (const variant of product.variants) {
+      if (variant.skuGiven && (uses.get(variant.sku.toLowerCase()) ?? 0) > 1) variant.sku = `${variant.sku}-${variant.size.toUpperCase().replace(/[()]/g, " ").trim().replace(/\s+/g, "-") || "ONE"}`;
+    }
   }
 
   // Product codes must be different everywhere in the sheet.
