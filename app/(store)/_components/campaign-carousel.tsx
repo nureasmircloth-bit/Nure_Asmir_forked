@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { CampaignSlide } from "@/lib/commerce";
 import { buildSrcSet } from "@/lib/images";
 import { cdnSrcForWidth, isCdnUrl } from "@/lib/media-url";
@@ -24,18 +24,34 @@ const fallback: CampaignSlide = {
  * art-directed through <picture> when a slide has a separate mobile image. */
 export function CampaignCarousel({ slides }: { slides: CampaignSlide[] }) {
   const items = slides.length ? slides : [fallback];
-  const [active, setActive] = useState(0);
+  // `prev` is the slide that is leaving: it stays fully visible underneath while the new one fades in on top, so the banner never dips to the background colour between two pictures.
+  const [view, setView] = useState({ active: 0, prev: -1 });
+  const active = view.active;
   const [paused, setPaused] = useState(false);
   const touchStart = useRef<{ x: number; y: number; time: number } | null>(null);
   const quietUntil = useRef(0);
 
+  const show = useCallback((next: (index: number) => number) => {
+    setView((current) => {
+      const index = next(current.active);
+      return index === current.active ? current : { active: index, prev: current.active };
+    });
+  }, []);
+
+  // Once the new picture has fully faded in, the one underneath is no longer needed.
+  useEffect(() => {
+    if (view.prev < 0) return;
+    const timer = window.setTimeout(() => setView((current) => ({ ...current, prev: -1 })), 900);
+    return () => window.clearTimeout(timer);
+  }, [view]);
+
   useEffect(() => {
     if (items.length < 2 || paused) return;
-    const timer = window.setInterval(() => setActive((index) => (index + 1) % items.length), 6000);
+    const timer = window.setInterval(() => show((index) => (index + 1) % items.length), 6000);
     return () => window.clearInterval(timer);
-  }, [items.length, paused]);
+  }, [items.length, paused, show]);
 
-  const go = (delta: number) => setActive((index) => (index + delta + items.length) % items.length);
+  const go = (delta: number) => show((index) => (index + delta + items.length) % items.length);
 
   const onTouchStart = (event: React.TouchEvent) => {
     if (items.length < 2) return;
@@ -98,7 +114,7 @@ export function CampaignCarousel({ slides }: { slides: CampaignSlide[] }) {
           return (
             <div
               key={item.id}
-              className={`banner-slide ${index === active ? "active" : ""}`}
+              className={`banner-slide${index === active ? " active" : ""}${index === active && view.prev >= 0 ? " swap" : ""}${index === view.prev ? " leaving" : ""}`}
               style={item.blurDataUrl ? { backgroundImage: `url(${item.blurDataUrl})` } : undefined}
               aria-hidden={index !== active}
             >
@@ -112,7 +128,7 @@ export function CampaignCarousel({ slides }: { slides: CampaignSlide[] }) {
                   height={900}
                   style={{ width: "100%", height: "100%", objectFit: "cover", aspectRatio: "16 / 9" }}
                   alt={index === active ? item.altText : ""}
-                  loading={eager ? "eager" : "lazy"}
+                  loading="eager"
                   fetchPriority={eager ? "high" : "auto"}
                   decoding={eager ? "sync" : "async"}
                 />
@@ -132,7 +148,7 @@ export function CampaignCarousel({ slides }: { slides: CampaignSlide[] }) {
           </button>
           <div className="banner-dots">
             {items.map((item, index) => (
-              <button key={item.id} type="button" aria-label={`Show slide ${index + 1}`} className={index === active ? "active" : ""} onClick={() => setActive(index)}>
+              <button key={item.id} type="button" aria-label={`Show slide ${index + 1}`} className={index === active ? "active" : ""} onClick={() => show(() => index)}>
                 <i />
               </button>
             ))}
