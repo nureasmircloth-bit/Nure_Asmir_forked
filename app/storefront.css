@@ -87,8 +87,14 @@
 /* ---------- banner carousel ---------- */
 .banner { position: relative; background: #f3f3f2; overflow: hidden; touch-action: pan-y pinch-zoom; user-select: none; }
 .banner-track { position: relative; aspect-ratio: 2048 / 768; }
-.banner-slide { position: absolute; inset: 0; opacity: 0; transition: opacity .9s ease; background-size: cover; background-position: center; }
-.banner-slide.active { opacity: 1; z-index: 1; }
+.banner-slide { position: absolute; inset: 0; opacity: 0; background-size: cover; background-position: center; }
+/* The slide that is leaving stays solid underneath while the new one fades in on top: two pictures that both fade at once would dip to the background colour in the middle. */
+.banner-slide.leaving { opacity: 1; z-index: 1; }
+.banner-slide.active { opacity: 1; z-index: 2; }
+.banner-slide.active.swap { animation: banner-in .7s ease both; }
+@keyframes banner-in { from { opacity: 0; } to { opacity: 1; } }
+/* The site-wide "reduce motion" rule makes every animation instant. A soft fade between two banners is not the kind of movement that setting is about, and an instant swap looks like a flash, so the banner keeps its fade. */
+@media (prefers-reduced-motion: reduce) { .banner-slide.active.swap { animation-duration: .6s !important; } }
 .banner-slide picture, .banner-slide img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .banner-link { position: absolute; inset: 0; z-index: 2; }
 .banner-dots { position: absolute; z-index: 3; left: 0; right: 0; bottom: 14px; display: flex; justify-content: center; gap: 8px; }
@@ -104,7 +110,8 @@
 
 /* ---------- category tiles ---------- */
 .cat-section { padding: clamp(40px, 5vw, 72px) clamp(12px, 2vw, 28px) 0; }
-.cat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: clamp(8px, 1vw, 16px); }
+.cat-grid { --cat-gap: clamp(8px, 1vw, 16px); display: flex; flex-wrap: wrap; justify-content: center; gap: var(--cat-gap); }
+.cat-grid > .cat-tile { flex: 0 0 calc((100% - var(--cat-gap) * 3) / 4); min-width: 0; } /* four to a row; a short last row (3, 5, 6 ... categories) is centred instead of stuck on the left */
 .cat-tile { display: block; text-align: center; }
 .cat-tile-media { position: relative; aspect-ratio: 3 / 4; overflow: hidden; background: #f3f3f2; }
 .cat-tile-media img { aspect-ratio: 3 / 4; transition: transform .8s cubic-bezier(.2,.7,.2,1); }
@@ -310,7 +317,8 @@
   .hdr-search-hint { display: none; }
   .banner-track { aspect-ratio: 4 / 5; }
   .banner-arrow { display: none; }
-  .cat-grid { grid-template-columns: repeat(2, 1fr); gap: 20px 8px; }
+  .cat-grid { --cat-gap: 8px; row-gap: 20px; }
+  .cat-grid > .cat-tile { flex-basis: calc((100% - var(--cat-gap)) / 2); }
   .cat-tile h3 { font-size: 11px; letter-spacing: .16em; }
   .rail > .pcard { flex-basis: 46%; }
   .rail-arrow { display: none; }
@@ -787,3 +795,14 @@ p, .pcard-title { text-wrap: pretty; }
 .drawer-group.is-nested .drawer-cat-link { font-size: 12.5px; padding: 10px 8px; letter-spacing: .04em; text-transform: capitalize; }
 .drawer-group.is-nested .drawer-expand-btn { width: 36px; height: 36px; }
 .drawer-group.is-nested .drawer-sub-list { margin-left: 8px; padding-left: 12px; }
+
+/* Every picture switch stays smooth, also for visitors whose device asks to reduce motion. The site-wide rule above makes animations instant, and an instant
+   swap shows up as a flash while the next photograph is still being drawn. These are soft slides and fades, not the kind of movement that setting is about. */
+@media (prefers-reduced-motion: reduce) {
+  .slide-track { transition: transform .42s cubic-bezier(.22, .8, .2, 1) !important; }
+  .slide-track.is-dragging, .slide-track.is-jumping { transition: none !important; }
+  .slide-late { transition: opacity .35s ease !important; }
+  .lightbox { animation: lb-fade .22s ease both !important; }
+  .lightbox-frame { animation: lb-in-next .32s cubic-bezier(.22, .8, .2, 1) both !important; }
+  .lightbox-frame[data-dir="-1"] { animation-name: lb-in-prev !important; }
+}
