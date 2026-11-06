@@ -103,6 +103,138 @@ test.describe("product sheet (Excel / Google Sheets)", () => {
     expect(wallet.label).toBe("Sale");
   });
 
+  test("price and old price can also be one value for each size; a thousands comma is not a list", () => {
+    const base = { category: "Shirts", type: "Shirt", colour: "White", stock: 3 };
+    const table = [
+      header,
+      row({ ...base, name: "Mixed Price Shirt", size: "M, L, XL", price: "12500, 12500, 13500", oldPrice: "14000, , 15000" }),
+      row({ ...base, name: "Thousands Shirt", size: "M, L", price: "6,500", oldPrice: "Rs. 7,500/-" }),
+      row({ ...base, name: "Wrong Count Shirt", size: "M, L, XL", price: "5000, 5200" }),
+      row({ ...base, name: "Bad Old Shirt", size: "M, L", price: "5000, 6000", oldPrice: "5500, 5500" }),
+    ];
+    const parsed = parseProductTable(table);
+    const mixed = parsed.products.find((p) => p.name === "Mixed Price Shirt")!;
+    expect(mixed.variants.map((v) => [v.size, v.price, v.oldPrice])).toEqual([["M", 12500, 14000], ["L", 12500, null], ["XL", 13500, 15000]]);
+    const thousands = parsed.products.find((p) => p.name === "Thousands Shirt")!;
+    expect(thousands.variants.map((v) => [v.price, v.oldPrice])).toEqual([[6500, 7500], [6500, 7500]]);
+    const messages = parsed.problems.map((p) => `${p.row}: ${p.message}`);
+    expect(messages.some((m) => m.startsWith("4:") && /3 sizes but 2 prices/.test(m))).toBe(true);
+    expect(messages.some((m) => m.startsWith("5:") && /old price must be higher/i.test(m))).toBe(true);
+    expect(parsed.products.map((p) => p.name)).not.toContain("Wrong Count Shirt");
+  });
+
+  test("a wrong count of prices is reported once, without extra complaints about blank prices", () => {
+    const base = { category: "Shirts", type: "Shirt", colour: "White", stock: 3 };
+    const parsed = parseProductTable([header, row({ ...base, name: "Wrong Count Shirt", size: "M, L, XL", price: "5000, 5200", oldPrice: "6000" })]);
+    expect(parsed.problems.map((p) => p.message)).toHaveLength(1);
+    expect(parsed.problems[0].message).toMatch(/3 sizes but 2 prices/);
+  });
+
+  test("stock “1,000” is never split into a list: one amount for another number of sizes, and a question when it could be a list", () => {
+    const base = { category: "Shirts", type: "Shirt", colour: "White", price: 5000 };
+    const parsed = parseProductTable([
+      header,
+      row({ ...base, name: "Two Sizes", size: "M, L", stock: "1,000" }),
+      row({ ...base, name: "Three Sizes", size: "M, L, XL", stock: "1,000" }),
+      row({ ...base, name: "Real List", size: "M, L", stock: "100, 200" }),
+    ]);
+    expect(parsed.products.find((p) => p.name === "Two Sizes")).toBeUndefined();
+    expect(parsed.problems.find((p) => p.row === 2)?.message).toMatch(/could be one number or a list.*1000/);
+    expect(parsed.products.find((p) => p.name === "Three Sizes")!.variants.map((v) => v.stock)).toEqual([1000, 1000, 1000]);
+    expect(parsed.products.find((p) => p.name === "Real List")!.variants.map((v) => v.stock)).toEqual([100, 200]);
+  });
+
+  test("empty places at the end of a list stay places: “6000,” is a price for the first size and nothing for the second", () => {
+    const base = { category: "Shirts", type: "Shirt", colour: "White" };
+    const parsed = parseProductTable([
+      header,
+      row({ ...base, name: "Old Price Shirt", size: "M, L", price: "5000, 5000", oldPrice: "7000,", stock: "5," }),
+      row({ ...base, name: "Missing Price Shirt", size: "M, L", price: "6000,", stock: 1 }),
+      row({ ...base, name: "Three Places", size: "M, L, XL", price: 5000, oldPrice: "7000,8000,", stock: 2 }),
+    ]);
+    const first = parsed.products.find((p) => p.name === "Old Price Shirt")!;
+    expect(first.variants.map((v) => [v.oldPrice, v.stock])).toEqual([[7000, 5], [null, 0]]);
+    expect(parsed.problems.some((p) => p.row === 3 && /Price “” is not a number/.test(p.message))).toBe(true);
+    expect(parsed.products.find((p) => p.name === "Missing Price Shirt")).toBeUndefined();
+    expect(parsed.products.find((p) => p.name === "Three Places")!.variants.map((v) => v.oldPrice)).toEqual([7000, 8000, null]);
+  });
+
+  test("a repeated size skips the whole row: nothing from the row is added", () => {
+    const base = { category: "Shirts", type: "Shirt", colour: "White", price: 5000, stock: 1 };
+    const parsed = parseProductTable([
+      header,
+      row({ ...base, name: "Shirt A", size: "M" }),
+      row({ ...base, name: "Shirt A", size: "L, M, XL" }),
+      row({ ...base, name: "Shirt B", size: "S, M, S" }),
+    ]);
+    expect(parsed.products.find((p) => p.name === "Shirt A")!.variants.map((v) => v.size)).toEqual(["M"]);
+    expect(parsed.products.find((p) => p.name === "Shirt B")).toBeUndefined();
+    expect(parsed.problems.filter((p) => /listed twice/.test(p.message)).map((p) => p.row)).toEqual([3, 4]);
+  });
+
+  test("one code typed on the colours of one product gets the colour in it; the same code on two products is still refused", () => {
+    const base = { category: "Shirts", type: "Shirt", price: 5000, stock: 1 };
+    const parsed = parseProductTable([
+      header,
+      row({ ...base, name: "Plaid Shirt", colour: "White", size: "M, L", code: "FOR-9" }),
+      row({ ...base, name: "Plaid Shirt", colour: "Sky blue", size: "M, L", code: "FOR-9" }),
+      row({ ...base, name: "Other Shirt", colour: "Red", size: "M", code: "FOR-9-WHITE-M" }),
+      row({ ...base, name: "Third Shirt", colour: "Red", size: "M", code: "FOR-7" }),
+      row({ ...base, name: "Fourth Shirt", colour: "Red", size: "M", code: "FOR-7" }),
+    ]);
+    const codes = parsed.products.filter((p) => p.name === "Plaid Shirt").flatMap((p) => p.variants.map((v) => v.sku));
+    expect(codes).toEqual(["FOR-9-WHITE-M", "FOR-9-WHITE-L", "FOR-9-SKY-BLUE-M", "FOR-9-SKY-BLUE-L"]);
+    const messages = parsed.problems.map((p) => `${p.row}: ${p.message}`);
+    expect(messages.some((m) => m.startsWith("4:") && /FOR-9-WHITE-M is already used on row 2/.test(m))).toBe(true);
+    expect(messages.some((m) => m.startsWith("6:") && /FOR-7 is already used on row 5/.test(m))).toBe(true);
+  });
+
+  test("several sizes in one cell become several sizes of one colour, with one stock number or one for each size", () => {
+    const base = { category: "Shirts", type: "Shirt", price: 6800 };
+    const table = [
+      header,
+      row({ ...base, name: "Classic Cotton Shirt", colour: "White", size: "14.5, 15, 15.5, 16", stock: 3 }),
+      row({ ...base, name: "Plain Shirt", colour: "Blue", size: "14.5; 15 ,15.5", stock: "4, 2, 0" }),
+      row({ ...base, name: "Big Stock Shirt", colour: "Grey", size: "M", stock: "1,000" }),
+    ];
+    const parsed = parseProductTable(table);
+    expect(parsed.problems).toEqual([]);
+    expect(parsed.products[0].variants.map((v) => [v.size, v.stock])).toEqual([["14.5", 3], ["15", 3], ["15.5", 3], ["16", 3]]);
+    expect(new Set(parsed.products[0].variants.map((v) => v.sku)).size).toBe(4);
+    expect(parsed.products[1].variants.map((v) => [v.size, v.stock])).toEqual([["14.5", 4], ["15", 2], ["15.5", 0]]);
+    expect(parsed.products[2].variants[0].stock).toBe(1000);
+  });
+
+  test("a size cell with a list is checked: wrong number of stock numbers, a size repeated across rows", () => {
+    const base = { category: "Shirts", type: "Shirt", price: 6800 };
+    const table = [
+      header,
+      row({ ...base, name: "A", colour: "White", size: "S, M, L", stock: "1, 2" }),
+      row({ ...base, name: "C", colour: "White", size: "S, M", stock: 2 }),
+      row({ ...base, name: "C", colour: "White", size: "M", stock: 2 }),
+    ];
+    const messages = parseProductTable(table).problems.map((p) => `${p.row}: ${p.message}`);
+    expect(messages.some((m) => m.startsWith("2:") && /3 sizes but 2 stock numbers/.test(m))).toBe(true);
+    expect(messages.some((m) => m.startsWith("4:") && /listed twice/i.test(m))).toBe(true);
+  });
+
+  test("one product code typed on every size of a product (FOR-132 on 8 rows) gives each size its own code; other products must still use other codes", () => {
+    const base = { category: "Shirts", type: "Shirt", colour: "Beige", price: 14500, stock: 1 };
+    const table = [
+      header,
+      row({ ...base, name: "Plaid Check Shirt", size: "14.5", code: "for-132" }),
+      row({ ...base, name: "Plaid Check Shirt", size: "14.5 (SLIM)", code: "FOR-132" }),
+      row({ ...base, name: "Plaid Check Shirt", size: "15.5", code: "FOR-132" }),
+      row({ ...base, name: "Cotton Shirt", size: "S, M", code: "FOR-117" }),
+      row({ ...base, name: "Other Shirt", size: "S", code: "FOR-132-15.5" }),
+    ];
+    const parsed = parseProductTable(table);
+    expect(parsed.products[0].variants.map((v) => v.sku)).toEqual(["FOR-132-14.5", "FOR-132-14.5-SLIM", "FOR-132-15.5"]);
+    expect(parsed.products[1].variants.map((v) => v.sku)).toEqual(["FOR-117-S", "FOR-117-M"]);
+    expect(parsed.problems.map((p) => p.message).join("|")).toMatch(/FOR-132-15\.5 is already used on row 4/);
+    expect(parsed.products.map((p) => p.name)).toContain("Plaid Check Shirt");
+  });
+
   test("mistakes are reported with the Excel row number, in plain words, and bad rows are skipped", () => {
     const table = [
       header,

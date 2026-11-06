@@ -69,17 +69,20 @@ const XLSX_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.s
 const GREEN = "FF2B6B5E";
 
 const EXAMPLE_ROWS: unknown[][] = [
-  ["Olive Cargo Pants", "Pants", "Cargo", "", "", "Cargo Pants", "Olive", "30", 6500, "", 10, "", "Cotton twill", "Relaxed cargo pants with deep pockets. Easy to wear every day.", "Yes", "olive-cargo-1.jpg, olive-cargo-2.jpg", "", "New"],
-  ["Olive Cargo Pants", "Pants", "Cargo", "", "", "Cargo Pants", "Olive", "32", 6500, "", 14, "", "", "", "Yes", "", "", ""],
-  ["Olive Cargo Pants", "Pants", "Cargo", "", "", "Cargo Pants", "Olive", "34", 6500, 7500, 8, "", "", "", "Yes", "", "", ""],
-  ["Ivory Kameez Shalwar", "Shalwar Kameez", "Wash & wear", "Summer", "", "Kameez Shalwar", "Ivory", "M", 12500, "", 6, "", "Wash & wear", "A clean everyday kameez shalwar in soft wash & wear fabric.", "Yes", "ivory-ks-1.jpg", "", ""],
-  ["Ivory Kameez Shalwar", "Shalwar Kameez", "Wash & wear", "Summer", "", "Kameez Shalwar", "Ivory", "L", 12500, "", 6, "", "", "", "Yes", "", "", ""],
+  // The easy way: ONE row for each colour, the sizes typed with commas. One stock number and one price count for every size.
+  ["Olive Cargo Pants", "Pants", "Cargo", "", "", "Cargo Pants", "Olive", "30, 32, 34", 6500, 7500, 10, "", "Cotton twill", "Relaxed cargo pants with deep pockets. Easy to wear every day.", "Yes", "olive-cargo-1.jpg, olive-cargo-2.jpg", "", "New"],
+  // When the sizes differ, type one value for each size in the same order: M has 6 and costs 12500, L has 6 and costs 12500, XL has 4 and costs 13500.
+  ["Ivory Kameez Shalwar", "Shalwar Kameez", "Wash & wear", "Summer", "", "Kameez Shalwar", "Ivory", "M, L, XL", "12500, 12500, 13500", "", "6, 6, 4", "", "Wash & wear", "A clean everyday kameez shalwar in soft wash & wear fabric.", "Yes", "ivory-ks-1.jpg", "", ""],
+  // The other way also works: one row for each size (copy the name, category, type and colour down).
   ["Classic Sky Blue Pinstripe Shirt", "Shirts", "Formal Shirts", "Business Formal Shirts", "", "Shirt", "Sky blue", "M", 5800, "", 8, "", "Cotton blend", "A crisp pinstripe shirt with a white collar.", "Yes", "sky-blue-pinstripe-1.jpg", "", ""],
   ["Classic Sky Blue Pinstripe Shirt", "Shirts", "Formal Shirts", "Business Formal Shirts", "", "Shirt", "Sky blue", "L", 5800, "", 8, "", "", "", "Yes", "", "", ""],
   ["Tan Leather Wallet", "Accessories", "Wallets", "", "", "Wallet", "Tan", "One size", 3500, 4500, 20, "", "Leather", "Slim bifold wallet in genuine leather.", "Yes", "tan-wallet.jpg", "", "Sale"],
   // Coming soon: only a name, category and picture are needed; no price or stock yet, and the subcategory is left empty (it is optional).
   ["Charcoal Overcoat", "Coats", "", "", "", "Overcoat", "Charcoal", "", "", "", "", "", "", "", "Yes", "charcoal-overcoat.jpg", "Yes", ""],
 ];
+
+/** Ready-made lists for the Size dropdown (a cell takes the whole text, e.g. "S, M, L, XL"). */
+const SIZE_SETS = ["S, M, L, XL", "S, M, L, XL, XXL", "14.5, 15.5, 16.5, 17.5", "14.5, 15, 15.5, 16, 16.5, 17, 17.5", "28, 30, 32, 34, 36", "30, 32, 34, 36, 38, 40", "36, 38, 40, 42, 44", "One size"];
 
 const TYPE_SUGGESTIONS = ["Shalwar Kameez", "Kameez Shalwar", "Kurta", "Shirt", "T-Shirt", "Polo Shirt", "Pants", "Cargo Pants", "Jeans", "Waistcoat", "Sweater", "Hoodie", "Wallet", "Belt", "Card Holder", "Cap", "Socks"];
 
@@ -105,13 +108,16 @@ export async function downloadProductTemplate(categories: string[]) {
   guide.columns = [{ width: 4 }, { width: 100 }];
   const lines: Array<[string, boolean?]> = [
     ["How to add many products at once", true],
-    ["1.  Open the sheet called “2 - Your products”.", false],
-    ["2.  Type ONE ROW FOR EACH SIZE. A product with 4 sizes needs 4 rows. Copy the product name, category, type and colour down on every row.", false],
-    ["    Same product in another colour? Add its rows with the SAME product name and the other colour. The website joins them on one page: the shopper swipes through the photos and the colour, price and sizes follow. Put each colour's photo names on that colour's rows. Each size of each colour needs its own product code (leave it empty and we make it).", false],
-    ["3.  Columns with a * are needed. The others you can leave empty.", false],
-    ["4.  Category, Type and Yes/No have a little arrow — click the cell and pick from the list. Categories inside categories are optional: Category = Shirts, Subcategory = Formal Shirts, Sub-subcategory = Business Formal Shirts (then Level 4 if you need one). Fill them from left to right, copy them down on every row of the product, and a name that is new makes a new folder on the website. The product goes in the last one you fill.", false],
-    ["5.  Photos: write the picture file names in “Photo file names” (for example olive-cargo-1.jpg). You choose the pictures on the website in the next step. The first name is the main photo.", false],
-    ["6.  Look at the sheet “3 - Example” if you are not sure. Then save this file and upload it on the website: Products → Add many with Excel.", false],
+    ["1.  Open the sheet “2 - Your products”. If you are not sure about something, look at the sheet “3 - Example” first: it shows every case.", false],
+    ["2.  Use ONE ROW FOR EACH COLOUR of a product. Type its name, category, type and colour.", false],
+    ["3.  Sizes: click the Size cell and use the little arrow to pick a ready list (for example S, M, L, XL), or type your own sizes with commas:  14.5, 15, 15.5, 16.", false],
+    ["4.  Stock and prices: ONE number counts for every size (Stock 3, Price 5800). When the sizes differ, type one number for each size in the same order, with a comma and a space after it:  Stock  3, 5, 2, 1   and   Price  5800, 5800, 6200, 6200.  The same works for the Old price. If the count does not fit the sizes, the upload tells you which row.", false],
+    ["5.  Same product in another colour? Add another row with the SAME product name and the new colour. The website puts the colours on one page: the shopper swipes through the photos and the colour, price and sizes follow. Put each colour's photo names on that colour's row.", false],
+    ["6.  Product code is YOUR article number, easy to remember. Leave it empty and we make one. Typing one code for the whole product (FOR-132) is fine too: each size then gets its own, like FOR-132-14.5 and FOR-132-15.5. Two different products must not share a code.", false],
+    ["7.  Columns with a * are needed. The others you can leave empty. Fabric and Description are one text for the colour (write it on the first row of that colour; do not split it with commas).", false],
+    ["8.  Category, Type and Yes/No have a little arrow: click the cell and pick from the list. Categories inside categories are optional: Category = Shirts, Subcategory = Formal Shirts, Sub-subcategory = Business Formal Shirts (then Level 4 if you need one). Fill them from left to right, copy them down on every row of the product, and a name that is new makes a new folder on the website. The product goes in the last one you fill.", false],
+    ["9.  Photos: write the picture file names in “Photo file names” (for example olive-cargo-1.jpg). You choose the pictures on the website in the next step. The first name is the main photo.", false],
+    ["10. Save this file and upload it on the website: Products → Add many with Excel. We check everything first and tell you the row of every mistake, so nothing goes wrong.", false],
     ["", false],
     ["Using Google Sheets? Open this file in Google Sheets (File → Import), fill it in, then File → Download → Microsoft Excel (.xlsx). Upload that file.", false],
     ["Prices are in rupees, numbers only (6500, not Rs. 6,500/-). Do not change the titles in the first row.", false],
@@ -148,6 +154,8 @@ export async function downloadProductTemplate(categories: string[]) {
   lists.getCell("B1").value = "Types";
   lists.getCell("C1").value = "Yes/No";
   lists.getCell("D1").value = "Labels";
+  lists.getCell("E1").value = "Size lists";
+  SIZE_SETS.forEach((name, i) => (lists.getCell(`E${i + 2}`).value = name));
   const cats = categories.length ? categories : ["Shirts", "Pants", "Shalwar Kameez", "Accessories"];
   cats.forEach((name, i) => (lists.getCell(`A${i + 2}`).value = name));
   TYPE_SUGGESTIONS.forEach((name, i) => (lists.getCell(`B${i + 2}`).value = name));
@@ -162,8 +170,10 @@ export async function downloadProductTemplate(categories: string[]) {
     ws.getRow(r).getCell(col("show")).dataValidation = { type: "list", allowBlank: true, formulae: [`Lists!$C$2:$C$3`] };
     ws.getRow(r).getCell(col("comingSoon")).dataValidation = { type: "list", allowBlank: true, formulae: [`Lists!$C$2:$C$3`] };
     ws.getRow(r).getCell(col("label")).dataValidation = { type: "list", allowBlank: true, formulae: [`Lists!$D$2:$D$5`] };
-    ws.getRow(r).getCell(col("price")).dataValidation = { type: "decimal", operator: "greaterThan", formulae: [0], allowBlank: true, showErrorMessage: true, errorTitle: "Price", error: "Please type the price as a number, like 5500." };
-    ws.getRow(r).getCell(col("stock")).dataValidation = { type: "whole", operator: "greaterThanOrEqual", formulae: [0], allowBlank: true, showErrorMessage: true, errorTitle: "Stock", error: "Please type how many you have, as a whole number." };
+    // Ready-made size lists to pick from; anything else can still be typed ("14.5, 16").
+    ws.getRow(r).getCell(col("size")).dataValidation = { type: "list", allowBlank: true, showErrorMessage: false, formulae: [`Lists!$E$2:$E$${SIZE_SETS.length + 1}`] };
+    // Price, old price and stock may hold one number or one for each size ("5800, 5800, 6200"), so Excel must not refuse a list; the upload checks every row and names the mistake.
+    for (const key of ["price", "oldPrice", "stock"]) ws.getRow(r).getCell(col(key)).dataValidation = { type: "custom", allowBlank: true, showErrorMessage: false, formulae: ["TRUE"] };
   }
   void letter;
 
