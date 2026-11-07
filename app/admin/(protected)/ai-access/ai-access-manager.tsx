@@ -22,6 +22,7 @@ export type TokenRow = {
 };
 type Created = { token: string; label: string; expiresAt: number };
 
+/** A moment as “6 Nov, 18:30” in Pakistan time. */
 const when = (ms: number) => new Date(ms).toLocaleString("en-GB", { timeZone: "Asia/Karachi", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 const STATE: Record<TokenState, { tone: "done" | "muted" | "bad"; text: string }> = {
   active: { tone: "done", text: "Working" },
@@ -31,12 +32,15 @@ const STATE: Record<TokenState, { tone: "done" | "muted" | "bad"; text: string }
 
 /** The ready-to-paste lines for the assistants that take a token (Claude Code, Gemini CLI). */
 const claudeLine = (endpoint: string, token: string) => `claude mcp add --transport http nure-asmir ${endpoint} --header "Authorization: Bearer ${token}"`;
+/** The settings block for Gemini CLI, with the real token in it. */
 const geminiJson = (endpoint: string, token: string) => JSON.stringify({ mcpServers: { "nure-asmir": { httpUrl: endpoint, headers: { Authorization: `Bearer ${token}` } } } }, null, 2);
 
+/** The list of tokens with the dialogs to make one (shown once, with ready-to-copy lines) and to switch one off. */
 export function AiAccessManager({ initial, endpoint }: { initial: TokenRow[]; endpoint: string }) {
   const router = useRouter();
   const toast = useToast();
   const saver = useLockedAction();
+  const stopper = useLockedAction();
   const [creating, setCreating] = useState(false);
   const [label, setLabel] = useState("");
   const [scopes, setScopes] = useState<Scope[]>(DEFAULT_SCOPES);
@@ -57,14 +61,17 @@ export function AiAccessManager({ initial, endpoint }: { initial: TokenRow[]; en
     });
   }
 
+  /** Switches the chosen token off. Its own lock (not the one of “Make the token”), so pressing the button twice sends one request. */
   async function stop() {
     if (!stopping) return;
-    const result = await callApi(`/api/admin/mcp-tokens/${stopping.id}`, "DELETE");
-    if (result.ok) {
-      toast("Switched off.", "good");
-      router.refresh();
-    } else toast(result.error, "bad");
-    setStopping(null);
+    await stopper.run(async () => {
+      const result = await callApi(`/api/admin/mcp-tokens/${stopping.id}`, "DELETE");
+      if (result.ok) {
+        toast("Switched off.", "good");
+        router.refresh();
+      } else toast(result.error, "bad");
+      setStopping(null);
+    });
   }
 
   async function copy(text: string, what: string) {
@@ -172,7 +179,7 @@ export function AiAccessManager({ initial, endpoint }: { initial: TokenRow[]; en
           <p>“{stopping.label}” will stop working at once. The assistant will have to be given a new token to look at your shop again.</p>
           <div className="a-dialog-actions">
             <button type="button" className="a-btn" onClick={() => setStopping(null)}>Go back</button>
-            <button type="button" className="a-btn a-btn-danger" onClick={stop}>Switch off</button>
+            <button type="button" className="a-btn a-btn-danger" onClick={stop} disabled={stopper.pending} aria-busy={stopper.pending}>{stopper.pending ? "Switching off…" : "Switch off"}</button>
           </div>
         </Dialog>
       )}

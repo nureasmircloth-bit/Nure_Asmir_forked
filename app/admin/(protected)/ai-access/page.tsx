@@ -1,5 +1,4 @@
 import { desc } from "drizzle-orm";
-import { headers } from "next/headers";
 import { db } from "@/db";
 import { mcpTokens } from "@/db/schema";
 import { parseScopes, tokenState } from "@/lib/mcp/token";
@@ -11,6 +10,7 @@ import { ConnectGuide } from "./connect-guide";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "AI assistants" };
 
+/** Settings → AI assistants: the tokens, the dialog to make one, and the connection guide. */
 export default async function AiAccessPage() {
   const rows = await db.select().from(mcpTokens).orderBy(desc(mcpTokens.createdAt)).limit(50);
   const tokens: TokenRow[] = rows.map((row) => ({
@@ -25,10 +25,9 @@ export default async function AiAccessPage() {
     useCount: row.useCount,
     state: tokenState(row),
   }));
-  const list = await headers();
-  const host = list.get("x-forwarded-host") ?? list.get("host") ?? "admin.nureasmir.com";
-  const protocol = host.startsWith("localhost") ? "http" : "https";
-  const endpoint = `${protocol}://${host}/api/admin/mcp`;
+  // The address an assistant sends its token to comes from the site's own settings, never from the request's Host header (which a visitor's request could set to anything).
+  const origin = (process.env.NEXT_PUBLIC_ADMIN_URL || (process.env.NODE_ENV === "production" ? "https://admin.nureasmir.com" : "http://localhost:3000")).replace(/\/+$/, "");
+  const endpoint = `${origin}/api/admin/mcp`;
   return (
     <>
       <PageHeader title="AI assistants" intro="Let an AI assistant such as Claude or Gemini look at your shop and answer questions: which sizes are running out, what sold this week, what a product costs." />

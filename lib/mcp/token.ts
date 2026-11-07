@@ -22,6 +22,7 @@ export const LIFETIMES = [
 export type LifetimeKey = (typeof LIFETIMES)[number]["key"];
 export const DEFAULT_LIFETIME: LifetimeKey = "8h";
 
+/** Whether a text is one of the scope names a token can have. */
 export function isScope(value: string): value is Scope {
   return Object.prototype.hasOwnProperty.call(SCOPES, value);
 }
@@ -33,6 +34,7 @@ export function parseScopes(text: string | null | undefined): Scope[] {
 
 const toBase64Url = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
+/** A new token: the prefix and 32 random bytes. */
 export function generateToken(): string {
   return TOKEN_PREFIX + toBase64Url(crypto.getRandomValues(new Uint8Array(32)));
 }
@@ -53,6 +55,7 @@ export function bearerToken(header: string | null | undefined): string | null {
 export const tokenHint = (token: string) => `${token.slice(0, TOKEN_PREFIX.length + 4)}…`;
 
 export type TokenState = "active" | "expired" | "revoked";
+/** Whether a token can be used now, has run out of time or was switched off by the owner. */
 export function tokenState(row: { expiresAt: Date | number; revokedAt: Date | number | null }, now = Date.now()): TokenState {
   if (row.revokedAt) return "revoked";
   return new Date(row.expiresAt).getTime() <= now ? "expired" : "active";

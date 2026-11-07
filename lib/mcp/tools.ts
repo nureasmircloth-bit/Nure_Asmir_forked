@@ -9,13 +9,17 @@ import { ToolInputError, type ToolDef } from "./protocol";
 
 // ---- reading the arguments --------------------------------------------------------------------------------------------------------------------
 
-function text(args: Record<string, unknown>, name: string, max = 80): string {
+/** A text argument, trimmed. A search word is cut at `max` characters; with `exact` (a slug or a product code) a longer value is refused instead, so it is never matched in a shortened form. */
+function text(args: Record<string, unknown>, name: string, max = 80, exact = false): string {
   const value = args[name];
   if (value === undefined || value === null || value === "") return "";
   if (typeof value !== "string") throw new ToolInputError(`“${name}” must be text.`);
-  return value.trim().slice(0, max);
+  const trimmed = value.trim();
+  if (exact && trimmed.length > max) throw new ToolInputError(`“${name}” is too long (at most ${max} characters).`);
+  return trimmed.slice(0, max);
 }
 
+/** A whole-number argument inside a range, or the fallback when it is not given. */
 function whole(args: Record<string, unknown>, name: string, min: number, max: number, fallback: number): number {
   const value = args[name];
   if (value === undefined || value === null) return fallback;
@@ -30,7 +34,8 @@ const likePattern = (word: string) => `%${word.replace(/[\\%_]/g, (char) => `\\$
 
 type CategoryRow = { id: string; name: string; slug: string; parentId: string | null; status: string };
 
-async function allCategories(): Promise<{ rows: CategoryRow[]; path: (id: string) => string; withinIds: (id: string) => string[] }> {
+/** Every category, and a way to write the path of one as “Shirts > Formal Shirts”. */
+async function allCategories(): Promise<{ rows: CategoryRow[]; path: (id: string) => string }> {
   const rows = await db.select({ id: categories.id, name: categories.name, slug: categories.slug, parentId: categories.parentId, status: categories.status }).from(categories);
   const byId = new Map(rows.map((row) => [row.id, row]));
   const path = (id: string) => {
@@ -38,18 +43,18 @@ async function allCategories(): Promise<{ rows: CategoryRow[]; path: (id: string
     for (let cursor = byId.get(id), guard = 0; cursor && guard < 8; cursor = cursor.parentId ? byId.get(cursor.parentId) : undefined, guard++) names.unshift(cursor.name);
     return names.join(" > ");
   };
-  const withinIds = (id: string) => {
-    const found = [id];
-    for (let i = 0; i < found.length && found.length < 200; i++) for (const row of rows) if (row.parentId === found[i] && !found.includes(row.id)) found.push(row.id);
-    return found;
-  };
-  return { rows, path, withinIds };
+  return { rows, path };
 }
+
+/** “The product sits in this category or anywhere inside it”: the database walks the whole tree itself (UNION ends a loop), so no depth or size is cut off and no list of ids is bound. */
+const inCategoryTree = (id: string) =>
+  sql`${products.categoryId} in (with recursive sub(id) as (select ${id} union select c.id from categories c join sub on c.parent_id = sub.id) select id from sub)`;
 
 const available = sql<number>`(${productVariants.stockQuantity} - ${productVariants.reservedQuantity})`;
 
 // ---- the tools --------------------------------------------------------------------------------------------------------------------------------
 
+/** Tool: find products (by word, category and status) with a short card for each. */
 const searchProducts: ToolDef = {
   name: "search_products",
   title: "Search products",
@@ -91,7 +96,7 @@ const searchProducts: ToolDef = {
     if (categoryText) {
       const wanted = cats.rows.find((row) => row.slug === categoryText.toLowerCase() || row.name.toLowerCase() === categoryText.toLowerCase());
       if (!wanted) return { products: [], note: `No category called “${categoryText}”. Use list_categories to see the names.` };
-      conditions.push(inArray(products.categoryId, cats.withinIds(wanted.id)));
+      conditions.push(inCategoryTree(wanted.id));
     }
     const rows = await db
       .select({ id: products.id, name: products.name, slug: products.slug, status: products.status, typeLabel: products.typeLabel, categoryId: products.categoryId, comingSoon: products.comingSoon })
@@ -121,7 +126,8 @@ const searchProducts: ToolDef = {
           category: cats.path(row.categoryId),
           comingSoon: row.comingSoon,
           colours: [...new Set(list.map((variant) => variant.color))],
-          sizeCount: list.length,
+          // different sizes, not colour-and-size pairs: a shirt in 2 colours and 8 sizes has 8
+          sizeCount: new Set(list.map((variant) => variant.size ?? "")).size,
           priceFromTo: prices.length ? [Math.min(...prices), Math.max(...prices)] : null,
           piecesAvailable: list.reduce((sum, variant) => sum + Math.max(0, variant.stock - variant.reserved), 0),
         };
@@ -130,6 +136,7 @@ const searchProducts: ToolDef = {
   },
 };
 
+/** Tool: one product in full, with every colour and size. */
 const getProduct: ToolDef = {
   name: "get_product",
   title: "Get one product",
@@ -141,8 +148,8 @@ const getProduct: ToolDef = {
     additionalProperties: false,
   },
   async run(args) {
-    const slug = text(args, "slug");
-    const sku = text(args, "sku");
+    const slug = text(args, "slug", 200, true);
+    const sku = text(args, "sku", 200, true);
     if (!slug && !sku) throw new ToolInputError("Give a “slug” or a “sku”.");
     let where;
     if (slug) where = eq(products.slug, slug);
@@ -190,6 +197,7 @@ const getProduct: ToolDef = {
   },
 };
 
+/** Tool: the category tree with product counts. */
 const listCategories: ToolDef = {
   name: "list_categories",
   title: "List categories",
@@ -208,6 +216,7 @@ const listCategories: ToolDef = {
   },
 };
 
+/** Tool: the sizes that are running out or sold out. */
 const lowStock: ToolDef = {
   name: "low_stock",
   title: "Low or sold-out sizes",
@@ -235,6 +244,7 @@ const lowStock: ToolDef = {
   },
 };
 
+/** Tool: order counts and totals for the last days (no customer details). */
 const salesSummary: ToolDef = {
   name: "sales_summary",
   title: "Sales summary",
@@ -272,4 +282,5 @@ const salesSummary: ToolDef = {
   },
 };
 
+/** Every tool the connection offers; a token only sees those whose scope it has. */
 export const TOOLS: ToolDef[] = [searchProducts, getProduct, listCategories, lowStock, salesSummary];

@@ -1,8 +1,7 @@
-import { desc, isNull, and, gt, count } from "drizzle-orm";
-import { db } from "@/db";
+import { desc, eq, sql } from "drizzle-orm";
+import { db, runAtomically } from "@/db";
 import { mcpTokens } from "@/db/schema";
 import { getAdminUser } from "@/lib/auth/admin-auth";
-import { auditLogEntry } from "@/lib/admin/audit";
 import { DEFAULT_LIFETIME, generateToken, hashToken, isScope, LIFETIMES, parseScopes, tokenHint, tokenState } from "@/lib/mcp/token";
 
 export const dynamic = "force-dynamic";
@@ -10,8 +9,10 @@ export const dynamic = "force-dynamic";
 /** At most this many tokens can be in use (not expired, not switched off) at once. */
 const MAX_ACTIVE = 10;
 
+/** The practice shop has no AI access: its tokens would point at a throw-away copy of the shop. */
 const refusal = () => (process.env.SANDBOX === "1" ? "AI access is not part of the practice shop." : null);
 
+/** The tokens made so far (never the tokens themselves, only their names, hints and state). */
 export async function GET() {
   const admin = await getAdminUser();
   if (!admin) return Response.json({ error: "Unauthorized" }, { status: 401 });
@@ -48,16 +49,23 @@ export async function POST(request: Request) {
   const lifetime = LIFETIMES.find((option) => option.key === (typeof body.lifetime === "string" ? body.lifetime : DEFAULT_LIFETIME));
   if (!lifetime) return Response.json({ error: "Choose how long the token should work." }, { status: 400 });
 
-  const [{ active }] = await db.select({ active: count() }).from(mcpTokens).where(and(isNull(mcpTokens.revokedAt), gt(mcpTokens.expiresAt, new Date())));
-  if (active >= MAX_ACTIVE) return Response.json({ error: `${MAX_ACTIVE} tokens are already in use. Switch one off first.` }, { status: 400 });
-
   const token = generateToken();
-  const expiresAt = new Date(Date.now() + lifetime.ms);
+  const now = Date.now();
+  const expiresAt = now + lifetime.ms;
   const scopes = [...new Set(wanted)].join(",");
-  const [row] = await db
-    .insert(mcpTokens)
-    .values({ label, tokenHash: await hashToken(token), tokenPrefix: tokenHint(token), scopes, createdBy: admin.email, expiresAt })
-    .returning({ id: mcpTokens.id });
-  await auditLogEntry({ actorEmail: admin.email, action: "mcp.token.create", entityType: "mcp_token", entityId: row.id, detail: { label, scopes, lifetime: lifetime.key } });
-  return Response.json({ token, id: row.id, expiresAt: expiresAt.getTime(), label, scopes: parseScopes(scopes) }, { status: 201, headers: { "Cache-Control": "no-store" } });
+  const id = crypto.randomUUID();
+  const detail = JSON.stringify({ label, scopes, lifetime: lifetime.key });
+  // One all-or-nothing batch: the token is inserted only while fewer than MAX_ACTIVE are in use (the count and the insert are ONE statement, so two requests at once cannot both
+  // slip under the limit), and the activity-log entry is written only if the token was, so neither can exist without the other.
+  await runAtomically([
+    sql`insert into mcp_tokens (id, label, token_hash, token_prefix, scopes, created_by, expires_at)
+        select ${id}, ${label}, ${await hashToken(token)}, ${tokenHint(token)}, ${scopes}, ${admin.email}, ${expiresAt}
+        where (select count(*) from mcp_tokens where revoked_at is null and expires_at > ${now}) < ${MAX_ACTIVE}`,
+    sql`insert into admin_audit_log (actor_email, action, entity_type, entity_id, detail)
+        select ${admin.email}, 'mcp.token.create', 'mcp_token', ${id}, ${detail}
+        where exists (select 1 from mcp_tokens where id = ${id})`,
+  ]);
+  const [made] = await db.select({ id: mcpTokens.id }).from(mcpTokens).where(eq(mcpTokens.id, id)).limit(1);
+  if (!made) return Response.json({ error: `${MAX_ACTIVE} tokens are already in use. Switch one off first.` }, { status: 400 });
+  return Response.json({ token, id, expiresAt, label, scopes: parseScopes(scopes) }, { status: 201, headers: { "Cache-Control": "no-store" } });
 }

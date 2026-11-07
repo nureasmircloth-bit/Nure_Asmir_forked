@@ -1,3 +1,10 @@
+CREATE TABLE `mcp_rate_limits` (
+	`token_id` text NOT NULL,
+	`minute` integer NOT NULL,
+	`calls` integer DEFAULT 0 NOT NULL,
+	PRIMARY KEY(`token_id`, `minute`)
+);
+--> statement-breakpoint
 CREATE TABLE `mcp_tokens` (
 	`id` text PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)), 2) || '-' || substr('89ab', abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)), 2) || '-' || hex(randomblob(6)))) NOT NULL,
 	`label` text NOT NULL,

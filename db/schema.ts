@@ -100,6 +100,14 @@ export const mcpTokens = sqliteTable("mcp_tokens", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(nowMs),
 }, (table) => [index("mcp_tokens_expires_idx").on(table.expiresAt)]);
 
+/** How many requests each token made in each minute (lib/mcp/rate-limit-shared.ts). One atomic upsert per request, so the limit holds across all Worker copies. Old minutes are swept away. */
+export const mcpRateLimits = sqliteTable("mcp_rate_limits", {
+  tokenId: text("token_id").notNull(),
+  // The minute: whole minutes since 1970.
+  minute: integer("minute").notNull(),
+  calls: integer("calls").notNull().default(0),
+}, (table) => [primaryKey({ columns: [table.tokenId, table.minute] })]);
+
 export const categories = sqliteTable("categories", {
   id: uuid("id").primaryKey().default(uuidSql),
   name: text("name").notNull(),

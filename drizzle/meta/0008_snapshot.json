@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "c9e66940-9f9f-4708-a5a5-714296a71b6e",
+  "id": "f65db4b4-a6d6-426a-a156-8b31759aa8a2",
   "prevId": "246dc22d-9f24-4497-955f-3b0658540aea",
   "tables": {
     "admin_audit_log": {
@@ -1868,6 +1868,46 @@
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "mcp_rate_limits": {
+      "name": "mcp_rate_limits",
+      "columns": {
+        "token_id": {
+          "name": "token_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "minute": {
+          "name": "minute",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "calls": {
+          "name": "calls",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "mcp_rate_limits_token_id_minute_pk": {
+          "columns": [
+            "token_id",
+            "minute"
+          ],
+          "name": "mcp_rate_limits_token_id_minute_pk"
+        }
+      },
       "uniqueConstraints": {},
       "checkConstraints": {}
     },

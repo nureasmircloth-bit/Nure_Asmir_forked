@@ -5,6 +5,7 @@ const SHELL = { margin: "8px 0 0", padding: "12px 14px", background: "var(--surf
 const BOX = { border: "1px solid var(--line)", borderRadius: 10, padding: "12px 16px" } as const;
 const SUMMARY = { cursor: "pointer", fontWeight: 600 } as const;
 
+/** A block of text to copy. */
 function Code({ children }: { children: string }) {
   return <pre style={SHELL}><code>{children}</code></pre>;
 }
@@ -27,6 +28,7 @@ const TROUBLE: Array<[string, string]> = [
   ["The sales question is not answered", "Sales totals need the second box (“See sales totals and order counts”) when you make the token."],
 ];
 
+/** The “How to connect an assistant” section: one fold-out for each assistant, what to ask, what to do when it fails, and how to stay safe. */
 export function ConnectGuide({ endpoint }: { endpoint: string }) {
   const claudeCode = `claude mcp add --transport http nure-asmir ${endpoint} --header "Authorization: Bearer PASTE_YOUR_TOKEN_HERE"`;
   const gemini = JSON.stringify({ mcpServers: { "nure-asmir": { httpUrl: endpoint, headers: { Authorization: "Bearer PASTE_YOUR_TOKEN_HERE" } } } }, null, 2);

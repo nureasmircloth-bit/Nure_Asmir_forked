@@ -19,18 +19,22 @@ export type ToolDef = {
   name: string;
   title: string;
   description: string;
-  /** JSON Schema of the arguments. */
+  /** JSON Schema of the arguments (checked before the tool runs; see checkArguments). */
   inputSchema: Record<string, unknown>;
   scope: Scope;
   run: (args: Record<string, unknown>, ctx: ToolContext) => Promise<unknown>;
 };
 
 type JsonRpcId = string | number | null;
-type JsonRpcRequest = { jsonrpc?: string; id?: JsonRpcId; method?: string; params?: Record<string, unknown> };
+type JsonRpcRequest = { jsonrpc?: string; id?: unknown; method?: string; params?: Record<string, unknown> };
 export type RpcResponse = { jsonrpc: "2.0"; id: JsonRpcId; result?: unknown; error?: { code: number; message: string; data?: unknown } };
 
+/** A good JSON-RPC answer. */
 const ok = (id: JsonRpcId, result: unknown): RpcResponse => ({ jsonrpc: "2.0", id, result });
+/** A JSON-RPC error answer with a standard code (-32600 invalid request, -32601 no such method, -32602 bad parameters, -32700 parse error). */
 const fail = (id: JsonRpcId, code: number, message: string): RpcResponse => ({ jsonrpc: "2.0", id, error: { code, message } });
+/** Whether a value may be the id of a JSON-RPC request: a text, a number or null. */
+const isId = (value: unknown): value is JsonRpcId => typeof value === "string" || (typeof value === "number" && Number.isFinite(value)) || value === null;
 
 /** What an assistant sees of a tool (its scope and code stay on the server). */
 const describe = (tool: ToolDef) => ({
@@ -41,19 +45,55 @@ const describe = (tool: ToolDef) => ({
   annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 });
 
+/** One tool answer as MCP text content, cut when it is too long. */
 function textResult(data: unknown, isError = false) {
   let text = typeof data === "string" ? data : JSON.stringify(data, null, 1);
   if (text.length > MAX_RESULT_CHARS) text = `${text.slice(0, MAX_RESULT_CHARS)}\n… (cut here: ask for fewer rows or a narrower question)`;
   return { content: [{ type: "text", text }], ...(isError ? { isError: true } : {}) };
 }
 
+type Property = { type?: string; enum?: unknown[]; minimum?: number; maximum?: number };
+
+/**
+ * Checks the arguments against the tool's advertised schema, so a misspelt or out-of-range option is refused and can never quietly fall back to a default:
+ * unknown options (when the schema says additionalProperties: false), missing required ones, wrong types, values outside an enum or a min/max.
+ * A value of null counts as “not given”. Gives a plain sentence for the assistant, or null when all is well.
+ */
+export function checkArguments(schema: Record<string, unknown>, args: Record<string, unknown>): string | null {
+  const properties = (schema.properties ?? {}) as Record<string, Property>;
+  const allowed = Object.keys(properties);
+  if (schema.additionalProperties === false) {
+    const unknown = Object.keys(args).filter((name) => !allowed.includes(name));
+    if (unknown.length) return `Unknown option${unknown.length > 1 ? "s" : ""} ${unknown.map((name) => `“${name}”`).join(", ")}. This tool takes ${allowed.length ? allowed.map((name) => `“${name}”`).join(", ") : "no options"}.`;
+  }
+  for (const name of (schema.required ?? []) as string[]) if (args[name] === undefined || args[name] === null) return `“${name}” is required.`;
+  for (const [name, rule] of Object.entries(properties)) {
+    const value = args[name];
+    if (value === undefined || value === null) continue;
+    if (rule.type === "string" && typeof value !== "string") return `“${name}” must be text.`;
+    if (rule.type === "integer" && (typeof value !== "number" || !Number.isInteger(value))) return `“${name}” must be a whole number.`;
+    if (rule.enum && !rule.enum.includes(value)) return `“${name}” must be one of ${rule.enum.map((item) => `“${String(item)}”`).join(", ")}.`;
+    if (typeof value === "number") {
+      if (rule.minimum !== undefined && value < rule.minimum) return `“${name}” must be at least ${rule.minimum}.`;
+      if (rule.maximum !== undefined && value > rule.maximum) return `“${name}” must be at most ${rule.maximum}.`;
+    }
+  }
+  return null;
+}
+
+/** Answers one message; a message without an id is a notification and gets no answer, however it was processed. */
 async function handleOne(message: JsonRpcRequest, tools: ToolDef[], ctx: ToolContext): Promise<RpcResponse | null> {
   const isNotification = message.id === undefined;
-  const id = message.id ?? null;
-  if (message.jsonrpc !== "2.0" || typeof message.method !== "string") return isNotification ? null : fail(id, -32600, "Invalid request.");
-  const params = message.params ?? {};
+  // The envelope first: a message that is not a proper JSON-RPC 2.0 request (or whose id is not a text, a number or null) is refused, never treated as a notification.
+  if (message.jsonrpc !== "2.0" || typeof message.method !== "string" || (!isNotification && !isId(message.id))) return fail(isId(message.id) ? message.id : null, -32600, "Invalid request.");
+  const id: JsonRpcId = isNotification ? null : (message.id as JsonRpcId);
+  const answer = await dispatch(id, message.method, message.params && typeof message.params === "object" ? message.params : {}, tools, ctx);
+  return isNotification ? null : answer;
+}
 
-  switch (message.method) {
+/** Does what the method asks and gives the answer (the caller drops it for a notification). */
+async function dispatch(id: JsonRpcId, method: string, params: Record<string, unknown>, tools: ToolDef[], ctx: ToolContext): Promise<RpcResponse | null> {
+  switch (method) {
     case "initialize": {
       const asked = String(params.protocolVersion ?? "");
       const version = (SUPPORTED_VERSIONS as readonly string[]).includes(asked) ? asked : SUPPORTED_VERSIONS[0];
@@ -67,7 +107,10 @@ async function handleOne(message: JsonRpcRequest, tools: ToolDef[], ctx: ToolCon
       const tool = tools.find((candidate) => candidate.name === params.name);
       if (!tool) return fail(id, -32602, `Unknown tool “${String(params.name)}”.`);
       if (!ctx.scopes.includes(tool.scope)) return ok(id, textResult(`This access token does not have the “${tool.scope}” permission. Ask the owner for a new token that includes it.`, true));
-      const args = params.arguments && typeof params.arguments === "object" && !Array.isArray(params.arguments) ? (params.arguments as Record<string, unknown>) : {};
+      if (params.arguments !== undefined && (params.arguments === null || typeof params.arguments !== "object" || Array.isArray(params.arguments))) return ok(id, textResult("“arguments” must be an object.", true));
+      const args = (params.arguments ?? {}) as Record<string, unknown>;
+      const mistake = checkArguments(tool.inputSchema, args);
+      if (mistake) return ok(id, textResult(mistake, true));
       try {
         return ok(id, textResult(await tool.run(args, ctx)));
       } catch (error) {
@@ -82,8 +125,8 @@ async function handleOne(message: JsonRpcRequest, tools: ToolDef[], ctx: ToolCon
     case "prompts/list":
       return ok(id, { prompts: [] });
     default:
-      if (message.method.startsWith("notifications/")) return null;
-      return isNotification ? null : fail(id, -32601, `Method not found: ${message.method}`);
+      if (method.startsWith("notifications/")) return null;
+      return fail(id, -32601, `Method not found: ${method}`);
   }
 }
 
@@ -95,9 +138,10 @@ export async function handleRpc(body: unknown, tools: ToolDef[], ctx: ToolContex
   if (Array.isArray(body)) {
     if (body.length === 0) return fail(null, -32600, "Empty batch.");
     if (body.length > 20) return fail(null, -32600, "Too many messages in one batch.");
-    const answers = (await Promise.all(body.map((message) => handleOne((message ?? {}) as JsonRpcRequest, tools, ctx)))).filter((answer): answer is RpcResponse => answer !== null);
+    const answers = (await Promise.all(body.map((message) => handleOne(message && typeof message === "object" && !Array.isArray(message) ? (message as JsonRpcRequest) : {}, tools, ctx)))).filter((answer): answer is RpcResponse => answer !== null);
     return answers.length ? answers : null;
   }
-  if (!body || typeof body !== "object") return fail(null, -32700, "Parse error.");
+  // Valid JSON that is not a request (a bare text, number or null) is an invalid request; text that is not JSON at all is a parse error, answered by the route.
+  if (!body || typeof body !== "object") return fail(null, -32600, "Invalid request.");
   return handleOne(body as JsonRpcRequest, tools, ctx);
 }

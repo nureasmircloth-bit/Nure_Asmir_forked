@@ -98,7 +98,7 @@ Prices are in Pakistani rupees (PKR).
 - A token is a key: never put it in a chat, an e-mail or a screenshot.
 - Use the shortest time that is enough, and press **Switch off** when you are done.
 - If a token was shown anywhere it should not be, switch it off at once.
-- Making and switching off a token is written to the activity log with the owner's e-mail. The list shows when each token was last used and how often.
+- Making and switching off a token is written to the activity log with the e-mail of the person who did it (making a token is for the owner; switching one off is recorded under whoever pressed the button). The list shows when each token was last used and how often.
 
 ## For developers
 
