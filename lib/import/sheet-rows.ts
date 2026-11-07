@@ -6,7 +6,7 @@ import type { ProductImport } from "@/lib/import/product-import-schema";
 
 /** The most rows and the most products one call may carry. */
 export const MAX_ROWS = 300;
-export const MAX_PRODUCTS = 25;
+export const MAX_PRODUCTS = 50;
 
 /** What the “rows” argument of the product tools must look like: a list of at most MAX_ROWS objects. */
 export const ROWS_SCHEMA = { type: "array", items: { type: "object" }, maxItems: MAX_ROWS } as const;
