@@ -129,8 +129,8 @@ export function d1Binding(): D1Database | null {
 }
 
 /**
- * Runs several statements all-or-nothing. D1 has no interactive transactions: its `batch` applies a list of statements in one go (all or none).
- * The local SQLite file used by tests and scripts wraps the same list in a real transaction.
+ * Runs several statements all-or-nothing. D1 has no interactive transactions: its `batch` applies a list of statements in one go (all or none), so on Cloudflare the whole
+ * list is ONE batch (a list longer than db/d1-batch.ts's limit is refused, never split). The local SQLite file used by tests and scripts wraps the same list in a real transaction.
  */
 export async function runAtomically(statements: SQL[]): Promise<void> {
   if (!statements.length) return;

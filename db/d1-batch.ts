@@ -9,21 +9,26 @@ export type BatchBinding = {
   batch(statements: unknown[]): Promise<unknown>;
 };
 
-/** D1 accepts at most a few hundred statements in one batch; longer lists go in consecutive batches of this many (each batch is all-or-nothing, the list as a whole is not). */
-export const BATCH_SIZE = 90;
+/**
+ * The most statements one all-or-nothing group may hold. A group is ONE D1 batch, because that is the only thing D1 applies all-or-nothing: splitting a long list into several
+ * batches would leave the earlier ones saved when a later one fails (a half-restored practice shop). A longer list is refused before anything is sent.
+ */
+export const MAX_ATOMIC_STATEMENTS = 1000;
 
 /**
- * Each statement is turned into its text and its values and prepared on the binding, then sent with `binding.batch`. (drizzle's `db.run(...)` result cannot be put in
+ * Each statement is turned into its text and its values and prepared on the binding, then all are sent in one `binding.batch`. (drizzle's `db.run(...)` result cannot be put in
  * drizzle's own batch: that fails with "Cannot read properties of undefined (reading 'bind')", which is what a 500 on creating an AI token was.)
  */
 export async function batchOnD1(binding: BatchBinding, statements: SQL[]): Promise<void> {
-  const dialect = new SQLiteSyncDialect();
-  for (let i = 0; i < statements.length; i += BATCH_SIZE) {
-    await binding.batch(
-      statements.slice(i, i + BATCH_SIZE).map((statement) => {
-        const query = dialect.sqlToQuery(statement);
-        return binding.prepare(query.sql).bind(...(query.params as unknown[]));
-      }),
-    );
+  if (!statements.length) return;
+  if (statements.length > MAX_ATOMIC_STATEMENTS) {
+    throw new Error(`${statements.length} statements cannot be applied all-or-nothing in one go (the most is ${MAX_ATOMIC_STATEMENTS}). Nothing was changed.`);
   }
+  const dialect = new SQLiteSyncDialect();
+  await binding.batch(
+    statements.map((statement) => {
+      const query = dialect.sqlToQuery(statement);
+      return binding.prepare(query.sql).bind(...(query.params as unknown[]));
+    }),
+  );
 }

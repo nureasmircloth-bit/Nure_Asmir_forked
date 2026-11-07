@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { sql } from "drizzle-orm";
-import { batchOnD1, BATCH_SIZE, type BatchBinding } from "../../db/d1-batch";
+import { batchOnD1, MAX_ATOMIC_STATEMENTS, type BatchBinding } from "../../db/d1-batch";
 
 /** A stand-in for the D1 binding that records what it is given. */
 function fakeBinding() {
@@ -29,10 +29,24 @@ test.describe("grouped writes on Cloudflare D1", () => {
     expect(batches[0]).toEqual(prepared);
   });
 
-  test("a long list goes in consecutive batches", async () => {
+  test("a long list is still ONE batch, in the order it was given (a restore deletes before it inserts)", async () => {
     const { binding, batches } = fakeBinding();
-    await batchOnD1(binding, Array.from({ length: BATCH_SIZE * 2 + 5 }, (_, i) => sql`insert into t (n) values (${i})`));
-    expect(batches.map((batch) => batch.length)).toEqual([BATCH_SIZE, BATCH_SIZE, 5]);
+    const count = 450;
+    await batchOnD1(binding, Array.from({ length: count }, (_, i) => (i < 150 ? sql`delete from t where n = ${i}` : sql`insert into t (n) values (${i})`)));
+    expect(batches).toHaveLength(1); // one batch is the only all-or-nothing unit D1 has
+    const sent = batches[0] as Array<{ text: string; values: unknown[] }>;
+    expect(sent.map((statement) => statement.values[0])).toEqual(Array.from({ length: count }, (_, i) => i));
+    expect(sent.slice(0, 150).every((statement) => statement.text.startsWith("delete"))).toBe(true);
+    expect(sent.slice(150).every((statement) => statement.text.startsWith("insert"))).toBe(true);
+  });
+
+  test("a list longer than the most one group may hold is refused before anything is sent", async () => {
+    const { binding, prepared, batches } = fakeBinding();
+    await expect(batchOnD1(binding, Array.from({ length: MAX_ATOMIC_STATEMENTS + 1 }, (_, i) => sql`insert into t (n) values (${i})`))).rejects.toThrow(/Nothing was changed/);
+    expect(batches).toHaveLength(0);
+    expect(prepared).toHaveLength(0);
+    await batchOnD1(binding, Array.from({ length: MAX_ATOMIC_STATEMENTS }, (_, i) => sql`insert into t (n) values (${i})`)); // exactly the most is fine
+    expect(batches).toHaveLength(1);
   });
 
   test("a failing batch is passed on, never swallowed", async () => {
