@@ -136,7 +136,7 @@ export function AiAccessManager({ initial, endpoint }: { initial: TokenRow[]; en
                   <span>{SCOPES[scope]}</span>
                 </label>
               ))}
-              <span className="a-help">It can only look. It cannot change anything.</span>
+              <span className="a-help">Looking is always safe. “Add new products” lets it save new products as hidden drafts (after a preview); it never changes or deletes what exists.</span>
             </fieldset>
             <div className="a-field">
               <label htmlFor="ai-life">How long should it work?</label>

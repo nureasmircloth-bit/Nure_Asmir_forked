@@ -21,7 +21,7 @@ export function checkPictureFile(file: File): string | null {
 }
 
 /** Shrinks a picture and uploads it to a product. */
-export async function uploadProductPicture(options: { productId: string; file: File | Blob; altText: string; isPrimary?: boolean; sortOrder?: number; variantId?: string }): Promise<UploadOutcome> {
+export async function uploadProductPicture(options: { productId: string; file: File | Blob; altText: string; isPrimary?: boolean; sortOrder?: number; variantId?: string; pendingPictureId?: string }): Promise<UploadOutcome> {
   const source = options.file instanceof File ? options.file : new File([options.file], "picture.webp", { type: options.file.type || "image/webp" });
   const processed = await processImageClientSide(source);
   if (!processed) return { ok: false, error: "That picture could not be prepared. Try another picture (JPG, PNG or WebP)." };
@@ -32,6 +32,8 @@ export async function uploadProductPicture(options: { productId: string; file: F
   form.set("isPrimary", options.isPrimary ? "true" : "false");
   form.set("sortOrder", String(options.sortOrder ?? 0));
   if (options.variantId) form.set("variantId", options.variantId);
+  // A picture that answers a waiting-list entry (“Pictures for new products”) is crossed off by the server in the same request, so a picture can never be saved but still listed as missing.
+  if (options.pendingPictureId) form.set("pendingPictureId", options.pendingPictureId);
   form.set("width", String(processed.width));
   form.set("height", String(processed.height));
   form.set("blurDataUrl", processed.blurDataUrl);

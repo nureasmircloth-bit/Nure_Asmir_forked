@@ -1,8 +1,8 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { runInBackground } from "@/lib/background";
 import { syncProductSearch } from "@/lib/search/algolia";
 import { db } from "@/db";
-import { productImages } from "@/db/schema";
+import { pendingPictures, productImages } from "@/db/schema";
 import { getAdminUser } from "@/lib/auth/admin-auth";
 import { validateImageUpload } from "@/lib/validation";
 import { newObjectKey, putObject } from "@/lib/storage";
@@ -22,6 +22,8 @@ export async function POST(request: Request) {
   const altText = form.get("altText");
   const sortOrder = form.get("sortOrder");
   const isPrimary = form.get("isPrimary");
+  // Set by the “Pictures for new products” page: the waiting-list entry this picture answers, crossed off below once the picture is saved.
+  const pendingPictureId = form.get("pendingPictureId");
 
   if (!(file instanceof File)) return Response.json({ error: "An image file is required." }, { status: 400 });
   if (typeof productId !== "string" || !productId) return Response.json({ error: "productId is required." }, { status: 400 });
@@ -100,12 +102,16 @@ export async function POST(request: Request) {
     })
     .returning();
 
+  if (typeof pendingPictureId === "string" && /^[0-9a-f-]{36}$/i.test(pendingPictureId)) {
+    await db.delete(pendingPictures).where(and(eq(pendingPictures.id, pendingPictureId), eq(pendingPictures.productId, productId)));
+  }
+
   await auditLogEntry({
     actorEmail: admin.email,
     action: "image.create",
     entityType: "product",
     entityId: productId,
-    detail: { imageId: row.id, altText: row.altText },
+    detail: { imageId: row.id, altText: row.altText, ...(typeof pendingPictureId === "string" && pendingPictureId ? { fromWaitingList: pendingPictureId } : {}) },
   });
 
   runInBackground(syncProductSearch(productId), "syncProductSearch");

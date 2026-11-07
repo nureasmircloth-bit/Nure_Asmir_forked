@@ -17,6 +17,7 @@ const QUESTIONS = [
   "List my categories and how many products are in each.",
   "Which products are still drafts and not on the website?",
   "Find the white shirts and tell me which sizes are sold out.",
+  "(needs “Add new products”) Add these three shirts: … sizes 14.5 to 17.5, price 5800, 3 in stock each, article numbers FOR-140 to FOR-142. Show me the preview first.",
 ];
 
 const TROUBLE: Array<[string, string]> = [
@@ -83,7 +84,7 @@ export function ConnectGuide({ endpoint }: { endpoint: string }) {
         <ul style={{ margin: "10px 0 0", paddingLeft: 20 }}>
           {QUESTIONS.map((question) => <li key={question}>“{question}”</li>)}
         </ul>
-        <p className="a-muted" style={{ margin: "8px 0 0" }}>The assistant can only look. It cannot change a price, a stock number, a product or an order, and it never sees customer names, phone numbers or addresses. Prices are in rupees.</p>
+        <p className="a-muted" style={{ margin: "8px 0 0" }}>Without “Add new products” the assistant can only look. With it, new products are saved hidden after a preview and your yes; you add the pictures at <strong>Products → Pictures for new products</strong> (drag and drop) and publish. It cannot change or delete anything that exists, and it never sees customer names, phone numbers or addresses. Prices are in rupees.</p>
       </details>
 
       <details style={BOX}>

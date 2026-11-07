@@ -4,10 +4,11 @@
 
 export const TOKEN_PREFIX = "na_mcp_";
 
-/** What a token may do. Every scope is read-only for now; the ones that change the shop come with their own scope later. */
+/** What a token may do. The two “read” scopes only look. “products:write” adds new products, always as hidden drafts: the owner adds the pictures and publishes them in the admin. */
 export const SCOPES = {
   "catalog:read": "Look at products, sizes, prices, stock and categories",
   "sales:read": "See sales totals and order counts (no customer names, phones or addresses)",
+  "products:write": "Add new products as hidden drafts (you add the pictures and publish them yourself)",
 } as const;
 export type Scope = keyof typeof SCOPES;
 export const DEFAULT_SCOPES: Scope[] = ["catalog:read"];
