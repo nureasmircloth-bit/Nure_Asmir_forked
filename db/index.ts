@@ -2,6 +2,7 @@ import type { D1Database } from "@cloudflare/workers-types";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { drizzle as drizzleD1, type DrizzleD1Database } from "drizzle-orm/d1";
 import type { SQL } from "drizzle-orm";
+import { batchOnD1, type BatchBinding } from "./d1-batch";
 import * as schema from "./schema";
 
 /**
@@ -128,13 +129,18 @@ export function d1Binding(): D1Database | null {
 }
 
 /**
- * Runs several statements all-or-nothing. D1 has no interactive transactions: its `batch` applies a list of statements in one go (all or none).
- * The local SQLite file used by tests and scripts wraps the same list in a real transaction.
+ * Runs several statements all-or-nothing. D1 has no interactive transactions: its `batch` applies a list of statements in one go (all or none), so on Cloudflare the whole
+ * list is ONE batch (a list longer than db/d1-batch.ts's limit is refused, never split). The local SQLite file used by tests and scripts wraps the same list in a real transaction.
  */
 export async function runAtomically(statements: SQL[]): Promise<void> {
   if (!statements.length) return;
+  const binding = d1Binding();
+  if (binding) {
+    // On Cloudflare the statements go straight to D1's own batch (see db/d1-batch.ts).
+    await batchOnD1(binding as unknown as BatchBinding, statements);
+    return;
+  }
   const target = resolve() as unknown as {
-    batch?: (queries: unknown[]) => Promise<unknown>;
     run: (query: SQL) => unknown;
     transaction?: (body: (tx: { run: (query: SQL) => unknown }) => void) => void;
   };
@@ -144,13 +150,8 @@ export async function runAtomically(statements: SQL[]): Promise<void> {
     });
     return;
   }
-  // D1 accepts at most a few hundred statements per batch; larger lists are sent in consecutive batches of 90.
-  if (!target.batch) {
-    // Over the HTTP API there is no batch: the statements are sent one after another (scripts only).
-    for (const statement of statements) await target.run(statement);
-    return;
-  }
-  for (let i = 0; i < statements.length; i += 90) await target.batch(statements.slice(i, i + 90).map((statement) => target.run(statement)));
+  // Over the HTTP API there is no batch: the statements are sent one after another (scripts only).
+  for (const statement of statements) await target.run(statement);
 }
 
 export { schema };
