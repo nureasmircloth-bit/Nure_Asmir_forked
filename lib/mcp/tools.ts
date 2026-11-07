@@ -1,10 +1,11 @@
-// The tools an AI assistant can call. All of them only READ (the first version of the connection cannot change anything in the shop).
+// The tools an AI assistant can call. Those in this file only READ; the ones that add new products (as hidden drafts, after a preview) are in product-tools.ts.
 // Answers hold shop data only: no customer names, phones, e-mails or addresses.
 
 import { and, count, desc, eq, gte, inArray, ne, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { categories, orders, productImages, productVariants, products } from "@/db/schema";
 import { daysAgoMs } from "@/db/sql-compat";
+import { productTools } from "./product-tools";
 import { ToolInputError, type ToolDef } from "./protocol";
 
 // ---- reading the arguments --------------------------------------------------------------------------------------------------------------------
@@ -283,4 +284,4 @@ const salesSummary: ToolDef = {
 };
 
 /** Every tool the connection offers; a token only sees those whose scope it has. */
-export const TOOLS: ToolDef[] = [searchProducts, getProduct, listCategories, lowStock, salesSummary];
+export const TOOLS: ToolDef[] = [searchProducts, getProduct, listCategories, lowStock, salesSummary, ...productTools];

@@ -1,7 +1,7 @@
 # AI assistants (MCP) – connecting Claude, Gemini and others to the shop
 
 An AI assistant can look at the shop and answer questions: which sizes are running out, what a product costs, what sold this week.
-It can only **look**. It cannot change a price, a stock number, a product or an order, and it never sees customer names, phone numbers, e-mails or addresses.
+Unless you give it the “Add new products” permission it can only **look**; with that permission it can also add new products as **hidden drafts** (see “Adding products” below). It cannot change a price, a stock number, a product or an order, and it never sees customer names, phone numbers, e-mails or addresses.
 
 The connection is an **MCP server** (Model Context Protocol, plain HTTP) on the admin site:
 
@@ -21,6 +21,7 @@ Authorization: Bearer na_mcp_…
 |---|---|
 | See products, sizes, prices, stock and categories | `search_products`, `get_product`, `list_categories`, `low_stock` |
 | See sales totals and order counts | `sales_summary` (totals only, no customer details) |
+| Add new products as hidden drafts | `prepare_products`, `create_products` (and `products_waiting_for_pictures`, which only looks) |
 
 Only the owner can make tokens, at most 10 can be in use at once, and each token may make 60 requests a minute.
 
@@ -83,7 +84,23 @@ These connect with a “Sign in and allow” button, not a token. That button (O
 
 Prices are in Pakistani rupees (PKR).
 
-## 4. If it does not work
+## 4. Adding products
+
+Tick **Add new products as hidden drafts** when you make the token. Then tell the assistant what to add, for example:
+
+> Add these two shirts to the shop. Slim Oxford Shirt in white and sky blue, category Shirts > Formal Shirts, sizes 14.5, 15.5, 16.5, price 7800 for the first two sizes and 8200 for the last, 3 pieces of each, article numbers AI-101 (white) and AI-102 (blue), pictures oxford-white-1.jpg, oxford-white-2.jpg and oxford-blue-1.jpg. Show me the preview first.
+
+What happens:
+
+1. The assistant writes the rows **like the Excel sheet** (one row for each colour; sizes, prices and stock as one value or one for each size) and calls `prepare_products`. **Nothing is saved.** It answers with a preview: each product page with its colours, the price, stock and code of every size, the new categories and the pictures to add, or the problems with the row number.
+2. The assistant shows you the preview. **Only if you say yes** it calls `create_products` with the same rows and the confirm code from the preview. If anything in the rows changed after the preview, the code does not fit and nothing is saved.
+3. The products are saved **hidden** (drafts). Nothing is on the website yet.
+4. You add the pictures: **Products → Pictures for new products** (the Products page shows a notice while products wait). Drag all the pictures in at once: they are matched to the products by the file names written in the rows (capital letters and the file ending do not matter) and put on the right product and colour. A picture you do not have can be skipped.
+5. Press **Publish** (or **Publish all**) when a product has its pictures.
+
+Limits and safety: at most 25 products (300 rows) in one call and 200 products a day; products that already exist cannot be changed or deleted this way (a name or a code that is taken is reported in the preview); every creation is written to the activity log with the token's name; the assistant never adds pictures.
+
+## 5. If it does not work
 
 | What you see | What to do |
 |---|---|
@@ -93,7 +110,7 @@ Prices are in Pakistani rupees (PKR).
 | The assistant has no tools | Restart the assistant after adding the connection. The address must start with `https://` and end with `/api/admin/mcp`. Type `/mcp` to see the state. |
 | “does not have the … permission” | Make a new token with that box ticked (for sales, the second box). |
 
-## 5. Keeping it safe
+## 6. Keeping it safe
 
 - A token is a key: never put it in a chat, an e-mail or a screenshot.
 - Use the shortest time that is enough, and press **Switch off** when you are done.

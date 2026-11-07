@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { asc, sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { categories, products } from "@/db/schema";
+import { aiProducts, categories, products } from "@/db/schema";
 import { mediaUrl } from "@/lib/media-url";
 import { HelpBox } from "../../_ui/client";
 import { PrefetchExcel } from "../../_ui/prefetch-excel";
 import { Icon } from "../../_ui/icons";
-import { Badge, EmptyState, PageHeader, Pager, Tabs, Thumb, pkr, when } from "../../_ui/ui";
+import { Badge, EmptyState, Note, PageHeader, Pager, Tabs, Thumb, pkr, when } from "../../_ui/ui";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Products" };
@@ -56,6 +56,8 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
     db.select({ id: categories.id, name: categories.name }).from(categories).orderBy(asc(categories.sortOrder), asc(categories.name)),
     db.select({ status: products.status, n: sql<number>`count(*)` }).from(products).groupBy(products.status),
   ]);
+  // Products an AI assistant added are hidden drafts until the owner adds their pictures and publishes them.
+  const [{ n: fromAssistant }] = await db.select({ n: sql<number>`count(*)` }).from(aiProducts).innerJoin(products, eq(products.id, aiProducts.productId)).where(and(eq(products.status, "draft")));
   const rows = ((result as unknown as { rows: Row[] }).rows ?? []).map((row) => ({ ...row, created: new Date(row.created) }));
   const total = Number(((totalResult as unknown as { rows: Array<{ n: number }> }).rows ?? [])[0]?.n ?? 0);
   const countOf = (status: string) => counts.find((row) => row.status === status)?.n ?? 0;
@@ -88,6 +90,12 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
           </>
         }
       />
+      {Number(fromAssistant) > 0 && (
+        <Note>
+          <strong>{Number(fromAssistant)} new product{Number(fromAssistant) === 1 ? "" : "s"} from your AI assistant {Number(fromAssistant) === 1 ? "is" : "are"} hidden.</strong> Add their pictures and publish them on the{" "}
+          <Link href="/admin/products/new-pictures" style={{ textDecoration: "underline" }}>Pictures for new products</Link> page.
+        </Note>
+      )}
       <HelpBox id="products">
         <ol>
           <li>Press <strong>Add product</strong> to add one thing. It takes about three minutes.</li>

@@ -36,7 +36,7 @@ export default async function AiAccessPage() {
           <li>Press <strong>Give access to an assistant</strong>, name it, choose what it may look at and for how long. Short is safer: you can always make a new one.</li>
           <li><strong>Copy the token</strong> that appears. It is shown only once; we keep no copy of it.</li>
           <li>In your assistant, add a connection (an “MCP server”) with the address and the token. The box that appears has the exact line to paste for Claude Code and Gemini CLI.</li>
-          <li>Ask in plain words, for example “which shirts have only a few pieces left?”. The assistant can only <strong>look</strong>: it cannot change a price, a stock number or an order, and it never sees customer names, phone numbers or addresses.</li>
+          <li>Ask in plain words, for example “which shirts have only a few pieces left?”. With the first two boxes the assistant can only <strong>look</strong>. With “Add new products” it can also add new products, but only as <strong>hidden drafts</strong>, after showing you a preview and getting your yes. It can never change or delete anything that exists, and it never sees customer names, phone numbers or addresses. You add the pictures yourself (drag and drop) and publish.</li>
         </ol>
         <p>You can switch a token off at any time. Every token stops by itself when its time is up.</p>
       </HelpBox>

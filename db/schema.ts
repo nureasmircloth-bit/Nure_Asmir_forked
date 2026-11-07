@@ -731,3 +731,26 @@ export const sandboxBaseline = sqliteTable("sandbox_baseline", {
   rows: jsonb("rows").$type<unknown[]>().notNull(),
   capturedAt: timestamp("captured_at", { withTimezone: true }).notNull().default(nowMs),
 });
+
+/** Products an AI assistant created (always as hidden drafts), so the admin can list them, ask for their pictures and publish them (lib/import/create-from-sheet.ts). */
+export const aiProducts = sqliteTable("ai_products", {
+  productId: text("product_id").primaryKey().references(() => products.id, { onDelete: "cascade" }),
+  // The name of the access token that made it.
+  tokenLabel: text("token_label").notNull(),
+  // The sheet's "Show on website?" answer: the owner's intention once the pictures are there.
+  wantsPublished: boolean("wants_published").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(nowMs),
+});
+
+/** A picture an AI-made product is still waiting for: the file name the sheet promised, and where the picture goes. The owner drops the files in the admin and they are matched by name. */
+export const pendingPictures = sqliteTable("pending_pictures", {
+  id: uuid("id").primaryKey().default(uuidSql),
+  productId: text("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
+  // The colour's first size, when the product has several colours (the shop shows a colour's own pictures when it is picked).
+  variantId: text("variant_id"),
+  fileName: text("file_name").notNull(),
+  altText: text("alt_text").notNull(),
+  isPrimary: boolean("is_primary").notNull().default(false),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(nowMs),
+}, (table) => [index("pending_pictures_product_idx").on(table.productId)]);

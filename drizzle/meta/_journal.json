@@ -64,6 +64,13 @@
       "when": 1794019990739,
       "tag": "0008_mcp_tokens",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1794075798557,
+      "tag": "0009_ai_products",
+      "breakpoints": true
     }
   ]
 }
