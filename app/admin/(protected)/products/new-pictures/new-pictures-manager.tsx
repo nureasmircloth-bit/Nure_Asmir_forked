@@ -47,24 +47,24 @@ export function NewPicturesManager({ waiting, ready }: { waiting: WaitingProduct
     setPictures(next);
   }
 
-  /** Saves every matched picture on its product (shrunk in this browser first, like every picture), then crosses it off the waiting list. */
+  /** Saves every matched picture on its product (shrunk in this browser first, like every picture). The server crosses each one off the waiting list in the same request that saves it,
+   *  so a picture can never be saved yet still listed as missing, and a failed one simply stays on the list to be tried again. */
   async function addMatched() {
     await uploader.run(async () => {
-      const done: string[] = [];
+      let done = 0;
       const failed: string[] = [];
       for (const product of waiting) {
         const jobs = product.files.filter((file) => pictureFor(file.fileName)).sort((a, b) => a.sortOrder - b.sortOrder);
         for (const job of jobs) {
           setProgress(`${product.name} — ${job.fileName}`);
-          const outcome = await uploadProductPicture({ productId: product.productId, file: pictureFor(job.fileName) as File, altText: job.altText, isPrimary: job.isPrimary, sortOrder: job.sortOrder, variantId: job.variantId ?? undefined });
-          if (outcome.ok) done.push(job.id);
+          const outcome = await uploadProductPicture({ productId: product.productId, file: pictureFor(job.fileName) as File, altText: job.altText, isPrimary: job.isPrimary, sortOrder: job.sortOrder, variantId: job.variantId ?? undefined, pendingPictureId: job.id });
+          if (outcome.ok) done += 1;
           else failed.push(`${job.fileName}: ${outcome.error}`);
         }
       }
-      for (let i = 0; i < done.length; i += 80) await callApi("/api/admin/pending-pictures", "POST", { ids: done.slice(i, i + 80) });
       setProgress("");
       setPictures(new Map());
-      if (done.length) toast(`${done.length} picture${done.length === 1 ? "" : "s"} added.`, "good");
+      if (done) toast(`${done} picture${done === 1 ? "" : "s"} added.`, "good");
       if (failed.length) toast(failed[0] + (failed.length > 1 ? ` (and ${failed.length - 1} more)` : ""), "bad");
       router.refresh();
     });
@@ -92,7 +92,8 @@ export function NewPicturesManager({ waiting, ready }: { waiting: WaitingProduct
     });
   }
 
-  const publishable = ready.filter((item) => item.pictures > 0);
+  // “Publish all” leaves out the products the sheet said not to show yet (“Show on website?” = No); each of those still has its own Publish button.
+  const publishable = ready.filter((item) => item.pictures > 0 && item.wantsPublished);
 
   return (
     <div className="a-stack">
@@ -183,7 +184,7 @@ export function NewPicturesManager({ waiting, ready }: { waiting: WaitingProduct
           </ul>
           {publishable.length > 1 && (
             <div className="a-card-pad a-row" style={{ borderTop: "1px solid var(--line)", justifyContent: "flex-end" }}>
-              <button type="button" className="a-btn a-btn-primary" disabled={publisher.pending} aria-busy={publisher.pending} onClick={() => void publish(publishable)}>Publish all {publishable.length} with pictures</button>
+              <button type="button" className="a-btn a-btn-primary" disabled={publisher.pending} aria-busy={publisher.pending} onClick={() => void publish(publishable)} title="Products marked “do not show yet” in the sheet are left out; publish those one by one">Publish all {publishable.length} that are ready</button>
             </div>
           )}
         </section>

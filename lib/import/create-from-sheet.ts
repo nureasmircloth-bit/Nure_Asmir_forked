@@ -2,7 +2,7 @@
 // still waiting for (the owner drops them in the admin, see app/admin/(protected)/products/new-pictures). The reading of the rows is lib/import/sheet-rows.ts (pure);
 // the saving of one product is lib/import/import-product.ts (the same code as the admin's bulk upload).
 
-import { count, gte, inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { chunked } from "@/db/sql-compat";
 import { aiProducts, categories, pendingPictures, productVariants, products } from "@/db/schema";
@@ -13,9 +13,6 @@ import { importOne } from "@/lib/import/import-product";
 import { groupColours, importPayload } from "@/lib/import/sheet-rows";
 import { categoryPathOf, type ParsedProduct } from "@/lib/product-sheet";
 import { slugify } from "@/lib/slug";
-
-/** Most products an assistant may add in one day (all calls together). */
-export const DAILY_LIMIT = 200;
 
 const norm = (name: string) => splitCategoryPath(name).join(" > ").toLowerCase();
 
@@ -59,14 +56,10 @@ export async function shopProblems(parsed: ParsedProduct[]): Promise<{ problems:
 
 export type CreatedProduct = { name: string; ok: boolean; productId?: string; sizes: number; picturesWaiting: number; message?: string };
 
-/** How many products assistants added in the last 24 hours. */
-export async function addedToday(): Promise<number> {
-  const [{ n }] = await db.select({ n: count() }).from(aiProducts).where(gte(aiProducts.createdAt, new Date(Date.now() - 86_400_000)));
-  return n;
-}
-
 /**
  * Saves each product as a hidden draft and notes the pictures it waits for. One product failing does not stop the others (it is reported). The rows have been checked before this is called.
+ * A product is all or nothing as far as the result goes: if any of its sizes could not be saved, or the notes about its pictures could not be, the product is removed again
+ * (its sizes and notes go with it), so no half-made draft is left behind and none is reported as added.
  */
 export async function createDrafts(parsed: ParsedProduct[], tokenLabel: string): Promise<CreatedProduct[]> {
   const results: CreatedProduct[] = [];
@@ -74,23 +67,31 @@ export async function createDrafts(parsed: ParsedProduct[], tokenLabel: string):
   for (let index = 0; index < groups.length; index++) {
     const group = groups[index];
     const sizes = group.colours.reduce((sum, colour) => sum + colour.variants.length, 0);
+    let productId: string | undefined;
     try {
       const saved = await importOne(importPayload(group), index);
+      productId = saved.productId;
       if (!saved.success || !saved.productId) {
         results.push({ name: group.first.name, ok: false, sizes, picturesWaiting: 0, message: saved.error ?? "Could not be added." });
         continue;
       }
-      await db.insert(aiProducts).values({ productId: saved.productId, tokenLabel, wantsPublished: group.first.visible && !group.first.comingSoon });
+      if (saved.variantErrors?.length) throw new Error(`not every size could be saved: ${saved.variantErrors.join(" ")}`);
+      const stored = await db.select({ id: productVariants.id, color: productVariants.color }).from(productVariants).where(eq(productVariants.productId, saved.productId));
+      if (stored.length !== sizes) throw new Error(`${stored.length} of ${sizes} sizes were saved`);
+      const colourOf = new Map(stored.map((row) => [row.id, row.color]));
+      await db.insert(aiProducts).values({ productId: saved.productId, tokenLabel, wantsPublished: group.first.visible });
       const jobs = saved.images ?? [];
       for (const part of chunked(jobs, 12)) {
-        await db.insert(pendingPictures).values(part.map((job) => ({ productId: saved.productId as string, variantId: job.variantId ?? null, fileName: job.file, altText: job.alt, isPrimary: job.isPrimary, sortOrder: job.order })));
+        await db.insert(pendingPictures).values(part.map((job) => ({ productId: saved.productId as string, color: job.variantId ? (colourOf.get(job.variantId) ?? null) : null, fileName: job.file, altText: job.alt, isPrimary: job.isPrimary, sortOrder: job.order })));
       }
-      results.push({ name: group.first.name, ok: true, productId: saved.productId, sizes, picturesWaiting: jobs.length, message: saved.variantErrors?.join(" ") || undefined });
+      results.push({ name: group.first.name, ok: true, productId: saved.productId, sizes, picturesWaiting: jobs.length });
     } catch (error) {
+      // Take back what was saved of this product (its sizes and picture notes are removed with it), so nothing half-made stays.
+      if (productId) await db.delete(products).where(eq(products.id, productId)).catch((cleanup) => console.error("mcp product cleanup failed", cleanup));
       if (error instanceof CategoryInputError) results.push({ name: group.first.name, ok: false, sizes, picturesWaiting: 0, message: error.message });
       else {
         console.error("mcp product create failed", error);
-        results.push({ name: group.first.name, ok: false, sizes, picturesWaiting: 0, message: "Could not be added just now." });
+        results.push({ name: group.first.name, ok: false, sizes, picturesWaiting: 0, message: "Could not be added just now, and nothing of it was kept." });
       }
     }
   }

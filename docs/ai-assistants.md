@@ -19,9 +19,9 @@ Authorization: Bearer na_mcp_…
 
 | Tick | The assistant may |
 |---|---|
-| See products, sizes, prices, stock and categories | `search_products`, `get_product`, `list_categories`, `low_stock` |
+| See products, sizes, prices, stock and categories | `search_products`, `get_product`, `list_categories`, `low_stock`, `products_waiting_for_pictures` |
 | See sales totals and order counts | `sales_summary` (totals only, no customer details) |
-| Add new products as hidden drafts | `prepare_products`, `create_products` (and `products_waiting_for_pictures`, which only looks) |
+| Add new products as hidden drafts | `prepare_products`, `create_products` |
 
 Only the owner can make tokens, at most 10 can be in use at once, and each token may make 60 requests a minute.
 
@@ -93,12 +93,12 @@ Tick **Add new products as hidden drafts** when you make the token. Then tell th
 What happens:
 
 1. The assistant writes the rows **like the Excel sheet** (one row for each colour; sizes, prices and stock as one value or one for each size) and calls `prepare_products`. **Nothing is saved.** It answers with a preview: each product page with its colours, the price, stock and code of every size, the new categories and the pictures to add, or the problems with the row number.
-2. The assistant shows you the preview. **Only if you say yes** it calls `create_products` with the same rows and the confirm code from the preview. If anything in the rows changed after the preview, the code does not fit and nothing is saved.
+2. The assistant is told to show you the preview and ask. If you agree it calls `create_products` with the same rows and the **one-use confirmation** from the preview. The confirmation is random, belongs to that token and to exactly those rows, and works once for 30 minutes: so the preview cannot be skipped or reused, and if anything in the rows changed after the preview, nothing is saved. It cannot prove that a person read the preview: that is why everything is saved **hidden**, and nothing is on the website until you press Publish yourself.
 3. The products are saved **hidden** (drafts). Nothing is on the website yet.
-4. You add the pictures: **Products → Pictures for new products** (the Products page shows a notice while products wait). Drag all the pictures in at once: they are matched to the products by the file names written in the rows (capital letters and the file ending do not matter) and put on the right product and colour. A picture you do not have can be skipped.
-5. Press **Publish** (or **Publish all**) when a product has its pictures.
+4. You add the pictures: **Products → Pictures for new products** (the Products page shows a notice while products wait). Drag all the pictures in at once: they are matched to the products by the file names written in the rows (capital letters and the file ending do not matter) and put on the right product and colour. A picture you do not have can be skipped (that is written to the activity log). Each picture is crossed off the waiting list by the same request that saves it, so a picture can never be saved yet still listed as missing.
+5. Press **Publish** when a product has its pictures. **Publish all** publishes the ones that have pictures, except those the sheet marked “do not show yet” (publish those one by one).
 
-Limits and safety: at most 25 products (300 rows) in one call and 200 products a day; products that already exist cannot be changed or deleted this way (a name or a code that is taken is reported in the preview); every creation is written to the activity log with the token's name; the assistant never adds pictures.
+Limits and safety: at most 25 products (300 rows) in one call and 200 products a day for all assistants together (counted atomically, so two calls at once cannot go over); products that already exist cannot be changed or deleted this way (a name or a code that is taken is reported in the preview; the same name in different categories is refused, because those colours would become one product page); every creation is written to the activity log with the token's name; the assistant never adds pictures.
 
 ## 5. If it does not work
 

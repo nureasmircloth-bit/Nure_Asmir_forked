@@ -8,6 +8,9 @@ import type { ProductImport } from "@/lib/import/product-import-schema";
 export const MAX_ROWS = 300;
 export const MAX_PRODUCTS = 25;
 
+/** What the “rows” argument of the product tools must look like: a list of at most MAX_ROWS objects. */
+export const ROWS_SCHEMA = { type: "array", items: { type: "object" }, maxItems: MAX_ROWS } as const;
+
 const norm = (text: unknown) => String(text ?? "").toLowerCase().replace(/\(.*?\)/g, " ").replace(/[*:_\-./?]/g, " ").replace(/\s+/g, " ").trim();
 
 /** Every spelling of a column an assistant may use (the key, the title in the sheet, or one of the titles the importer knows), in the same plain form. */
@@ -36,6 +39,7 @@ export function rowsToTable(rows: unknown[]): RowsToTable {
   rows.forEach((row, n) => {
     if (!row || typeof row !== "object" || Array.isArray(row)) {
       problems.push(`Row ${n + 1} must be an object with the sheet's columns, for example {"name": "…", "category": "…"}.`);
+      table.push(SHEET_COLUMNS.map(() => "")); // an empty row is skipped by the reader but keeps the numbering of the rows after it
       return;
     }
     const cells: unknown[] = SHEET_COLUMNS.map(() => "");
@@ -129,7 +133,7 @@ export function previewOf(products: ParsedProduct[]): Preview {
     category: categoryPathOf(first),
     type: first.type,
     description: first.description ? first.description.slice(0, 300) : null,
-    willShowOnWebsite: first.visible && !first.comingSoon,
+    willShowOnWebsite: first.visible,
     colours: colours.map((colour) => ({
       colour: colour.colour,
       photosToAdd: colour.photos,
@@ -147,9 +151,26 @@ export function previewOf(products: ParsedProduct[]): Preview {
   };
 }
 
-/** Reads the rows with the sheet's own reader. */
+/**
+ * Colours that share a name and a main category are put on one product page, which takes its category path and type from the first colour. If the colours disagree about
+ * that (one in “Shirts > Formal Shirts”, another in “Shirts > Casual”, or a different “What is it?”), the other colour would end up in the wrong place without a word:
+ * so it is refused and each product needs its own name.
+ */
+export function conflictsInGroups(products: ParsedProduct[]): string[] {
+  const problems: string[] = [];
+  for (const group of groupColours(products)) {
+    const first = group.first;
+    for (const colour of group.colours.slice(1)) {
+      if (categoryPathOf(colour) !== categoryPathOf(first)) problems.push(`Row ${colour.row - 1}: “${colour.name}” is in “${categoryPathOf(colour)}” here but in “${categoryPathOf(first)}” on row ${first.row - 1}. Products with the same name become one product page, so give each product a different name.`);
+      else if (colour.type.toLowerCase() !== first.type.toLowerCase()) problems.push(`Row ${colour.row - 1}: “${colour.name}” is a “${colour.type}” here but a “${first.type}” on row ${first.row - 1}. Give each product a different name.`);
+    }
+  }
+  return problems;
+}
+
+/** Reads the rows with the sheet's own reader, then checks that colours with one name really are one product. */
 export function readRows(rows: unknown[]): { parsed: ParsedSheet; problems: string[] } {
   const { table, problems } = rowsToTable(rows);
   const parsed = parseProductTable(table);
-  return { parsed, problems: [...problems, ...parsed.problems.map((problem) => `Row ${problem.row - 1}: ${problem.message}`)] };
+  return { parsed, problems: [...problems, ...parsed.problems.map((problem) => `Row ${problem.row - 1}: ${problem.message}`), ...conflictsInGroups(parsed.products)] };
 }

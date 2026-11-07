@@ -3,6 +3,7 @@ import { checkArguments, handleRpc, type ToolContext, type ToolDef } from "../..
 import { digestOf, groupColours, importPayload, previewOf, readRows, rowsToTable, MAX_ROWS } from "../../lib/import/sheet-rows";
 import { SHEET_COLUMNS } from "../../lib/product-sheet";
 import { parseScopes, SCOPES } from "../../lib/mcp/token";
+import { CREATE_INPUT, PREPARE_INPUT, WAITING_INPUT } from "../../lib/mcp/product-tool-schemas";
 
 const shirt = { name: "Plaid Check Shirt", category: "Shirts", subcategory: "Formal Shirts", type: "Shirt", colour: "Beige", size: "14.5, 15.5", price: "14500, 15500", stock: 2, code: "FOR-132", photos: "plaid-beige-1.jpg, plaid-beige-2.jpg", description: "A refined check." };
 const shirtPink = { ...shirt, colour: "Pink", code: "FOR-133", photos: ["plaid-pink-1.jpg"], description: "" };
@@ -73,12 +74,41 @@ test.describe("AI products: the rows", () => {
     }
   });
 
-  test("the limits: the tool's schema accepts MAX_ROWS rows and refuses more, text instead of a list, or no rows", () => {
-    const schema = { type: "object", properties: { rows: { type: "array", maxItems: MAX_ROWS } }, required: ["rows"], additionalProperties: false };
-    expect(checkArguments(schema, { rows: Array.from({ length: MAX_ROWS }, () => ({})) })).toBeNull();
-    expect(checkArguments(schema, { rows: Array.from({ length: MAX_ROWS + 1 }, () => ({})) })).toMatch(/at most 300/);
-    expect(checkArguments(schema, { rows: "text" })).toMatch(/must be a list/);
-    expect(checkArguments(schema, {})).toMatch(/required/);
+  test("the real schemas of prepare_products and create_products accept MAX_ROWS rows and refuse more, text instead of a list, no rows, and unknown options", () => {
+    const rows = (n: number) => Array.from({ length: n }, () => ({}));
+    for (const [name, schema, extra] of [["prepare_products", PREPARE_INPUT, {}], ["create_products", CREATE_INPUT, { confirm: "prep_x" }]] as const) {
+      const check = (args: Record<string, unknown>) => checkArguments(schema as unknown as Record<string, unknown>, args);
+      expect(check({ rows: rows(MAX_ROWS), ...extra }), name).toBeNull();
+      expect(check({ rows: rows(MAX_ROWS + 1), ...extra }), name).toMatch(/at most 300/);
+      expect(check({ rows: "text", ...extra }), name).toMatch(/must be a list/);
+      expect(check({ ...extra }), name).toMatch(/required/);
+      expect(check({ rows: rows(1), ...extra, surprise: 1 }), name).toMatch(/Unknown option/);
+    }
+    expect(checkArguments(CREATE_INPUT as unknown as Record<string, unknown>, { rows: rows(1) })).toMatch(/“confirm” is required/);
+    expect(checkArguments(WAITING_INPUT as unknown as Record<string, unknown>, { page: 2 })).toBeNull();
+    expect(checkArguments(WAITING_INPUT as unknown as Record<string, unknown>, { page: 0 })).toMatch(/at least 1/);
+  });
+
+  test("a bad row keeps its place: the problems of the rows after it carry the numbers the assistant sent", () => {
+    const { problems } = readRows([shirt, "not an object", { ...shirt, name: "Bad Price Shirt", code: "FOR-9", price: "cheap" }]);
+    expect(problems.some((message) => /^Row 2 must be an object/.test(message))).toBe(true);
+    expect(problems.some((message) => /^Row 3: Price “cheap” is not a number/.test(message))).toBe(true);
+  });
+
+  test("colours with one name must really be one product: a different category path or a different type is refused, the same is merged", () => {
+    const other = { ...shirt, colour: "Pink", code: "FOR-133", photos: undefined };
+    expect(readRows([shirt, other]).problems).toEqual([]);
+    const elsewhere = readRows([shirt, { ...other, subcategory: "Casual Shirts" }]).problems;
+    expect(elsewhere).toHaveLength(1);
+    expect(elsewhere[0]).toMatch(/^Row 2: “Plaid Check Shirt” is in “Shirts > Casual Shirts” here but in “Shirts > Formal Shirts” on row 1/);
+    expect(readRows([shirt, { ...other, type: "Kurta" }]).problems[0]).toMatch(/^Row 2: “Plaid Check Shirt” is a “Kurta” here but a “Shirt” on row 1/);
+  });
+
+  test("“will show on the website” is what the sheet says, also for a coming-soon product", () => {
+    const visible = previewOf(readRows([{ ...shirt, comingSoon: "Yes" }]).parsed.products);
+    expect(visible.products[0].willShowOnWebsite).toBe(true);
+    const hidden = previewOf(readRows([{ ...shirt, show: "No" }]).parsed.products);
+    expect(hidden.products[0].willShowOnWebsite).toBe(false);
   });
 });
 

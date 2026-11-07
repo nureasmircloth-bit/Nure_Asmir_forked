@@ -1,26 +1,24 @@
-// The tools that ADD products (permission “products:write”). Two steps, so nothing is saved by surprise: prepare_products only shows what would be made and gives a confirm code;
-// create_products saves the SAME rows, as hidden drafts, only when it gets that code. The pictures are not part of it: the owner drops them in the admin, matched by the file names
-// written in the rows, and publishes. Nothing that already exists can be changed or deleted from here.
+// The tools that ADD products (permission “products:write”). Two steps, so nothing is saved by surprise: prepare_products only shows what would be made and hands out a one-use
+// confirmation for exactly those rows; create_products saves the SAME rows, as hidden drafts, only with that confirmation (lib/mcp/guards.ts). The pictures are not part of it: the
+// owner drops them in the admin, matched by the file names written in the rows, and publishes. Nothing that already exists can be changed or deleted from here.
+//
+// What the confirmation does and does not do: it makes the preview impossible to skip or reuse, and ties the save to the previewed rows. It cannot prove that a person read the preview.
+// That is what the assistant is told to ask the owner, and in the end the owner's own Publish click is the approval: everything stays hidden until then.
 
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { pendingPictures, products } from "@/db/schema";
-import { addedToday, createDrafts, DAILY_LIMIT, shopProblems } from "@/lib/import/create-from-sheet";
-import { digestOf, MAX_PRODUCTS, MAX_ROWS, previewOf, readRows } from "@/lib/import/sheet-rows";
-import { SHEET_COLUMNS } from "@/lib/product-sheet";
+import { createDrafts, shopProblems } from "@/lib/import/create-from-sheet";
+import { digestOf, MAX_PRODUCTS, previewOf, readRows } from "@/lib/import/sheet-rows";
+import { DAILY_LIMIT, issueConfirmation, redeemConfirmation, releaseQuota, reserveQuota } from "./guards";
+import { CREATE_INPUT, PREPARE_INPUT, WAITING_INPUT } from "./product-tool-schemas";
 import { ToolInputError, type ToolDef } from "./protocol";
 
 /** Where the owner drops the pictures (the admin site's own address, from the site settings). */
 const picturesPage = () => `${(process.env.NEXT_PUBLIC_ADMIN_URL || "https://admin.nureasmir.com").replace(/\/+$/, "")}/admin/products/new-pictures`;
 
-const ROW_HELP =
-  "One object for each COLOUR of a product (or for each size; both work and can be mixed), written like the owner's Excel sheet. Keys: " +
-  SHEET_COLUMNS.map((column) => `${column.key}${column.required ? "*" : ""}`).join(", ") +
-  ". Examples: sizes as one text with commas (\"14.5, 15.5, 16.5\") or a list; price, oldPrice and stock as ONE number for every size or one for each size in the same order (\"5800, 5800, 6200\"); " +
-  "code is the owner's own article number (each size then gets its own code made from it); photos are the picture FILE NAMES the owner will drop later (\"white-1.jpg, white-2.jpg\"); " +
-  "show is Yes/No. Another colour of the same product is another row with the same name and a different colour.";
-
-const rowsSchema = { type: "array", items: { type: "object" }, maxItems: MAX_ROWS, description: ROW_HELP };
+/** How many products one page of products_waiting_for_pictures holds. */
+const WAITING_PAGE = 20;
 
 /** The rows from the arguments (a list of objects, at least one). */
 function rowsOf(args: Record<string, unknown>): unknown[] {
@@ -45,20 +43,20 @@ const prepareProducts: ToolDef = {
   title: "Preview new products",
   description:
     "Checks rows for NEW products exactly as the owner's Excel upload would, and shows what the shop would get: each product page with its colours, the price, stock and code of every size, " +
-    "the categories that would be made and the pictures to add. NOTHING is saved. If it says ready, show the preview to the owner and, only if they agree, call create_products with the same rows and the confirm code.",
+    "the categories that would be made and the pictures to add. NOTHING is saved. If it says ready, show the preview to the owner and ask whether to add them; only if they agree, call create_products with the same rows and the confirmation.",
   scope: "products:write",
-  inputSchema: { type: "object", properties: { rows: rowsSchema }, required: ["rows"], additionalProperties: false },
-  async run(args) {
+  inputSchema: PREPARE_INPUT as unknown as Record<string, unknown>,
+  async run(args, ctx) {
     const { parsed, preview, problems, newCategories } = await check(rowsOf(args));
     const ready = problems.length === 0 && parsed.products.length > 0;
     return {
       ready,
       problems,
-      ...(ready ? { confirm: await digestOf(parsed.products) } : {}),
+      ...(ready ? { confirm: await issueConfirmation(ctx.tokenId, await digestOf(parsed.products)) } : {}),
       newCategoriesThatWillBeMade: newCategories,
       preview,
       next: ready
-        ? "Show this preview to the owner. If they say yes, call create_products with exactly the same rows and the confirm code. The products are saved as hidden drafts; the owner adds the pictures and publishes them in the admin."
+        ? "Show this preview to the owner and ask whether to add these products. If they agree, call create_products with exactly the same rows and the confirm value (it works once, for these rows, for 30 minutes). The products are saved as hidden drafts; the owner adds the pictures and publishes them in the admin."
         : "Fix the problems and call prepare_products again. Nothing was saved.",
     };
   },
@@ -69,28 +67,39 @@ const createProducts: ToolDef = {
   name: "create_products",
   title: "Add the previewed products",
   description:
-    "Saves the products you just previewed with prepare_products, as HIDDEN DRAFTS, and remembers which pictures each one waits for. Needs the same rows and the confirm code from the preview, and the owner's yes. " +
-    "Products that already exist cannot be changed. The owner adds the pictures at the admin's “Pictures for new products” page and publishes them.",
+    "Saves the products you just previewed with prepare_products, as HIDDEN DRAFTS, and remembers which pictures each one waits for. Needs the same rows and the one-use confirmation from the preview; " +
+    "call it only after the owner has agreed to the preview. Products that already exist cannot be changed. The owner adds the pictures at the admin's “Pictures for new products” page and publishes them.",
   scope: "products:write",
   readOnly: false,
-  inputSchema: { type: "object", properties: { rows: rowsSchema, confirm: { type: "string", description: "The confirm code prepare_products gave for these exact rows." } }, required: ["rows", "confirm"], additionalProperties: false },
+  inputSchema: CREATE_INPUT as unknown as Record<string, unknown>,
   async run(args, ctx) {
     const rows = rowsOf(args);
     const { parsed, preview, problems } = await check(rows);
     if (problems.length) throw new ToolInputError(`These rows cannot be added yet, nothing was saved: ${problems.slice(0, 12).join(" | ")}`);
-    if ((await digestOf(parsed.products)) !== String(args.confirm ?? "").trim()) throw new ToolInputError("These rows are not the ones that were previewed (or the confirm code is wrong). Call prepare_products again, show the owner the preview and use its confirm code. Nothing was saved.");
-    const today = await addedToday();
-    if (today + preview.totals.products > DAILY_LIMIT) throw new ToolInputError(`Assistants can add ${DAILY_LIMIT} products a day; ${today} were added in the last 24 hours. Nothing was saved.`);
+    // The confirmation is used up here, in one atomic step: it must be this token's, made for exactly these rows, not used and not expired.
+    if (!(await redeemConfirmation(ctx.tokenId, String(args.confirm ?? "").trim(), await digestOf(parsed.products)))) {
+      throw new ToolInputError("The confirmation is wrong, was already used, has expired, or belongs to other rows. Call prepare_products again with these rows, show the owner the preview and use the new confirm value. Nothing was saved.");
+    }
+    const day = await reserveQuota(preview.totals.products);
+    if (!day) throw new ToolInputError(`Assistants can add ${DAILY_LIMIT} products a day and today's room is used up (or too little is left for ${preview.totals.products}). Nothing was saved; try again tomorrow.`);
 
-    const results = await createDrafts(parsed.products, ctx.label);
+    let results;
+    try {
+      results = await createDrafts(parsed.products, ctx.label);
+    } catch (error) {
+      await releaseQuota(day, preview.totals.products).catch(() => undefined);
+      throw error;
+    }
     const made = results.filter((result) => result.ok);
+    await releaseQuota(day, preview.totals.products - made.length).catch(() => undefined); // room for the products that were not made goes back
+    const pictures = made.reduce((sum, result) => sum + result.picturesWaiting, 0);
     return {
       added: made.length,
       failed: results.length - made.length,
       products: results,
-      picturesWaiting: made.reduce((sum, result) => sum + result.picturesWaiting, 0),
+      picturesWaiting: pictures,
       next: made.length
-        ? `Tell the owner: ${made.length} product${made.length === 1 ? " is" : "s are"} saved as hidden drafts. They are not on the website yet. Add the pictures (${made.reduce((sum, result) => sum + result.picturesWaiting, 0)} file names are waiting) by dragging them onto ${picturesPage()}, then publish.`
+        ? `Tell the owner: ${made.length} product${made.length === 1 ? " is" : "s are"} saved as hidden drafts. They are not on the website yet. Add the pictures (${pictures} file name${pictures === 1 ? " is" : "s are"} waiting) by dragging them onto ${picturesPage()}, then publish.`
         : "Nothing was added; see the messages.",
     };
   },
@@ -100,23 +109,29 @@ const createProducts: ToolDef = {
 const waitingForPictures: ToolDef = {
   name: "products_waiting_for_pictures",
   title: "Products waiting for pictures",
-  description: "The products assistants added that still wait for pictures, with the picture file names the owner has to drop at the admin's “Pictures for new products” page. Use it to tell the owner exactly which files are missing.",
+  description: "The products assistants added that still wait for pictures, with the picture file names the owner has to drop at the admin's “Pictures for new products” page, 20 products a page. Use it to tell the owner exactly which files are missing; ask for the next page while the answer says hasMore.",
   scope: "catalog:read",
-  inputSchema: { type: "object", properties: {}, additionalProperties: false },
-  async run() {
-    const rows = await db
-      .select({ name: products.name, status: products.status, file: pendingPictures.fileName })
+  inputSchema: WAITING_INPUT as unknown as Record<string, unknown>,
+  async run(args) {
+    const page = typeof args.page === "number" ? args.page : 1;
+    // The products to show on this page (a stable order: name, then id), taken before their pictures are looked up, so a product is never split between two pages.
+    const waiting = await db
+      .selectDistinct({ id: products.id, name: products.name, status: products.status })
       .from(pendingPictures)
       .innerJoin(products, eq(products.id, pendingPictures.productId))
-      .orderBy(products.name, pendingPictures.sortOrder)
-      .limit(500);
-    const byProduct = new Map<string, { product: string; status: string; filesWaiting: string[] }>();
-    for (const row of rows) {
-      const entry = byProduct.get(row.name) ?? { product: row.name, status: row.status, filesWaiting: [] };
-      entry.filesWaiting.push(row.file);
-      byProduct.set(row.name, entry);
-    }
-    return { addPicturesHere: picturesPage(), products: [...byProduct.values()] };
+      .orderBy(products.name, products.id)
+      .limit(WAITING_PAGE + 1)
+      .offset((page - 1) * WAITING_PAGE);
+    const shown = waiting.slice(0, WAITING_PAGE);
+    const files = shown.length
+      ? await db.select({ productId: pendingPictures.productId, file: pendingPictures.fileName, sortOrder: pendingPictures.sortOrder }).from(pendingPictures).where(inArray(pendingPictures.productId, shown.map((row) => row.id))).orderBy(pendingPictures.sortOrder, pendingPictures.fileName)
+      : [];
+    return {
+      addPicturesHere: picturesPage(),
+      page,
+      hasMore: waiting.length > WAITING_PAGE,
+      products: shown.map((row) => ({ product: row.name, status: row.status, filesWaiting: files.filter((file) => file.productId === row.id).map((file) => file.file) })),
+    };
   },
 };
 

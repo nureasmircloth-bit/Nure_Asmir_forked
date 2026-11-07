@@ -746,11 +746,28 @@ export const aiProducts = sqliteTable("ai_products", {
 export const pendingPictures = sqliteTable("pending_pictures", {
   id: uuid("id").primaryKey().default(uuidSql),
   productId: text("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
-  // The colour's first size, when the product has several colours (the shop shows a colour's own pictures when it is picked).
-  variantId: text("variant_id"),
+  // The colour the picture belongs to, when the product has several colours (the shop shows a colour's own pictures when it is picked). The size to attach it to is looked up when the
+  // picture is added, so a size that was removed in the meantime never leaves a picture pointing at nothing.
+  color: text("color"),
   fileName: text("file_name").notNull(),
   altText: text("alt_text").notNull(),
   isPrimary: boolean("is_primary").notNull().default(false),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(nowMs),
 }, (table) => [index("pending_pictures_product_idx").on(table.productId)]);
+
+/** The confirmation prepare_products hands out (lib/mcp/product-tools.ts): random, single use, tied to one token and to exactly the rows that were previewed. create_products only works with one. */
+export const mcpConfirmations = sqliteTable("mcp_confirmations", {
+  code: text("code").primaryKey(),
+  tokenId: text("token_id").notNull(),
+  // A short code of the previewed rows (lib/import/sheet-rows.ts digestOf), so the confirmation fits only those rows.
+  digest: text("digest").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  usedAt: timestamp("used_at", { withTimezone: true }),
+}, (table) => [index("mcp_confirmations_expires_idx").on(table.expiresAt)]);
+
+/** How many products assistants may still add today: one atomic counter for each day (UTC), so calls at the same moment cannot go over the daily limit. */
+export const mcpDailyQuota = sqliteTable("mcp_daily_quota", {
+  day: text("day").primaryKey(),
+  added: integer("added").notNull().default(0),
+});
