@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { checkArguments, handleRpc, type ToolContext, type ToolDef } from "../../lib/mcp/protocol";
-import { digestOf, groupColours, importPayload, previewOf, readRows, rowsToTable, MAX_ROWS, splitByBudget, workOf, WORK_BUDGET } from "../../lib/import/sheet-rows";
+import { digestOf, groupColours, importPayload, previewOf, readRows, rowsToTable, splitByBudget, workOf, WORK_BUDGET } from "../../lib/import/sheet-rows";
 import { SHEET_COLUMNS } from "../../lib/product-sheet";
 import { parseScopes, SCOPES } from "../../lib/mcp/token";
 import { CREATE_INPUT, PREPARE_INPUT, WAITING_INPUT } from "../../lib/mcp/product-tool-schemas";
@@ -78,8 +78,8 @@ test.describe("AI products: the rows", () => {
     const rows = (n: number) => Array.from({ length: n }, () => ({}));
     for (const [name, schema, extra] of [["prepare_products", PREPARE_INPUT, {}], ["create_products", CREATE_INPUT, { confirm: "prep_x" }]] as const) {
       const check = (args: Record<string, unknown>) => checkArguments(schema as unknown as Record<string, unknown>, args);
-      expect(check({ rows: rows(MAX_ROWS), ...extra }), name).toBeNull();
-      expect(check({ rows: rows(MAX_ROWS + 1), ...extra }), name).toMatch(new RegExp(`at most ${MAX_ROWS}`));
+      expect(check({ rows: rows(600), ...extra }), name).toBeNull();
+      expect(check({ rows: rows(601), ...extra }), name).toMatch(/at most 600/);
       expect(check({ rows: "text", ...extra }), name).toMatch(/must be a list/);
       expect(check({ ...extra }), name).toMatch(/required/);
       expect(check({ rows: rows(1), ...extra, surprise: 1 }), name).toMatch(/Unknown option/);

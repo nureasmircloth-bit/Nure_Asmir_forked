@@ -24,7 +24,7 @@ export default async function NewPicturesPage({ searchParams }: { searchParams: 
   const waitingWhere = and(ne(products.status, "archived"), hasWaitingPictures);
   const [{ waitingTotal }] = await db.select({ waitingTotal: count() }).from(aiProducts).innerJoin(products, eq(products.id, aiProducts.productId)).where(waitingWhere);
   const waitingRows = await db
-    .select({ productId: aiProducts.productId, name: products.name })
+    .select({ productId: aiProducts.productId, name: products.name, status: products.status })
     .from(aiProducts)
     .innerJoin(products, eq(products.id, aiProducts.productId))
     .where(waitingWhere)
@@ -61,6 +61,7 @@ export default async function NewPicturesPage({ searchParams }: { searchParams: 
   const waiting: WaitingProduct[] = waitingRows.map((product) => ({
     productId: product.productId,
     name: product.name,
+    status: product.status,
     files: pending.filter((row) => row.productId === product.productId).map((row) => ({ id: row.id, fileName: row.fileName, altText: row.altText, isPrimary: row.isPrimary, sortOrder: row.sortOrder, variantId: sizeOfColour(product.productId, row.color) })),
   }));
   const ready: ReadyProduct[] = readyRows.map((product) => ({ productId: product.productId, name: product.name, pictures: pictureCount.get(product.productId) ?? 0, wantsPublished: product.wantsPublished }));
@@ -69,7 +70,7 @@ export default async function NewPicturesPage({ searchParams }: { searchParams: 
       <p style={{ marginBottom: 10 }}>
         <Link href="/admin/products" className="a-muted">← All products</Link>
       </p>
-      <PageHeader title="Pictures for new products" intro="Products your AI assistant added are saved hidden. Drag ALL their pictures here at once: they are matched by file name and put on the right product and colour. Then publish." />
+      <PageHeader title="Pictures for new products" intro="Products your AI assistant added are saved hidden (one that you already published can still wait for pictures and is marked “On the website”). Drag ALL their pictures here at once: they are matched by file name and put on the right product and colour. Then publish." />
       <NewPicturesManager waiting={waiting} waitingTotal={waitingTotal} ready={ready} />
       <Pager page={page} pageSize={PAGE_SIZE} total={readyTotal} hrefFor={(next) => `/admin/products/new-pictures${next > 1 ? `?page=${next}` : ""}`} />
     </>

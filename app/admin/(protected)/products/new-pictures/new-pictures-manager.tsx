@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { DragEvent, useRef, useState } from "react";
+import { DragEvent, useMemo, useRef, useState } from "react";
 import { ACCEPTED_PICTURES, checkPictureFile, uploadProductPicture } from "@/lib/client-upload";
 import { useLockedAction } from "@/lib/use-locked-action";
 import { callApi, Dialog, useToast } from "../../../_ui/client";
@@ -10,7 +10,7 @@ import { Icon } from "../../../_ui/icons";
 import { Badge, EmptyState, Note } from "../../../_ui/ui";
 
 export type WaitingFile = { id: string; fileName: string; altText: string; isPrimary: boolean; sortOrder: number; variantId: string | null };
-export type WaitingProduct = { productId: string; name: string; files: WaitingFile[] };
+export type WaitingProduct = { productId: string; name: string; status: string; files: WaitingFile[] };
 export type ReadyProduct = { productId: string; name: string; pictures: number; wantsPublished: boolean };
 
 const fileKey = (name: string) => name.trim().toLowerCase();
@@ -33,7 +33,12 @@ export function NewPicturesManager({ waiting, waitingTotal, ready }: { waiting: 
   const [skippingAll, setSkippingAll] = useState(false);
 
   /** The dropped file for a file name from the sheet: the same name, or the same name with another ending (white.jpg and white.png are one picture). */
-  const pictureFor = (name: string) => pictures.get(fileKey(name)) ?? [...pictures.entries()].find(([key]) => stem(key) === stem(name))?.[1];
+  const byStem = useMemo(() => {
+    const index = new Map<string, File>();
+    for (const [key, file] of pictures) if (!index.has(stem(key))) index.set(stem(key), file);
+    return index;
+  }, [pictures]);
+  const pictureFor = (name: string) => pictures.get(fileKey(name)) ?? byStem.get(stem(name));
   const wanted = waiting.flatMap((product) => product.files);
   const matched = wanted.filter((file) => pictureFor(file.fileName));
   const missing = wanted.filter((file) => !pictureFor(file.fileName));
@@ -156,7 +161,7 @@ export function NewPicturesManager({ waiting, waitingTotal, ready }: { waiting: 
                 return (
                   <li key={product.productId} className="a-stack" style={{ gap: 6 }}>
                     <div className="a-row">
-                      <strong>{product.name}</strong>
+                      <strong>{product.name}</strong>{product.status === "active" && <> <Badge tone="muted">On the website</Badge></>}
                       <Badge tone={found === product.files.length ? "done" : found ? "new" : "muted"}>{found} of {product.files.length} here</Badge>
                     </div>
                     <ul style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 2 }}>

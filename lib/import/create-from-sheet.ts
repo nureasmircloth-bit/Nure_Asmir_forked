@@ -106,7 +106,7 @@ export async function createDrafts(parsed: ParsedProduct[], tokenLabel: string):
       action: "mcp.products.create",
       entityType: "product",
       entityId: made.map((result) => result.productId).join(","),
-      detail: { added: made.length, failed: results.length - made.length, token: tokenLabel },
+      detail: { added: made.length, failed: results.filter((result) => !result.ok && !result.deferred).length, deferred: results.filter((result) => result.deferred).length, token: tokenLabel },
     });
   }
   return results;
