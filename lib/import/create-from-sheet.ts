@@ -10,7 +10,7 @@ import { auditLogEntry } from "@/lib/admin/audit";
 import { CategoryInputError } from "@/lib/categories";
 import { splitCategoryPath } from "@/lib/category-tree";
 import { importOne } from "@/lib/import/import-product";
-import { groupColours, importPayload } from "@/lib/import/sheet-rows";
+import { groupColours, importPayload, splitByBudget } from "@/lib/import/sheet-rows";
 import { categoryPathOf, type ParsedProduct } from "@/lib/product-sheet";
 import { slugify } from "@/lib/slug";
 
@@ -54,7 +54,8 @@ export async function shopProblems(parsed: ParsedProduct[]): Promise<{ problems:
   return { problems: [...new Set(problems)], newCategories };
 }
 
-export type CreatedProduct = { name: string; ok: boolean; productId?: string; sizes: number; picturesWaiting: number; message?: string };
+/** `deferred`: not tried in this call because the call was already big enough (see splitByBudget); nothing of it was saved, and it can be sent again. */
+export type CreatedProduct = { name: string; ok: boolean; productId?: string; sizes: number; picturesWaiting: number; message?: string; deferred?: boolean };
 
 /**
  * Saves each product as a hidden draft and notes the pictures it waits for. One product failing does not stop the others (it is reported). The rows have been checked before this is called.
@@ -63,7 +64,7 @@ export type CreatedProduct = { name: string; ok: boolean; productId?: string; si
  */
 export async function createDrafts(parsed: ParsedProduct[], tokenLabel: string): Promise<CreatedProduct[]> {
   const results: CreatedProduct[] = [];
-  const groups = groupColours(parsed);
+  const { now: groups, later } = splitByBudget(groupColours(parsed));
   for (let index = 0; index < groups.length; index++) {
     const group = groups[index];
     const sizes = group.colours.reduce((sum, colour) => sum + colour.variants.length, 0);
@@ -94,6 +95,9 @@ export async function createDrafts(parsed: ParsedProduct[], tokenLabel: string):
         results.push({ name: group.first.name, ok: false, sizes, picturesWaiting: 0, message: "Could not be added just now, and nothing of it was kept." });
       }
     }
+  }
+  for (const group of later) {
+    results.push({ name: group.first.name, ok: false, deferred: true, sizes: group.colours.reduce((sum, colour) => sum + colour.variants.length, 0), picturesWaiting: 0, message: "Not tried in this call because it was already big. Nothing of it was saved: send it again." });
   }
   const made = results.filter((result) => result.ok);
   if (made.length) {

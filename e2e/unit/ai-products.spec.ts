@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { checkArguments, handleRpc, type ToolContext, type ToolDef } from "../../lib/mcp/protocol";
-import { digestOf, groupColours, importPayload, previewOf, readRows, rowsToTable, MAX_ROWS } from "../../lib/import/sheet-rows";
+import { digestOf, groupColours, importPayload, previewOf, readRows, rowsToTable, MAX_ROWS, splitByBudget, workOf, WORK_BUDGET } from "../../lib/import/sheet-rows";
 import { SHEET_COLUMNS } from "../../lib/product-sheet";
 import { parseScopes, SCOPES } from "../../lib/mcp/token";
 import { CREATE_INPUT, PREPARE_INPUT, WAITING_INPUT } from "../../lib/mcp/product-tool-schemas";
@@ -79,7 +79,7 @@ test.describe("AI products: the rows", () => {
     for (const [name, schema, extra] of [["prepare_products", PREPARE_INPUT, {}], ["create_products", CREATE_INPUT, { confirm: "prep_x" }]] as const) {
       const check = (args: Record<string, unknown>) => checkArguments(schema as unknown as Record<string, unknown>, args);
       expect(check({ rows: rows(MAX_ROWS), ...extra }), name).toBeNull();
-      expect(check({ rows: rows(MAX_ROWS + 1), ...extra }), name).toMatch(/at most 300/);
+      expect(check({ rows: rows(MAX_ROWS + 1), ...extra }), name).toMatch(new RegExp(`at most ${MAX_ROWS}`));
       expect(check({ rows: "text", ...extra }), name).toMatch(/must be a list/);
       expect(check({ ...extra }), name).toMatch(/required/);
       expect(check({ rows: rows(1), ...extra, surprise: 1 }), name).toMatch(/Unknown option/);
@@ -132,5 +132,20 @@ test.describe("AI products: the permission and the tools' labels", () => {
     const all = await listed(["catalog:read", "products:write"]);
     expect(all.map((tool) => [tool.name, tool.annotations.readOnlyHint])).toEqual([["look", true], ["preview", true], ["save", false]]);
     expect(all.every((tool) => tool.annotations.destructiveHint === false)).toBe(true);
+  });
+});
+
+test.describe("AI products: the work budget", () => {
+  const many = (n: number) => groupColours(readRows(Array.from({ length: n }, (_, i) => ({ ...shirt, name: `Shirt ${i}`, code: `C-${i}`, photos: [`s${i}.jpg`] }))).parsed.products);
+
+  test("a call that fits is done in one go; a big one is cut by work, in order, and at least one product always goes first", () => {
+    const small = many(3);
+    expect(splitByBudget(small).later).toEqual([]);
+    const big = many(100);
+    const { now, later } = splitByBudget(big);
+    expect(now.length + later.length).toBe(100);
+    expect(now.map((g) => g.key)).toEqual(big.slice(0, now.length).map((g) => g.key));
+    expect(now.reduce((sum, g) => sum + workOf(g), 0)).toBeLessThanOrEqual(WORK_BUDGET);
+    expect(splitByBudget(big, 1).now).toHaveLength(1);
   });
 });

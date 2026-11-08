@@ -9,7 +9,7 @@ import { db } from "@/db";
 import { mcpConfirmations } from "@/db/schema";
 
 /** Most products assistants may add in one day (UTC), all tokens together. */
-export const DAILY_LIMIT = 2000;
+export const DAILY_LIMIT = 4000;
 /** How long a preview's confirmation may be used. */
 export const CONFIRMATION_MINUTES = 30;
 
