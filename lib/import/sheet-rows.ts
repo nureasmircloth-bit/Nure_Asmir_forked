@@ -5,8 +5,8 @@ import { categoryPathOf, parseProductTable, SHEET_COLUMNS, type ParsedProduct, t
 import type { ProductImport } from "@/lib/import/product-import-schema";
 
 /** The most rows and the most products one call may carry. */
-export const MAX_ROWS = 300;
-export const MAX_PRODUCTS = 25;
+export const MAX_ROWS = 600;
+export const MAX_PRODUCTS = 100;
 
 /** What the “rows” argument of the product tools must look like: a list of at most MAX_ROWS objects. */
 export const ROWS_SCHEMA = { type: "array", items: { type: "object" }, maxItems: MAX_ROWS } as const;
@@ -57,6 +57,32 @@ export function rowsToTable(rows: unknown[]): RowsToTable {
 
 /** One product on the shop: all the colours that share a name and category (the sheet has a row for each colour, and the shop shows them on one page). */
 export type ColourGroup = { key: string; first: ParsedProduct; colours: ParsedProduct[] };
+
+/** About how many database calls one call to create_products may make. Each call to the shop is one request to the Worker, and a Worker may only make so many database calls in one request, so a very big batch is saved in pieces. */
+export const WORK_BUDGET = 600;
+
+/** A rough count of the database calls it takes to save one product page: its product row, one call for each size, the picture notes, the category and the checks around them. */
+export function workOf(group: ColourGroup): number {
+  const sizes = group.colours.reduce((sum, colour) => sum + colour.variants.length, 0);
+  const pictures = group.colours.reduce((sum, colour) => sum + colour.photos.length, 0);
+  return 8 + sizes + Math.ceil(pictures / 12);
+}
+
+/** The products to save now, and the ones that wait for another call, so that one call stays within WORK_BUDGET. At least one product is always saved now. */
+export function splitByBudget(groups: ColourGroup[], budget = WORK_BUDGET): { now: ColourGroup[]; later: ColourGroup[] } {
+  let used = 0;
+  const now: ColourGroup[] = [];
+  const later: ColourGroup[] = [];
+  for (const group of groups) {
+    const cost = workOf(group);
+    if (now.length && used + cost > budget) later.push(group);
+    else {
+      now.push(group);
+      used += cost;
+    }
+  }
+  return { now, later };
+}
 
 /** Joins the colours of one product, as the upload screen does just before it saves. */
 export function groupColours(products: ParsedProduct[]): ColourGroup[] {

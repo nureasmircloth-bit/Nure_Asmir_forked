@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
  */
 const NO_STORE = { "Cache-Control": "no-store" };
 /** The longest request body accepted, in bytes: a request is a short instruction, never a file. */
-const MAX_BODY_BYTES = 100_000;
+const MAX_BODY_BYTES = 200_000;
 
 /** A JSON-RPC error answer with the matching HTTP status. */
 const error = (status: number, code: number, message: string, headers: Record<string, string> = {}) =>

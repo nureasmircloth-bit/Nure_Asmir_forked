@@ -91,16 +91,22 @@ const createProducts: ToolDef = {
       throw error;
     }
     const made = results.filter((result) => result.ok);
+    const deferred = results.filter((result) => result.deferred);
     await releaseQuota(day, preview.totals.products - made.length).catch(() => undefined); // room for the products that were not made goes back
     const pictures = made.reduce((sum, result) => sum + result.picturesWaiting, 0);
     return {
       added: made.length,
-      failed: results.length - made.length,
+      failed: results.length - made.length - deferred.length,
+      ...(deferred.length ? { notAddedYet: deferred.map((result) => result.name) } : {}),
       products: results,
       picturesWaiting: pictures,
-      next: made.length
-        ? `Tell the owner: ${made.length} product${made.length === 1 ? " is" : "s are"} saved as hidden drafts. They are not on the website yet. Add the pictures (${pictures} file name${pictures === 1 ? " is" : "s are"} waiting) by dragging them onto ${picturesPage()}, then publish.`
-        : "Nothing was added; see the messages.",
+      next:
+        (deferred.length
+          ? `${deferred.length} product${deferred.length === 1 ? " was" : "s were"} NOT added because this call was already big (${deferred.map((result) => result.name).slice(0, 8).join(", ")}${deferred.length > 8 ? ", …" : ""}). Nothing of them was saved: call prepare_products again with only those rows, show the owner the preview and use the new confirm value. `
+          : "") +
+        (made.length
+          ? `Tell the owner: ${made.length} product${made.length === 1 ? " is" : "s are"} saved as hidden drafts. They are not on the website yet. Add the pictures (${pictures} file name${pictures === 1 ? " is" : "s are"} waiting) by dragging them onto ${picturesPage()}, then publish.`
+          : "Nothing was added; see the messages."),
     };
   },
 };
