@@ -108,6 +108,7 @@ export function importPayload(group: ColourGroup): ProductImport {
     typeLabel: product.type,
     subcategory: colours.map((entry) => entry.subcategory).find(Boolean) || undefined,
     comingSoon: product.comingSoon || undefined,
+    priceOnRequest: product.priceOnRequest || undefined,
     visibility: "draft",
     badge: product.label || undefined,
     description: product.description || undefined,
@@ -134,7 +135,7 @@ export function importPayload(group: ColourGroup): ProductImport {
 
 /** A short code of exactly what was previewed: the same rows give the same code, any change gives another. The assistant must hand it back to create the products, so what is created is what was shown. */
 export async function digestOf(products: ParsedProduct[]): Promise<string> {
-  const plain = products.map((p) => ({ n: p.name, c: categoryPathOf(p), t: p.type, k: p.colour, d: p.description, f: p.fabric, v: p.visible, s: p.comingSoon, l: p.label, ph: p.photos, vs: p.variants.map((v) => [v.size, v.sku, v.price, v.oldPrice, v.stock]) }));
+  const plain = products.map((p) => ({ n: p.name, c: categoryPathOf(p), t: p.type, k: p.colour, d: p.description, f: p.fabric, v: p.visible, s: p.comingSoon, r: p.priceOnRequest, l: p.label, ph: p.photos, vs: p.variants.map((v) => [v.size, v.sku, v.price, v.oldPrice, v.stock]) }));
   const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(plain)));
   return [...new Uint8Array(bytes)].slice(0, 8).map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
@@ -146,6 +147,8 @@ export type Preview = {
     type: string;
     description: string | null;
     willShowOnWebsite: boolean;
+    /** True when the sheet gave no price: the shop shows “Price on request”. */
+    priceOnRequest: boolean;
     colours: Array<{ colour: string; photosToAdd: string[]; sizes: Array<{ size: string; price: number; oldPrice: number | null; stock: number; code: string }> }>;
   }>;
   totals: { products: number; colours: number; sizes: number; pictures: number };
@@ -160,6 +163,7 @@ export function previewOf(products: ParsedProduct[]): Preview {
     type: first.type,
     description: first.description ? first.description.slice(0, 300) : null,
     willShowOnWebsite: first.visible,
+    priceOnRequest: first.priceOnRequest,
     colours: colours.map((colour) => ({
       colour: colour.colour,
       photosToAdd: colour.photos,
@@ -188,6 +192,7 @@ export function conflictsInGroups(products: ParsedProduct[]): string[] {
     const first = group.first;
     for (const colour of group.colours.slice(1)) {
       if (categoryPathOf(colour) !== categoryPathOf(first)) problems.push(`Row ${colour.row - 1}: “${colour.name}” is in “${categoryPathOf(colour)}” here but in “${categoryPathOf(first)}” on row ${first.row - 1}. Products with the same name become one product page, so give each product a different name.`);
+      else if (colour.priceOnRequest !== first.priceOnRequest) problems.push(`Row ${colour.row - 1}: “${colour.name}” has a price here but none on row ${first.row - 1} (or the other way round). Give every colour a price, or leave all of them empty for “Price on request”.`);
       else if (colour.type.toLowerCase() !== first.type.toLowerCase()) problems.push(`Row ${colour.row - 1}: “${colour.name}” is a “${colour.type}” here but a “${first.type}” on row ${first.row - 1}. Give each product a different name.`);
     }
   }

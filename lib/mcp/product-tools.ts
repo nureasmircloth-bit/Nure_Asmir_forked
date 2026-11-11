@@ -49,10 +49,13 @@ const prepareProducts: ToolDef = {
   async run(args, ctx) {
     const { parsed, preview, problems, newCategories } = await check(rowsOf(args));
     const ready = problems.length === 0 && parsed.products.length > 0;
+    // Products with no price in the rows are shown as “Price on request”. Naming them lets the owner catch a forgotten price before anything is saved.
+    const priceOnRequest = preview.products.filter((product) => product.priceOnRequest).map((product) => product.name);
     return {
       ready,
       problems,
       ...(ready ? { confirm: await issueConfirmation(ctx.tokenId, await digestOf(parsed.products)) } : {}),
+      ...(priceOnRequest.length ? { productsWithoutPrice: priceOnRequest, warning: `${priceOnRequest.length} product${priceOnRequest.length === 1 ? "" : "s"} ha${priceOnRequest.length === 1 ? "s" : "ve"} NO price and will show “Price on request” on the shop. Read these names to the owner and ask whether that is intended or a forgotten price; only continue if they say it is intended.` } : {}),
       newCategoriesThatWillBeMade: newCategories,
       preview,
       next: ready

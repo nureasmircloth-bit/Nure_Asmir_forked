@@ -50,6 +50,7 @@ function AddProducts({ categoryNames }: { categoryNames: string[] }) {
   const [fileName, setFileName] = useState("");
   const [pictures, setPictures] = useState<Map<string, File>>(new Map());
   const [createCategories, setCreateCategories] = useState(true);
+  const [askOk, setAskOk] = useState(false);
   const [outcomes, setOutcomes] = useState<Outcome[]>([]);
   const [progress, setProgress] = useState({ done: 0, total: 0, label: "" });
   const [over, setOver] = useState(false);
@@ -61,6 +62,8 @@ function AddProducts({ categoryNames }: { categoryNames: string[] }) {
   // (a plain name such as "Formal Shirts" finds the category with that name wherever it sits)
   const known = new Set(categoryNames.flatMap((name) => [norm(name), norm(splitCategoryPath(name).slice(-1).join(" "))]));
   const newCategories = [...new Set(products.map((p) => categoryPathOf(p)).filter((name) => !known.has(norm(name))))];
+  // Products with no price in the sheet: the shop will say “Price on request”. The owner must agree to the list before going on, so a forgotten price is never silent.
+  const noPrice = products.filter((p) => p.priceOnRequest);
   const sizesTotal = products.reduce((sum, p) => sum + p.variants.length, 0);
 
   const pictureFor = (name: string) => pictures.get(fileKey(name)) ?? [...pictures.entries()].find(([key]) => stem(key) === stem(name))?.[1];
@@ -72,6 +75,15 @@ function AddProducts({ categoryNames }: { categoryNames: string[] }) {
       try {
         const table = await readSheetFile(file);
         const parsed = parseProductTable(table);
+        // Colours of one product must agree: all priced, or all “Price on request”.
+        const firstOf = new Map<string, ParsedProduct>();
+        for (const entry of parsed.products) {
+          const key = `${entry.name.toLowerCase()}|${entry.category.toLowerCase()}`;
+          const first = firstOf.get(key);
+          if (!first) firstOf.set(key, entry);
+          else if (first.priceOnRequest !== entry.priceOnRequest) parsed.problems.push({ row: entry.row, message: `“${entry.name}” has a price on one colour and none on another. Give every colour a price, or leave all of them empty for “Price on request”.` });
+        }
+        setAskOk(false);
         setProducts(parsed.products);
         setProblems(parsed.problems);
         setFileName(file.name);
@@ -132,6 +144,7 @@ function AddProducts({ categoryNames }: { categoryNames: string[] }) {
           typeLabel: product.type,
           subcategory: colours.map((entry) => entry.subcategory).find(Boolean) || undefined,
           comingSoon: product.comingSoon || undefined,
+          priceOnRequest: product.priceOnRequest || undefined,
           visibility: visible ? "published" : "draft",
           badge: product.label || undefined,
           description: product.description || undefined,
@@ -296,7 +309,7 @@ function AddProducts({ categoryNames }: { categoryNames: string[] }) {
                               {!known.has(norm(categoryPathOf(p))) && <small className="a-muted">new category</small>}
                             </td>
                             <td>{p.variants.map((v) => v.size || "—").join(", ")}</td>
-                            <td className="num a-money">{Math.min(...prices) === Math.max(...prices) ? pkr(prices[0]) : `${pkr(Math.min(...prices))} – ${pkr(Math.max(...prices))}`}</td>
+                            <td className="num a-money">{p.priceOnRequest ? <Badge tone="muted">Price on request</Badge> : Math.min(...prices) === Math.max(...prices) ? pkr(prices[0]) : `${pkr(Math.min(...prices))} – ${pkr(Math.max(...prices))}`}</td>
                             <td className="num">{p.variants.reduce((s, v) => s + v.stock, 0)}</td>
                             <td>{p.visible ? "Yes" : "Hidden"}</td>
                           </tr>
@@ -305,6 +318,18 @@ function AddProducts({ categoryNames }: { categoryNames: string[] }) {
                     </tbody>
                   </table>
                 </div>
+                {noPrice.length > 0 && (
+                  <div className="a-card-pad" style={{ borderTop: "1px solid var(--line)" }}>
+                    <Note tone="warn">
+                      <strong>{noPrice.length} product{noPrice.length === 1 ? "" : "s"} ha{noPrice.length === 1 ? "s" : "ve"} no price in the sheet.</strong> The shop will show “Price on request” and the shopper asks on WhatsApp.
+                      <span style={{ display: "block", marginTop: 6 }}>{noPrice.slice(0, 40).map((p) => `${p.name} (${p.colour})`).join(", ")}{noPrice.length > 40 ? `, and ${noPrice.length - 40} more` : ""}</span>
+                    </Note>
+                    <label className="a-check" style={{ marginTop: 10 }}>
+                      <input type="checkbox" checked={askOk} onChange={(event) => setAskOk(event.target.checked)} />
+                      <span><strong>Yes, these products should say “Price on request”.</strong><small className="a-help" style={{ display: "block" }}>If one of them is a forgotten price, choose another file, fill it in and upload again.</small></span>
+                    </label>
+                  </div>
+                )}
                 {newCategories.length > 0 && (
                   <div className="a-card-pad" style={{ borderTop: "1px solid var(--line)" }}>
                     <label className="a-check">
@@ -320,7 +345,7 @@ function AddProducts({ categoryNames }: { categoryNames: string[] }) {
                   <button type="button" className="a-btn" onClick={() => setStep("start")}>
                     ← Choose another file
                   </button>
-                  <button type="button" className="a-btn a-btn-primary a-btn-lg" onClick={() => setStep("photos")}>
+                  <button type="button" className="a-btn a-btn-primary a-btn-lg" disabled={noPrice.length > 0 && !askOk} title={noPrice.length > 0 && !askOk ? "Tick the box about the products without a price first" : undefined} onClick={() => setStep("photos")}>
                     Next: add photos →
                   </button>
                 </div>
