@@ -17,7 +17,7 @@ export const SHEET_COLUMNS: SheetColumn[] = [
   { key: "type", label: "What is it?*", required: true, width: 18, help: "Pick or type: Shirt, Pants, Shalwar Kameez, Wallet…", aliases: ["what is it", "type", "product type", "kind"] },
   { key: "colour", label: "Colour*", required: true, width: 14, help: "One colour on each row. The same shirt in another colour? Use the same product name and a different colour — we put them together on one page.", aliases: ["colour", "color"] },
   { key: "size", label: "Size", width: 12, help: "S, M, L, XL, 32, 34… or One size. Several sizes of the same colour can go in one cell, separated by commas: 14.5, 15, 15.5, 16. Leave empty if it has no sizes.", aliases: ["size", "sizes"] },
-  { key: "price", label: "Price (PKR)*", required: true, width: 14, help: "Selling price in rupees, numbers only, e.g. 5500. When the sizes have different prices, type one price for each size in the same order, with a comma and a space: 5800, 5800, 6200, 6200.", aliases: ["price", "price pkr", "selling price", "sale price", "rs"] },
+  { key: "price", label: "Price (PKR)*", required: true, width: 14, help: "Selling price in rupees, numbers only, e.g. 5500. Leave it EMPTY (or type On request) when the price is told on WhatsApp: the shop then shows “Price on request”. When the sizes have different prices, type one price for each size in the same order, with a comma and a space: 5800, 5800, 6200, 6200.", aliases: ["price", "price pkr", "selling price", "sale price", "rs"] },
   { key: "oldPrice", label: "Old price (optional)", width: 18, help: "Only if this item is on discount. Must be higher than the price. Like the price, it can be one number for all sizes or one for each size.", aliases: ["old price", "compare at price", "compare price", "was price", "mrp", "cut price"] },
   { key: "stock", label: "Stock*", required: true, width: 10, help: "How many you have right now, e.g. 12. With several sizes in one row: one number for all of them (3), or one number for each size in the same order (3, 5, 2, 1).", aliases: ["stock", "quantity", "qty", "in stock", "inventory"] },
   { key: "code", label: "Product code (optional)", width: 22, help: "Leave empty — we make one for you (it includes the colour when the product comes in several). Or type one code for the whole product (FOR-132) on every size row: each size then gets its own, like FOR-132-14.5. Different products need different codes.", aliases: ["product code", "code", "sku"] },
@@ -44,6 +44,8 @@ export type ParsedProduct = {
   description: string;
   visible: boolean;
   comingSoon: boolean;
+  /** No price in the sheet (empty cell or “On request”): the shop shows “Price on request” and the shopper asks on WhatsApp. */
+  priceOnRequest: boolean;
   label: string;
   photos: string[];
   variants: ParsedVariant[];
@@ -200,9 +202,14 @@ export function parseProductTable(table: unknown[][]): ParsedSheet {
     };
     // A "coming soon" product may have no price or stock yet: it cannot be bought anyway.
     const priceCells = spreadOrFail("price", "price", "prices", "price");
+    // An empty price cell (or “On request”) means the price is told on WhatsApp. It must be so for every size of the row: a price on some sizes and none on others is a mistake.
+    const asksForPrice = (text: string) => text === "" || /^(price\s*)?(on\s*request|contact(\s*for\s*price)?|call|ask|poa)$/i.test(text);
+    const askCount = (priceCells ?? []).filter(asksForPrice).length;
+    const priceOnRequest = !soon && askCount > 0 && askCount === (priceCells ?? []).length;
+    if (!soon && askCount > 0 && !priceOnRequest) fail("Some sizes have a price and some do not. Give every size a price, or leave the whole Price cell empty for “Price on request”.");
     const prices = (priceCells ?? []).map((text) => {
-      const value = soon && text === "" ? 0 : parseMoney(text);
-      if (value === null || (!soon && value < 1)) fail(`Price “${text}” is not a number. Type it like 5500.`);
+      const value = (soon || priceOnRequest) && asksForPrice(text) ? 0 : parseMoney(text);
+      if (value === null || (!soon && !priceOnRequest && value < 1)) fail(`Price “${text}” is not a number. Type it like 5500.`);
       return value as number;
     });
     const stockCells = spreadOrFail("stock", "stock number", "stock numbers", "stock");
@@ -213,7 +220,7 @@ export function parseProductTable(table: unknown[][]): ParsedSheet {
     });
     const oldCells = spreadOrFail("oldPrice", "old price", "old prices", "price");
     const oldPrices = (oldCells ?? []).map((text, i) => {
-      if (text === "") return null;
+      if (text === "" || priceOnRequest) return null;
       const value = parseMoney(text);
       if (value === null) fail(`Old price “${text}” is not a number.`);
       else if (typeof prices[i] === "number" && value <= prices[i]) fail("The old price must be higher than the price (or leave it empty).");
@@ -247,6 +254,7 @@ export function parseProductTable(table: unknown[][]): ParsedSheet {
         description: String(cell(row, "description") ?? "").trim(),
         visible: parseYesNo(cell(row, "show"), true),
         comingSoon: soon,
+        priceOnRequest,
         label: normalizeLabel(cell(row, "label")),
         photos: [],
         variants: [],

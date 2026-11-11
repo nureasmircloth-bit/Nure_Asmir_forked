@@ -66,6 +66,7 @@ export async function importOne(item: ProductImport, index: number): Promise<Imp
         typeLabel: item.typeLabel,
         subcategory,
         comingSoon: item.comingSoon ?? false,
+        priceOnRequest: item.priceOnRequest ?? false,
         shortDescription: item.shortDescription || null,
         description: item.description || null,
         material: item.material || null,
