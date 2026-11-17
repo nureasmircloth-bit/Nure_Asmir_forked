@@ -149,3 +149,38 @@ test.describe("AI products: the work budget", () => {
     expect(splitByBudget(big, 1).now).toHaveLength(1);
   });
 });
+
+test.describe("Price on request", () => {
+  test("an empty price, or “On request”, makes the product price-on-request; the preview and the payload say so; a half-priced row is refused", () => {
+    const empty = readRows([{ ...shirt, name: "No Price Shirt", price: "" }, { ...shirt, name: "Words Shirt", code: "W-1", price: "On request" }, { ...shirt, name: "Priced Shirt", code: "P-1" }]);
+    expect(empty.problems).toEqual([]);
+    const [noPrice, words, priced] = empty.parsed.products;
+    expect([noPrice.priceOnRequest, words.priceOnRequest, priced.priceOnRequest]).toEqual([true, true, false]);
+    expect(noPrice.variants.map((v) => v.price)).toEqual([0, 0]);
+    expect(noPrice.variants.every((v) => v.oldPrice === null)).toBe(true);
+    expect(previewOf(empty.parsed.products).products.map((p) => p.priceOnRequest)).toEqual([true, true, false]);
+    expect(importPayload(groupColours(empty.parsed.products)[0]).priceOnRequest).toBe(true);
+    expect(importPayload(groupColours(empty.parsed.products)[2]).priceOnRequest).toBeUndefined();
+    const half = readRows([{ ...shirt, name: "Half Shirt", price: "14500, " }]);
+    expect(half.problems.some((m) => /Some sizes have a price and some do not/.test(m))).toBe(true);
+    const mixed = readRows([{ ...shirt, name: "Two Colour Shirt" }, { ...shirt, name: "Two Colour Shirt", colour: "Pink", code: "X-2", price: "" }]);
+    expect(mixed.problems.some((m) => /has a price here but none/.test(m))).toBe(true);
+    expect(readRows([{ ...shirt, name: "Soon Shirt", price: "", coming_soon: "Yes" }]).parsed.products[0]?.priceOnRequest ?? false).toBe(false);
+  });
+
+  test("a different price-on-request flag gives a different confirmation code", async () => {
+    const a = readRows([{ ...shirt, name: "Digest Shirt" }]).parsed.products;
+    const b = readRows([{ ...shirt, name: "Digest Shirt", price: "" }]).parsed.products;
+    expect(await digestOf(a)).not.toBe(await digestOf(b));
+  });
+});
+
+test.describe("Price on request: rows of one colour", () => {
+  test("two rows of the same product and colour must both be priced or both empty", () => {
+    const mixed = readRows([{ ...shirt, name: "Mode Shirt", size: "M", price: "5000" }, { ...shirt, name: "Mode Shirt", size: "L", price: "", code: "MS-L" }]);
+    expect(mixed.problems.some((m) => /has a price on one row and none on another/.test(m))).toBe(true);
+    expect(mixed.parsed.products[0].variants).toHaveLength(1);
+    const same = readRows([{ ...shirt, name: "Mode Shirt", size: "M", price: "" }, { ...shirt, name: "Mode Shirt", size: "L", price: "", code: "MS-L" }]);
+    expect(same.problems).toEqual([]);
+  });
+});

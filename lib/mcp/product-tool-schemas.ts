@@ -8,6 +8,7 @@ export const ROW_HELP =
   "One object for each COLOUR of a product (or for each size; both work and can be mixed), written like the owner's Excel sheet. Keys: " +
   SHEET_COLUMNS.map((column) => `${column.key}${column.required ? "*" : ""}`).join(", ") +
   ". Examples: sizes as one text with commas (\"14.5, 15.5, 16.5\") or a list; price, oldPrice and stock as ONE number for every size or one for each size in the same order (\"5800, 5800, 6200\"); " +
+  "leave price empty (or \"On request\") when the owner tells the price on WhatsApp: the shop then shows Price on request, and the preview lists those products; " +
   "code is the owner's own article number (each size then gets its own code made from it); photos are the picture FILE NAMES the owner will drop later (\"white-1.jpg, white-2.jpg\"); " +
   "show is Yes/No. Another colour of the same product is another row with the same name and a different colour.";
 

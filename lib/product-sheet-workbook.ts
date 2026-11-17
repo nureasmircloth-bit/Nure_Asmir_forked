@@ -78,6 +78,10 @@ export const EXAMPLES: Array<{ cells: unknown[]; note: string }> = [
     cells: ["Charcoal Overcoat", "Coats", "", "", "", "Overcoat", "Charcoal", "", "", "", "", "", "", "", "Yes", "charcoal-overcoat.jpg", "Yes", ""],
     note: "COMING SOON. Shown with its name, picture and a “Coming soon” badge, but it cannot be bought yet. Price, stock and sizes can stay empty.",
   },
+  {
+    cells: ["Heritage Wool Shawl", "Shawls", "", "", "", "Shawl", "Brown", "One size", "", "", 3, "", "Wool", "Told on WhatsApp.", "Yes", "heritage-shawl-1.jpg", "", ""],
+    note: "PRICE ON REQUEST. Leave the Price cell EMPTY (or type On request). The shop shows “Price on request” instead of a price and the shopper asks on WhatsApp. Before the upload goes on, you see the list of products without a price and must agree to it, so a forgotten price is never silent.",
+  },
 ];
 
 /** The rows only (what the importer reads); the notes are for people. */
@@ -107,6 +111,7 @@ const GUIDE: Array<[string, "title" | "heading" | "text"]> = [
   ["•  My own article number (FOR-132)   →   type it in Product code. Every size gets its own: FOR-132-14.5, FOR-132-15.5 …", "text"],
   ["•  Slim fit sizes   →   write them as sizes:  14.5, 14.5 (SLIM), 15.5, 15.5 (SLIM)", "text"],
   ["•  I do not want it on the website yet   →   Show on website?: No", "text"],
+  ["•  The price is told on WhatsApp   →   leave Price EMPTY (or type On request). The shop shows “Price on request”. The upload lists these products and asks you to agree.", "text"],
   ["•  Not ready to sell, only to show   →   Coming soon?: Yes     (price, stock and sizes can stay empty)", "text"],
   ["•  Writing a thousand   →   type 1000. With one size, 1,000 also works; with several sizes always write 1000 without the comma.", "text"],
   ["•  “3 sizes but 2 prices” on upload   →   the numbers in that cell do not match the sizes. Type one number for all, or one for each size.", "text"],

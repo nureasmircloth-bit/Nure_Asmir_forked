@@ -53,6 +53,6 @@ test.describe("the downloadable product sheet", () => {
     expect(rows[0][SHEET_COLUMNS.length]).toBe("What this row shows");
     const parsed = parseProductTable(rows);
     expect(parsed.problems).toEqual([]);
-    expect(parsed.products.reduce((sum, p) => sum + p.variants.length, 0)).toBe(3 + 4 + 3 + 3 + 1 + 3 + 3 + 4 + 2 + 3 + 1);
+    expect(parsed.products.reduce((sum, p) => sum + p.variants.length, 0)).toBe(3 + 4 + 3 + 3 + 1 + 3 + 3 + 4 + 2 + 3 + 1 + 1);
   });
 });
