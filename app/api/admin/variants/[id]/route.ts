@@ -6,7 +6,8 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { productVariants } from "@/db/schema";
 import { getAdminUser } from "@/lib/auth/admin-auth";
-import { auditLogEntry } from "@/lib/admin/audit";
+import { auditLogEntry, requestIp } from "@/lib/admin/audit";
+import { variantSnapshot } from "@/lib/admin/snapshots";
 import { isUniqueViolation } from "@/lib/db/errors";
 
 export const dynamic = "force-dynamic";
@@ -89,7 +90,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     }
   }
 
-  await auditLogEntry({ actorEmail: admin.email, action: "variant.update", entityType: "variant", entityId: id, detail: data });
+  await auditLogEntry({ actorEmail: admin.email, action: "variant.update", entityType: "variant", entityId: id, detail: data, before: variantSnapshot(existing), after: row ? variantSnapshot(row) : undefined, source: "admin", ip: requestIp(request) });
 
   runInBackground(syncProductSearch(existing.productId), "syncProductSearch");
   runInBackground(checkStockAlerts([id]), "checkStockAlerts");
@@ -97,7 +98,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   return Response.json({ variant: row });
 }
 
-export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
   const admin = await getAdminUser();
   if (!admin) return Response.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await context.params;
@@ -121,7 +122,7 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
     }
   }
 
-  await auditLogEntry({ actorEmail: admin.email, action: "variant.archive", entityType: "variant", entityId: id });
+  await auditLogEntry({ actorEmail: admin.email, action: "variant.archive", entityType: "variant", entityId: id, before: variantSnapshot(existing), after: row ? variantSnapshot(row) : undefined, source: "admin", ip: requestIp(request) });
 
   runInBackground(syncProductSearch(existing.productId), "syncProductSearch");
 

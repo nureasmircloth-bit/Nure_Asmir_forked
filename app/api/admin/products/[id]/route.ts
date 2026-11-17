@@ -7,7 +7,8 @@ import { addSubcategory, CategoryInputError, ensureCategory } from "@/lib/catego
 import { categories, productImages, products, productVariants } from "@/db/schema";
 import { getAdminUser } from "@/lib/auth/admin-auth";
 import { slugify } from "@/lib/slug";
-import { auditLogEntry } from "@/lib/admin/audit";
+import { auditLogEntry, requestIp } from "@/lib/admin/audit";
+import { productSnapshot } from "@/lib/admin/snapshots";
 import { deleteObject } from "@/lib/storage";
 import { variantKeyFor } from "@/lib/image-variants";
 import { generateSeoFields } from "@/lib/ai/seo";
@@ -188,7 +189,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   }
 
   if (row?.subcategory) await addSubcategory(row.categoryId, row.subcategory);
-  await auditLogEntry({ actorEmail: admin.email, action: "product.update", entityType: "product", entityId: id, detail: data });
+  await auditLogEntry({ actorEmail: admin.email, action: "product.update", entityType: "product", entityId: id, detail: data, before: productSnapshot(existing), after: row ? productSnapshot(row) : undefined, source: "admin", ip: requestIp(request) });
 
   runInBackground(syncProductSearch(id), "syncProductSearch");
 
@@ -210,7 +211,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
       .returning();
     if (!row) return Response.json({ error: "Product not found." }, { status: 404 });
 
-    await auditLogEntry({ actorEmail: admin.email, action: "product.archive", entityType: "product", entityId: id });
+    await auditLogEntry({ actorEmail: admin.email, action: "product.archive", entityType: "product", entityId: id, after: { status: "archived" }, source: "admin", ip: requestIp(request) });
     runInBackground(syncProductSearch(id), "syncProductSearch");
     return Response.json({ ok: true });
   }
@@ -244,7 +245,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     ]),
   );
 
-  await auditLogEntry({ actorEmail: admin.email, action: "product.delete_permanent", entityType: "product", entityId: id, detail: { imagesDeleted: images.length } });
+  await auditLogEntry({ actorEmail: admin.email, action: "product.delete_permanent", entityType: "product", entityId: id, detail: { imagesDeleted: images.length }, source: "admin", ip: requestIp(request) });
   runInBackground(removeProductFromSearch(id), "removeProductFromSearch");
 
   return Response.json({ ok: true });

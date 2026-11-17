@@ -184,3 +184,87 @@ test.describe("Price on request: rows of one colour", () => {
     expect(same.problems).toEqual([]);
   });
 });
+
+test.describe("AI changes and deletes", () => {
+  test("the management tools have their own permissions and refuse too many changes", async () => {
+    const { CHANGES_INPUT, MAX_CHANGES } = await import("../../lib/mcp/manage-schemas");
+    expect(Object.keys(SCOPES)).toEqual(expect.arrayContaining(["products:manage", "products:delete"]));
+    const many = Array.from({ length: MAX_CHANGES + 1 }, () => ({ sku: "A", stock: 1 }));
+    expect(checkArguments(CHANGES_INPUT as never, { changes: many })).toMatch(new RegExp(`at most ${MAX_CHANGES}`));
+    expect(checkArguments(CHANGES_INPUT as never, { changes: many.slice(0, MAX_CHANGES) })).toBeNull();
+    expect(checkArguments(CHANGES_INPUT as never, { changes: [], extra: 1 })).toMatch(/Unknown option/);
+  });
+});
+
+test.describe("Change history: tamper evidence", () => {
+  test("a chain of entries checks out, and an edited, removed or reordered entry is named", async () => {
+    const { hashEntry, verifyChain } = await import("../../lib/admin/audit-chain");
+    const make = async (prev: string | null, version: number, detail: string) => {
+      const fields = { prevHash: prev, actorEmail: "owner@x.com", action: "product.update", entityType: "product", entityId: "p1", entityVersion: version, source: "admin", ip: null, detail, beforeJson: null, afterJson: null, createdAtMs: 1_700_000_000_000 + version };
+      return { ...fields, hash: await hashEntry(fields) };
+    };
+    const one = await make(null, 1, "a");
+    const two = await make(one.hash, 2, "b");
+    const three = await make(two.hash, 3, "c");
+    expect(await verifyChain([one, two, three])).toMatchObject({ ok: true, checked: 3, legacy: 0 });
+    expect((await verifyChain([one, { ...two, detail: "changed" }, three])).brokenAt).toBe(1);
+    expect((await verifyChain([one, three])).ok).toBe(false);
+    const old = { ...one, hash: null, prevHash: null };
+    expect(await verifyChain([old, two])).toMatchObject({ ok: true, legacy: 1 });
+  });
+});
+
+test.describe("Boundaries and failures of the sheet reader", () => {
+  const one = (over: Record<string, unknown>) => readRows([{ ...shirt, name: "Edge Shirt", size: "M", price: "5000", stock: 1, code: "", ...over }]);
+  const bad = (over: Record<string, unknown>, pattern: RegExp) => expect(one(over).problems.join(" | ")).toMatch(pattern);
+
+  test("prices: 1 is the smallest, 0 / negative / words / decimals-as-text are refused, formats with Rs. and commas are read", () => {
+    expect(one({ price: "1" }).problems).toEqual([]);
+    expect(one({ price: "Rs. 5,500/-" }).parsed.products[0].variants[0].price).toBe(5500);
+    expect(one({ price: 99999999 }).problems).toEqual([]);
+    bad({ price: "0" }, /not a number/);
+    bad({ price: "-5" }, /not a number/);
+    bad({ price: "cheap" }, /not a number/);
+    bad({ price: "12abc" }, /not a number/);
+  });
+
+  test("stock: 0 is fine, negative or fractional-looking text is refused, empty counts as 0", () => {
+    expect(one({ stock: 0 }).problems).toEqual([]);
+    expect(one({ stock: "" }).parsed.products[0].variants[0].stock).toBe(0);
+    bad({ stock: -1 }, /Stock/);
+    bad({ stock: "many" }, /Stock/);
+  });
+
+  test("old price must be higher than the price", () => {
+    expect(one({ oldPrice: 6000 }).problems).toEqual([]);
+    bad({ oldPrice: 5000 }, /old price must be higher/);
+    bad({ oldPrice: 4000 }, /old price must be higher/);
+  });
+
+  test("sizes and prices must line up, and a size cannot repeat", () => {
+    bad({ size: "S, M, L", price: "100, 200" }, /3 sizes but 2 prices/);
+    bad({ size: "M, M" }, /listed twice/);
+    expect(one({ size: "S, M, L", price: "100, 200, 300", stock: "1, 2, 3" }).parsed.products[0].variants.map((v) => v.price)).toEqual([100, 200, 300]);
+  });
+
+  test("names and categories: empty is refused, long subcategory is cut at 60, commas in a subcategory are refused, odd text stays plain text", () => {
+    bad({ name: "" }, /./);
+    bad({ category: "" }, /./);
+    bad({ subcategory: "A, B" }, /comma/);
+    expect(one({ subcategory: "x".repeat(80) }).parsed.products[0].subcategory.length).toBeLessThanOrEqual(60);
+    const odd = one({ name: "<script>alert(1)</script> Shirt & \"Co\" شرٹ" }).parsed.products[0];
+    expect(odd.name).toContain("<script>");
+    expect(odd.name).toContain("شرٹ");
+  });
+
+  test("nothing at all, or only the header, gives no products and no crash", () => {
+    expect(readRows([]).parsed.products).toEqual([]);
+    expect(() => readRows([{}, {}])).not.toThrow();
+    expect(readRows(["text"] as never).problems.length).toBeGreaterThan(0);
+  });
+
+  test("price on request: words, case and spacing are understood; a price of 0 is still refused", () => {
+    for (const word of ["", " ", "On request", "ON  REQUEST", "price on request", "Contact for price", "call"]) expect(one({ price: word }).parsed.products[0]?.priceOnRequest, word).toBe(true);
+    bad({ price: "0" }, /not a number/);
+  });
+});

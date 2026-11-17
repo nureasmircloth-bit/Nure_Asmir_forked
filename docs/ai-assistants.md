@@ -102,6 +102,15 @@ Price on request: a row with an empty price (or “On request”) becomes a prod
 
 Limits and safety: at most 100 products (600 rows) in one call (a big call may save only part of the preview: the answer lists the rest as `notAddedYet`, nothing of those was saved, so ask for a new preview and confirmation for just those) and 4,000 products a day for all assistants together (counted atomically, so two calls at once cannot go over); products that already exist cannot be changed or deleted this way (a name or a code that is taken is reported in the preview; the same name in different categories is refused, because those colours would become one product page); every creation is written to the activity log with the token's name; the assistant never adds pictures.
 
+## Changing and deleting products (extra permissions)
+
+Two more permissions can be ticked when you make a token. Both always work in two steps: the assistant **shows you exactly what would change** and only does it after you agreed (a one-use confirmation ties the second step to the first).
+
+- **Change existing products** (`products:manage`): `prepare_changes` then `apply_changes`. Up to 100 changes in a call. One change can be: show / hide / archive a product (it cannot be shown without a picture), category, subcategory, label (New, Sale…), price on request, coming soon, featured, search-engine text (title, description, keywords, or let the helper write it again), the price, old price and stock of a size, hiding a size (never the last one), or adding new sizes (S, M, L…) to every colour or one colour. `refresh_website` rebuilds the search and refreshes the shop pages (changes already do this). `seo_report` lists products that have no search title or description.
+- **Delete for good** (`products:delete`): `prepare_delete` then `delete_products`. Only products that are **not on the website** (draft or archived) can be deleted; archive a product first to take it off the shop. Deleting removes its sizes and pictures and cannot be undone. Past orders keep their own copy of what was bought. Everything is written to the activity log with the token's name.
+
+Tip: hiding (status archived) is the gentle way: nothing is lost and the product can be shown again.
+
 ## 5. If it does not work
 
 | What you see | What to do |

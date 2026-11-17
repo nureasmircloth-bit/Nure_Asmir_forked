@@ -9,6 +9,8 @@ export const SCOPES = {
   "catalog:read": "Look at products, sizes, prices, stock and categories",
   "sales:read": "See sales totals and order counts (no customer names, phones or addresses)",
   "products:write": "Add new products as hidden drafts (you add the pictures and publish them yourself)",
+  "products:manage": "Change existing products: show or hide, category, labels, search-engine text, prices, stock, sizes, and refresh the search (every change is previewed and confirmed first)",
+  "products:delete": "Delete products for good (only ones that are not on the website; previewed and confirmed first)",
 } as const;
 export type Scope = keyof typeof SCOPES;
 export const DEFAULT_SCOPES: Scope[] = ["catalog:read"];

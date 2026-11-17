@@ -6,6 +6,7 @@ import { categories, productImages, products, productVariants } from "@/db/schem
 import { PageHeader } from "../../../_ui/ui";
 import { withPathNames } from "@/lib/category-tree";
 import { ProductEditor } from "../product-editor";
+import { ProductHistory } from "../product-history";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Edit product" };
@@ -58,6 +59,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
         variants={variants.filter((v) => v.status === "active").map((v) => ({ id: v.id, color: v.color, size: v.size ?? "", sku: v.sku, price: v.price, compareAtPrice: v.compareAtPrice, stockQuantity: v.stockQuantity, reservedQuantity: v.reservedQuantity, lowStockThreshold: v.lowStockThreshold }))}
         images={images.filter((i) => i.status === "active").map((i) => ({ id: i.id, variantId: i.variantId, r2Key: i.r2Key, variantWidths: i.variantWidths, isPrimary: i.isPrimary, sortOrder: i.sortOrder, altText: i.altText }))}
       />
+      <ProductHistory productId={product.id} />
     </>
   );
 }

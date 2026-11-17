@@ -65,7 +65,7 @@ test.describe("category tree", () => {
     await login(page);
     await page.goto("/admin/collections");
     await page.getByRole("button", { name: "Categories", exact: true }).click();
-    const row = page.locator("tr", { has: page.locator(`input[name="slug"][value="${grandchild.slug}"]`) });
+    const row = page.locator("article.cat-card", { has: page.locator(`input[name="slug"][value="${grandchild.slug}"]`) });
     await expect(row).toHaveCount(1);
     await expect(row.locator('select[name="parentId"]')).toHaveValue(child.id);
     await expect(row).toContainText("Shirts");
@@ -74,7 +74,7 @@ test.describe("category tree", () => {
     expect(options.some((text) => text.includes(grandchild.name))).toBe(false);
     // move it to the top level
     await row.locator('select[name="parentId"]').selectOption("");
-    await row.getByRole("button", { name: "Save" }).click();
+    await row.getByRole("button", { name: "Save changes" }).click();
     await expect(page.getByRole("status").filter({ hasText: /updated/i }).first()).toBeVisible({ timeout: 20_000 });
     const [moved] = (await sql`select parent_id from categories where id = ${grandchild.id}`) as Array<{ parent_id: string | null }>;
     expect(moved.parent_id).toBeNull();

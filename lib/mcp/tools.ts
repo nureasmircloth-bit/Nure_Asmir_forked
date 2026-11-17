@@ -5,6 +5,7 @@ import { and, count, desc, eq, gte, inArray, ne, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { categories, orders, productImages, productVariants, products } from "@/db/schema";
 import { daysAgoMs } from "@/db/sql-compat";
+import { manageTools } from "./manage-tools";
 import { productTools } from "./product-tools";
 import { ToolInputError, type ToolDef } from "./protocol";
 
@@ -284,4 +285,4 @@ const salesSummary: ToolDef = {
 };
 
 /** Every tool the connection offers; a token only sees those whose scope it has. */
-export const TOOLS: ToolDef[] = [searchProducts, getProduct, listCategories, lowStock, salesSummary, ...productTools];
+export const TOOLS: ToolDef[] = [searchProducts, getProduct, listCategories, lowStock, salesSummary, ...productTools, ...manageTools];
