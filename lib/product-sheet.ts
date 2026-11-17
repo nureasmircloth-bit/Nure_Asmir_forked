@@ -240,6 +240,11 @@ export function parseProductTable(table: unknown[][]): ParsedSheet {
       continue;
     }
     let product = groups.get(key);
+    // The rows of one colour must all be priced, or all be “Price on request”: a mix would give every size the first row's mode.
+    if (product && product.priceOnRequest !== priceOnRequest) {
+      fail(`“${name}” (${colour}) has a price on one row and none on another. Give every row of this colour a price, or leave all of them empty for “Price on request”.`);
+      continue;
+    }
     if (!product) {
       product = {
         key,
