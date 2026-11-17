@@ -195,3 +195,21 @@ test.describe("AI changes and deletes", () => {
     expect(checkArguments(CHANGES_INPUT as never, { changes: [], extra: 1 })).toMatch(/Unknown option/);
   });
 });
+
+test.describe("Change history: tamper evidence", () => {
+  test("a chain of entries checks out, and an edited, removed or reordered entry is named", async () => {
+    const { hashEntry, verifyChain } = await import("../../lib/admin/audit-chain");
+    const make = async (prev: string | null, version: number, detail: string) => {
+      const fields = { prevHash: prev, actorEmail: "owner@x.com", action: "product.update", entityType: "product", entityId: "p1", entityVersion: version, source: "admin", ip: null, detail, beforeJson: null, afterJson: null, createdAtMs: 1_700_000_000_000 + version };
+      return { ...fields, hash: await hashEntry(fields) };
+    };
+    const one = await make(null, 1, "a");
+    const two = await make(one.hash, 2, "b");
+    const three = await make(two.hash, 3, "c");
+    expect(await verifyChain([one, two, three])).toMatchObject({ ok: true, checked: 3, legacy: 0 });
+    expect((await verifyChain([one, { ...two, detail: "changed" }, three])).brokenAt).toBe(1);
+    expect((await verifyChain([one, three])).ok).toBe(false);
+    const old = { ...one, hash: null, prevHash: null };
+    expect(await verifyChain([old, two])).toMatchObject({ ok: true, legacy: 1 });
+  });
+});

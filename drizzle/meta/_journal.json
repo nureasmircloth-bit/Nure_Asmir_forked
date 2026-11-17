@@ -71,6 +71,13 @@
       "when": 1794077677362,
       "tag": "0009_ai_products",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1794930628452,
+      "tag": "0010_audit_versions",
+      "breakpoints": true
     }
   ]
 }
