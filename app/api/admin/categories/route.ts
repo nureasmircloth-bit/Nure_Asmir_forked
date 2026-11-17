@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { sandboxRoomMessage } from "@/lib/sandbox";
-import { asc, eq } from "drizzle-orm";
+import { asc, count, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { categories } from "@/db/schema";
+import { categories, products } from "@/db/schema";
 import { getAdminUser } from "@/lib/auth/admin-auth";
 import { slugify } from "@/lib/slug";
 import { auditLogEntry } from "@/lib/admin/audit";
@@ -27,9 +27,11 @@ export async function GET() {
   if (!admin) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const rows = await db.select().from(categories).orderBy(asc(categories.sortOrder), asc(categories.name));
+  const live = new Map((await db.select({ categoryId: products.categoryId, n: count() }).from(products).where(eq(products.status, "published")).groupBy(products.categoryId)).map((row) => [row.categoryId, row.n]));
   return Response.json({
     categories: rows.map((row) => ({
       ...row,
+      liveProducts: live.get(row.id) ?? 0,
       // Versioned so the admin's own preview thumbnail updates immediately after a replace —
       // /api/category-media is cached at Cloudflare's edge as immutable for a year, keyed by URL,
       // and this row's id (unlike a fresh upload's r2Key) never changes across replacements.

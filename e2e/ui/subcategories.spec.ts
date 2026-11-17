@@ -44,10 +44,10 @@ test.describe("subcategories", () => {
     await login(page);
     await page.goto("/admin/collections");
     await page.getByRole("button", { name: "Categories", exact: true }).click();
-    const row = page.locator("tr", { has: page.locator('input[name="slug"][value="shirts"]') });
+    const row = page.locator("article.cat-card", { has: page.locator('input[name="slug"][value="shirts"]') });
     await expect(row).toHaveCount(1);
     await row.locator('input[name="subcategories"]').fill("Sashiko, Crane, Paisley");
-    await row.getByRole("button", { name: "Save" }).click();
+    await row.getByRole("button", { name: "Save changes" }).click();
     await expect(page.getByRole("status").filter({ hasText: /saved|updated/i }).first()).toContainText(/saved|updated/i, { timeout: 20_000 });
     const [saved] = (await sql`select subcategories from categories where slug = 'shirts'`) as Array<{ subcategories: string }>;
     expect(saved.subcategories).toBe("Sashiko, Crane, Paisley");
@@ -66,9 +66,9 @@ test.describe("subcategories", () => {
     // and the owner can take them away again
     await page.goto("/admin/collections");
     await page.getByRole("button", { name: "Categories", exact: true }).click();
-    const again = page.locator("tr", { has: page.locator('input[name="slug"][value="shirts"]') });
+    const again = page.locator("article.cat-card", { has: page.locator('input[name="slug"][value="shirts"]') });
     await again.locator('input[name="subcategories"]').fill("");
-    await again.getByRole("button", { name: "Save" }).click();
+    await again.getByRole("button", { name: "Save changes" }).click();
     await expect(page.getByRole("status").filter({ hasText: /saved|updated/i }).first()).toContainText(/saved|updated/i, { timeout: 20_000 });
     await page.goto("/collections/shirts");
     await expect(page.getByRole("navigation", { name: /types/i })).toHaveCount(0);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Price } from "../_components/currency";
+import { Price, useCurrency } from "../_components/currency";
 import { ProductCard } from "../_components/store-components";
 import { ThemedSelect } from "../_components/themed-select";
 import { countFilters, EMPTY_FILTERS, filtersToParams, hasFilters, parseFilters, type CatalogFilters } from "@/lib/catalog-filters";
@@ -38,6 +38,7 @@ export function ShopGrid({
   initialQuery?: string;
 }) {
   const showTabs = !!categories?.length;
+  const { currency, format } = useCurrency();
   const paged = showTabs || !!scopeCategory || !!initialQuery;
   const [category, setCategory] = useState("all");
   const [sort, setSort] = useState<Sort>("newest");
@@ -298,21 +299,21 @@ export function ShopGrid({
             className={`price-pill ${filters.max === 5000 && filters.min == null ? "is-active" : ""}`}
             onClick={() => changeFilters({ ...filters, min: undefined, max: filters.max === 5000 ? undefined : 5000 })}
           >
-            Under 5k
+            {currency === "PKR" ? "Under 5k" : `Under ${format(5000)}`}
           </button>
           <button
             type="button"
             className={`price-pill ${filters.min === 5000 && filters.max === 10000 ? "is-active" : ""}`}
             onClick={() => changeFilters({ ...filters, min: filters.min === 5000 && filters.max === 10000 ? undefined : 5000, max: filters.min === 5000 && filters.max === 10000 ? undefined : 10000 })}
           >
-            5k–10k
+            {currency === "PKR" ? "5k–10k" : `${format(5000)}–${format(10000)}`}
           </button>
           <button
             type="button"
             className={`price-pill ${filters.min === 10000 && filters.max == null ? "is-active" : ""}`}
             onClick={() => changeFilters({ ...filters, min: filters.min === 10000 ? undefined : 10000, max: undefined })}
           >
-            10k+
+            {currency === "PKR" ? "10k+" : `${format(10000)}+`}
           </button>
         </div>
       </div>
