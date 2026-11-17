@@ -181,9 +181,9 @@ test.describe("Price on request: rows of one colour", () => {
     expect(mixed.problems.some((m) => /has a price on one row and none on another/.test(m))).toBe(true);
     expect(mixed.parsed.products[0].variants).toHaveLength(1);
     const same = readRows([{ ...shirt, name: "Mode Shirt", size: "M", price: "" }, { ...shirt, name: "Mode Shirt", size: "L", price: "", code: "MS-L" }]);
+    expect(same.problems).toEqual([]);
   });
 });
-    expect(same.problems).toEqual([]);
 
 test.describe("AI changes and deletes", () => {
   test("the management tools have their own permissions and refuse too many changes", async () => {
