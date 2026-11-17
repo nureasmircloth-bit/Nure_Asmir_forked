@@ -174,3 +174,14 @@ test.describe("Price on request", () => {
     expect(await digestOf(a)).not.toBe(await digestOf(b));
   });
 });
+
+test.describe("AI changes and deletes", () => {
+  test("the management tools have their own permissions and refuse too many changes", async () => {
+    const { CHANGES_INPUT, MAX_CHANGES } = await import("../../lib/mcp/manage-schemas");
+    expect(Object.keys(SCOPES)).toEqual(expect.arrayContaining(["products:manage", "products:delete"]));
+    const many = Array.from({ length: MAX_CHANGES + 1 }, () => ({ sku: "A", stock: 1 }));
+    expect(checkArguments(CHANGES_INPUT as never, { changes: many })).toMatch(new RegExp(`at most ${MAX_CHANGES}`));
+    expect(checkArguments(CHANGES_INPUT as never, { changes: many.slice(0, MAX_CHANGES) })).toBeNull();
+    expect(checkArguments(CHANGES_INPUT as never, { changes: [], extra: 1 })).toMatch(/Unknown option/);
+  });
+});
