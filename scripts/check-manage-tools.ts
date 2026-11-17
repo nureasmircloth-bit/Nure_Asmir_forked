@@ -1,6 +1,7 @@
 // Tries the management tools against a throw-away local database (LOCAL_DB_PATH): node ./node_modules/tsx/dist/cli.mjs scripts/check-manage-tools.ts
 import { db } from "@/db";
-import { productImages, products, productVariants } from "@/db/schema";
+import { adminAuditLog, productImages, products, productVariants } from "@/db/schema";
+import { verifyChain } from "@/lib/admin/audit-chain";
 import { importOne } from "@/lib/import/import-product";
 import { manageTools } from "@/lib/mcp/manage-tools";
 import { eq } from "drizzle-orm";
@@ -48,6 +49,14 @@ async function main() {
   check("sizes added (XL, XXL)", variants.some((v) => v.size === "XL" && v.price === 5600 && v.stockQuantity === 3) && variants.some((v) => v.size === "XXL"), variants.map((v) => [v.sku, v.size]));
   const [pa] = await db.select().from(products).where(eq(products.id, a));
   check("product fields saved + seo locked", pa.badge === "Sale" && pa.subcategory === "Formal Shirts" && pa.seoTitle === "Alpha Shirt | Nure Asmir" && pa.seoLocked === true, pa);
+  // history: one entry per change, versions 1, 2…, chained, with before and after
+  const entries = await db.select().from(adminAuditLog).where(eq(adminAuditLog.entityId, a));
+  const ordered = [...entries].sort((x, y) => x.createdAt.getTime() - y.createdAt.getTime() || (x.entityVersion ?? 0) - (y.entityVersion ?? 0));
+  const chain = await verifyChain(ordered.map((row) => ({ prevHash: row.prevHash, actorEmail: row.actorEmail, action: row.action, entityType: row.entityType, entityId: row.entityId, entityVersion: row.entityVersion, source: row.source, ip: row.ip, detail: row.detail, beforeJson: row.beforeJson, afterJson: row.afterJson, createdAtMs: row.createdAt.getTime(), hash: row.hash })));
+  check("history: product entries versioned and chained", entries.length === 2 && chain.ok && chain.checked === 2 && ordered.map((row) => row.entityVersion).join() === "1,2" && ordered[0].source === "ai: try", { entries: entries.length, chain });
+  check("history: before/after recorded for the product page change", ordered.some((row) => (row.beforeJson ?? "").includes('"badge":null') && (row.afterJson ?? "").includes('"badge":"Sale"')));
+  const sizeEntries = await db.select().from(adminAuditLog).where(eq(adminAuditLog.entityId, m.id));
+  check("history: size change recorded with before and after", sizeEntries.length === 1 && (sizeEntries[0].beforeJson ?? "").includes('"price":5000') && (sizeEntries[0].afterJson ?? "").includes('"price":5500'), sizeEntries);
   // A confirmation is used up by its first apply: a stock-only change set that is valid before and after, replayed with the same confirmation.
   const stockOnly = [{ sku: "ALP-L", stock: 7 }];
   const stockPrep = (await tool("prepare_changes").run({ changes: stockOnly }, ctx)) as { confirm: string };

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cropImageClientSide, processImageClientSide } from "@/lib/client-image-processing";
 import { ImageCropper } from "../campaign/image-cropper";
 import { descendantIds, flattenTree, MAX_DEPTH, pathLabel } from "@/lib/category-tree";
@@ -28,6 +28,18 @@ async function makePreview(file: File, crop: PixelCrop): Promise<string> {
   return canvas.toDataURL("image/webp", 0.7);
 }
 
+/** A picture chooser that shows what was chosen (the browser's own file button hides the name on narrow screens). */
+function FilePick({ name, onPick }: { name?: string; onPick: (file: File | null) => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  return (
+    <div className="file-pick">
+      <button type="button" onClick={() => input.current?.click()}>{name ? "Choose another" : "Choose picture"}</button>
+      <small className="file-pick-name">{name ?? "Nothing chosen yet"}</small>
+      <input ref={input} type="file" hidden accept="image/jpeg,image/png,image/webp,image/avif,image/gif" onChange={(event) => { onPick(event.target.files?.[0] ?? null); event.target.value = ""; }} />
+    </div>
+  );
+}
+
 type Product = { id: string; name: string; slug: string; status: string };
 type Category = {
   id: string;
@@ -40,6 +52,8 @@ type Category = {
   sortOrder: number;
   imageUrl: string | null;
   heroImageUrl: string | null;
+  /** How many published products sit in this category. */
+  liveProducts: number;
 };
 type Collection = {
   id: string;
@@ -217,6 +231,14 @@ export function CollectionManager({ products }: { products: Product[] }) {
     if (response.ok) await refreshCategories();
   }
 
+  /** Puts a hidden category back in the shop menu. */
+  async function showInMenu(category: Category) {
+    const response = await fetch(`/api/admin/categories/${category.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "active" }) });
+    const result = await response.json().catch(() => ({}));
+    setMessage(response.ok ? `“${category.name}” is now shown in the menu.` : result.error ?? "Could not show the category.");
+    if (response.ok) await refreshCategories();
+  }
+
   async function createCollection(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const body = Object.fromEntries(new FormData(event.currentTarget));
@@ -296,153 +318,121 @@ export function CollectionManager({ products }: { products: Product[] }) {
                 </div>
               </div>
               <div className="admin-table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Photo</th>
-                      <th>Name</th>
-                      <th>Inside</th>
-                      <th>Slug</th>
-                      <th>Subcategories</th>
-                      <th>Description</th>
-                      <th>Status</th>
-                      <th>Order</th>
-                      <th />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {tree.map((category) => (
-                      <tr key={category.id}>
-                        <td>
-                          <div className="category-photo-cell">
+                <div className="cat-list">
+                  {tree.map((category) => {
+                    const hidden = category.status !== "active";
+                    const busy = imageBusyId === category.id;
+                    return (
+                      <article className={`cat-card${hidden ? " is-hidden" : ""}`} key={category.id} style={{ marginInlineStart: Math.min(category.depth, 5) * 20 }}>
+                        <header className="cat-card-head">
+                          <div>
+                            <h3>{category.name}</h3>
+                            {category.depth > 0 && <small className="category-trail">Inside: {category.path.slice(0, -1).join(" › ")}</small>}
+                          </div>
+                          <div className="cat-badges">
+                            <span className={`cat-badge ${hidden ? "off" : "on"}`}>{hidden ? "Not in the shop menu" : "Shown in the shop menu"}</span>
+                            <span className="cat-badge">{category.liveProducts} product{category.liveProducts === 1 ? "" : "s"} on the website</span>
+                          </div>
+                        </header>
+                        {hidden && category.liveProducts > 0 && (
+                          <div className="cat-warn" role="alert">
+                            <span>This category is hidden, so shoppers cannot find its {category.liveProducts} product{category.liveProducts === 1 ? "" : "s"} in the menu.</span>
+                            <button type="button" className="admin-primary" onClick={() => void showInMenu(category)}>Show it in the menu</button>
+                          </div>
+                        )}
+                        <form className="cat-form" onSubmit={(event) => saveCategory(event, category.id)}>
+                          <label>
+                            <span>Name</span>
+                            <small>What shoppers see in the menu.</small>
+                            <input name="name" defaultValue={category.name} required />
+                          </label>
+                          <label>
+                            <span>Shown in the shop menu?</span>
+                            <small>“No” hides the category from the menu. Its products stay on the website.</small>
+                            <select name="status" defaultValue={category.status}>
+                              <option value="active">Yes, shown</option>
+                              <option value="inactive">No, hidden</option>
+                            </select>
+                          </label>
+                          <label>
+                            <span>Inside which category?</span>
+                            <small>Example: “Formal Shirts” goes inside “Shirts”. “Top level” puts it in the main menu.</small>
+                            <select name="parentId" defaultValue={category.parentId ?? ""}>
+                              <option value="">Top level (main menu)</option>
+                              {tree.filter((other) => !blocked(category.id).has(other.id) && other.depth + 1 < MAX_DEPTH).map((other) => (
+                                <option key={other.id} value={other.id}>{pathLabel(other.path)}</option>
+                              ))}
+                            </select>
+                          </label>
+                          <label>
+                            <span>Position in the menu</span>
+                            <small>The smaller number comes first: 0, 1, 2…</small>
+                            <input name="sortOrder" type="number" min="0" defaultValue={category.sortOrder} />
+                          </label>
+                          <label>
+                            <span>Web address</span>
+                            <small>Shown as /collections/<strong>{category.slug}</strong>. Change only if you must: old links stop working.</small>
+                            <input name="slug" defaultValue={category.slug} required />
+                          </label>
+                          <label>
+                            <span>Short description (optional)</span>
+                            <small>A line shown at the top of the category page.</small>
+                            <input name="description" defaultValue={category.description ?? ""} />
+                          </label>
+                          <label>
+                            <span>Quick groups (optional)</span>
+                            <small>Words shown under this category, separated by commas. Example: Casual, Festive.</small>
+                            <input name="subcategories" defaultValue={category.subcategories ?? ""} />
+                          </label>
+                          <div className="cat-actions"><button className="admin-primary">Save changes</button></div>
+                        </form>
+                        <div className="cat-photos">
+                          <h4>Pictures</h4>
+                          <div className="cat-photo-row">
                             <div className="category-photo-slot">
                               <span className="category-photo-preview category-photo-preview-card">
-                                {category.imageUrl ? <Image src={category.imageUrl} alt="" fill sizes="60px" /> : <i aria-hidden="true">◇</i>}
+                                {category.imageUrl ? <Image src={category.imageUrl} alt="" fill sizes="90px" /> : <i aria-hidden="true">No picture yet</i>}
                               </span>
-                              <small>Card 3:4</small>
-                              {category.imageUrl && (
-                                <button type="button" disabled={imageBusyId === category.id} onClick={() => removeCategoryImage(category, "card")}>
-                                  Remove
-                                </button>
-                              )}
+                              <small>Card picture (tall)</small>
+                              <small className="muted">Shown on the home page tile.</small>
+                              {category.imageUrl && <button type="button" disabled={busy} onClick={() => removeCategoryImage(category, "card")}>Remove</button>}
                             </div>
-                            <div className="category-photo-slot">
+                            <div className="category-photo-slot is-wide">
                               <span className="category-photo-preview category-photo-preview-hero">
-                                {category.heroImageUrl ? <Image src={category.heroImageUrl} alt="" fill sizes="90px" /> : <i aria-hidden="true">◇</i>}
+                                {category.heroImageUrl ? <Image src={category.heroImageUrl} alt="" fill sizes="180px" /> : <i aria-hidden="true">No picture yet</i>}
                               </span>
-                              <small>Hero wide</small>
-                              {category.heroImageUrl && (
-                                <button type="button" disabled={imageBusyId === category.id} onClick={() => removeCategoryImage(category, "hero")}>
-                                  Remove
-                                </button>
-                              )}
+                              <small>Wide banner picture</small>
+                              <small className="muted">Shown at the top of the category page.</small>
+                              {category.heroImageUrl && <button type="button" disabled={busy} onClick={() => removeCategoryImage(category, "hero")}>Remove</button>}
                             </div>
-                            {photoEditId === category.id ? (
-                              <button type="button" disabled={imageBusyId === category.id} onClick={cancelPhotoEdit}>
-                                Cancel
-                              </button>
-                            ) : (
-                              <button type="button" disabled={imageBusyId === category.id} onClick={() => startPhotoEdit(category.id)}>
-                                Change photos
-                              </button>
-                            )}
                           </div>
-                          {photoEditId === category.id && (
+                          {photoEditId === category.id ? (
                             <div className="category-photo-editor">
                               <div className="category-photo-slot">
                                 <span className="category-photo-preview category-photo-preview-card">
-                                  {cardSlot.previewUrl ? (
-                                    <Image src={cardSlot.previewUrl} alt="" fill unoptimized sizes="60px" />
-                                  ) : (
-                                    <i aria-hidden="true">◇</i>
-                                  )}
+                                  {cardSlot.previewUrl ? <Image src={cardSlot.previewUrl} alt="" fill unoptimized sizes="90px" /> : <i aria-hidden="true">New card picture</i>}
                                 </span>
-                                <small>New card (3:4)</small>
-                                <input type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/gif" onChange={(event) => pickPhoto("card", event.target.files?.[0] ?? null)} />
+                                <FilePick name={cardSlot.file?.name} onPick={(file) => pickPhoto("card", file)} />
                               </div>
-                              <div className="category-photo-slot">
+                              <div className="category-photo-slot is-wide">
                                 <span className="category-photo-preview category-photo-preview-hero">
-                                  {heroSlot.previewUrl ? (
-                                    <Image src={heroSlot.previewUrl} alt="" fill unoptimized sizes="90px" />
-                                  ) : (
-                                    <i aria-hidden="true">◇</i>
-                                  )}
+                                  {heroSlot.previewUrl ? <Image src={heroSlot.previewUrl} alt="" fill unoptimized sizes="180px" /> : <i aria-hidden="true">New wide picture</i>}
                                 </span>
-                                <small>New hero (wide)</small>
-                                <input type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/gif" onChange={(event) => pickPhoto("hero", event.target.files?.[0] ?? null)} />
+                                <FilePick name={heroSlot.file?.name} onPick={(file) => pickPhoto("hero", file)} />
                               </div>
-                              <button
-                                type="button"
-                                className="admin-primary"
-                                disabled={imageBusyId === category.id || (!cardSlot.crop && !heroSlot.crop)}
-                                onClick={() => saveCategoryPhotos(category)}
-                              >
-                                {imageBusyId === category.id ? "Saving…" : "Save photos"}
-                              </button>
+                              <div className="cat-actions">
+                                <button type="button" className="admin-primary" disabled={busy || (!cardSlot.crop && !heroSlot.crop)} onClick={() => saveCategoryPhotos(category)}>{busy ? "Saving…" : "Save pictures"}</button>
+                                <button type="button" disabled={busy} onClick={cancelPhotoEdit}>Cancel</button>
+                              </div>
                             </div>
+                          ) : (
+                            <button type="button" disabled={busy} onClick={() => startPhotoEdit(category.id)}>Change pictures</button>
                           )}
-                        </td>
-                        <td>
-                          <input form={`category-${category.id}`} name="name" defaultValue={category.name} aria-label="Name" style={{ marginInlineStart: Math.min(category.depth, 5) * 18 }} />
-                          {category.depth > 0 && <small className="category-trail">{category.path.slice(0, -1).join(" › ")}</small>}
-                        </td>
-                        <td>
-                          <select form={`category-${category.id}`} name="parentId" defaultValue={category.parentId ?? ""} aria-label="Inside category">
-                            <option value="">Top level</option>
-                            {tree.filter((other) => !blocked(category.id).has(other.id) && other.depth + 1 < MAX_DEPTH).map((other) => (
-                              <option key={other.id} value={other.id}>{pathLabel(other.path)}</option>
-                            ))}
-                          </select>
-                        </td>
-                        <td>
-                          <input form={`category-${category.id}`} name="slug" defaultValue={category.slug} aria-label="Slug" />
-                        </td>
-                        <td>
-                          <input
-                            form={`category-${category.id}`}
-                            name="subcategories"
-                            defaultValue={category.subcategories ?? ""}
-                            placeholder="Casual, Festive, Embroidered"
-                            aria-label="Subcategories"
-                            style={{ minWidth: 160 }}
-                          />
-                        </td>
-                        <td>
-                          <input
-                            form={`category-${category.id}`}
-                            name="description"
-                            defaultValue={category.description ?? ""}
-                            aria-label="Description"
-                          />
-                        </td>
-                        <td>
-                          <select form={`category-${category.id}`} name="status" defaultValue={category.status}>
-                            <option value="active">Active</option>
-                            <option value="inactive">Inactive</option>
-                          </select>
-                        </td>
-                        <td>
-                          <input
-                            form={`category-${category.id}`}
-                            name="sortOrder"
-                            type="number"
-                            min="0"
-                            defaultValue={category.sortOrder}
-                            style={{ width: 60 }}
-                            aria-label="Order"
-                          />
-                        </td>
-                        <td>
-                          <button form={`category-${category.id}`}>Save</button>
-                          {/* This empty form carries no visible fields of its own — every input above
-                              targets it via the HTML `form` attribute, since a <form> cannot be a
-                              valid child of <tr> in table markup. */}
-                          <form id={`category-${category.id}`} onSubmit={(event) => saveCategory(event, category.id)} />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
                 {!categories.length && (
                   <div className="admin-empty">
                     <h3>No categories yet</h3>

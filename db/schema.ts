@@ -77,6 +77,18 @@ export const adminAuditLog = sqliteTable("admin_audit_log", {
   entityType: text("entity_type"),
   entityId: text("entity_id"),
   detail: text("detail"),
+  /** Where the change came from: "admin" (a person signed in) or "ai: <token name>" (an AI assistant). */
+  source: text("source"),
+  /** The address the change came from, when known. */
+  ip: text("ip"),
+  /** 1, 2, 3… for each change of the same thing (a product's version number). */
+  entityVersion: integer("entity_version"),
+  /** The thing as it was before and after the change (JSON), so any change can be checked and undone by hand. */
+  beforeJson: text("before_json"),
+  afterJson: text("after_json"),
+  /** Tamper evidence: the hash of the previous entry of the same thing, and this entry's own hash over everything above (see lib/admin/audit-chain.ts). */
+  prevHash: text("prev_hash"),
+  hash: text("hash"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(nowMs),
 }, (table) => [index("admin_audit_entity_idx").on(table.entityType, table.entityId)]);
 

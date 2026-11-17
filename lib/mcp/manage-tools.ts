@@ -8,6 +8,7 @@ import { db, runAtomically } from "@/db";
 import { chunked } from "@/db/sql-compat";
 import { categories, orderItems, productImages, products, productVariants } from "@/db/schema";
 import { auditLogEntry } from "@/lib/admin/audit";
+import { productSnapshot, variantSnapshot } from "@/lib/admin/snapshots";
 import { generateSeoFields } from "@/lib/ai/seo";
 import { runInBackground } from "@/lib/background";
 import { addSubcategory, CategoryInputError, ensureCategory } from "@/lib/categories";
@@ -36,7 +37,7 @@ async function digestOfValue(value: unknown): Promise<string> {
 type Row = Record<string, unknown>;
 type ProductRow = typeof products.$inferSelect;
 type VariantRow = typeof productVariants.$inferSelect;
-type Plan = { label: string; what: string[]; productId: string; apply: () => Promise<void>; variantId?: string; skus?: string[]; bind?: unknown };
+type Plan = { label: string; what: string[]; productId: string; apply: () => Promise<void>; variantId?: string; skus?: string[]; bind?: unknown; entity: { type: "product" | "variant"; id: string }; before?: Row; after?: Row };
 
 const text = (value: unknown) => String(value ?? "").trim();
 const isWhole = (value: unknown, min = 0) => typeof value === "number" && Number.isInteger(value) && value >= min;
@@ -138,6 +139,9 @@ async function plan(rows: unknown[]): Promise<{ plans: Plan[]; problems: string[
         what,
         productId: variant.productId,
         variantId: variant.id,
+        entity: { type: "variant", id: variant.id },
+        before: variantSnapshot(variant),
+        after: { ...variantSnapshot(variant), ...Object.fromEntries(Object.entries({ price: set.price, compareAtPrice: set.compareAtPrice, stockQuantity: set.stockQuantity, status: set.status }).filter(([, value]) => value !== undefined)) },
         apply: async () => {
           if (set.status !== "archived") {
             await db.update(productVariants).set({ ...set, updatedAt: new Date() }).where(eq(productVariants.id, variant.id));
@@ -201,6 +205,7 @@ async function plan(rows: unknown[]): Promise<{ plans: Plan[]; problems: string[
         label: product.name,
         what,
         productId: product.id,
+        entity: { type: "product", id: product.id },
         skus: inserts.map((insert) => insert.sku as string),
         bind: inserts.map((insert) => [insert.sku, insert.size, insert.price, insert.compareAtPrice, insert.stockQuantity]),
         // All the new sizes of the row are saved together or not at all.
@@ -264,6 +269,9 @@ async function plan(rows: unknown[]): Promise<{ plans: Plan[]; problems: string[
       label: product.name,
       what,
       productId: product.id,
+      entity: { type: "product", id: product.id },
+      before: productSnapshot(product),
+      after: { ...productSnapshot(product), ...productSnapshot(set as Row) },
       apply: async () => {
         if (newCategoryName) {
           try { set.categoryId = (await ensureCategory(newCategoryName)).id; } catch (error) { if (error instanceof CategoryInputError) throw new Error(error.message); throw error; }
@@ -361,8 +369,10 @@ const applyChanges: ToolDef = {
       }
     }
     const okCount = results.filter((result) => result.ok).length;
-    if (okCount) {
-      await auditLogEntry({ actorEmail: `AI assistant: ${ctx.label}`, action: "mcp.products.update", entityType: "product", entityId: [...done].join(",").slice(0, 400), detail: { changed: okCount, failed: results.length - okCount, token: ctx.label } });
+    // One history entry for each change (with the thing before and after), so every product's page of history shows what the assistant did.
+    for (const item of plans) {
+      if (!results.some((result) => result.item === item.label && result.ok)) continue;
+      await auditLogEntry({ actorEmail: `AI assistant: ${ctx.label}`, action: item.entity.type === "variant" ? "variant.update" : "product.update", entityType: item.entity.type, entityId: item.entity.id, detail: item.what, before: item.before, after: item.after, source: `ai: ${ctx.label}` }).catch((error) => console.error("mcp history entry failed", error));
     }
     const refreshed = done.size ? await refreshAfter([...done]) : "";
     void touched;
