@@ -31,6 +31,16 @@ export async function redeemConfirmation(tokenId: string, code: string, digest: 
   return used.length === 1;
 }
 
+/** Says why a confirmation was refused (used up, expired, not known, or made for something else), for the message the assistant reads. */
+export async function confirmationProblem(tokenId: string, code: string, digest: string): Promise<string> {
+  const [row] = await db.select().from(mcpConfirmations).where(and(eq(mcpConfirmations.code, code), eq(mcpConfirmations.tokenId, tokenId))).limit(1);
+  if (!row) return "The confirmation is not known for this token.";
+  if (row.usedAt) return "The confirmation was already used.";
+  if (row.expiresAt.getTime() <= Date.now()) return "The confirmation has expired.";
+  if (row.digest !== digest) return "These are not the same changes (or the shop is not the same) as when they were previewed.";
+  return "The confirmation could not be used.";
+}
+
 /** Takes room for `count` products from today's quota, atomically. Gives the day it was taken from (to give back what is not used), or null when there is not enough room. */
 export async function reserveQuota(count: number): Promise<string | null> {
   const day = new Date().toISOString().slice(0, 10);
