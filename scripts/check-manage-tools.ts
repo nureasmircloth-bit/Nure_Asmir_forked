@@ -12,6 +12,10 @@ let failures = 0;
 const check = (name: string, ok: boolean, detail?: unknown) => { console.log(`${ok ? "ok  " : "FAIL"} ${name}`); if (!ok) { failures++; if (detail !== undefined) console.log(JSON.stringify(detail, null, 1)); } };
 
 async function main() {
+  if (!process.env.LOCAL_DB_PATH) {
+    console.error("Set LOCAL_DB_PATH to a throw-away SQLite file first (node scripts/local-db.mjs <file> --reset). Nothing was done.");
+    process.exit(2);
+  }
   const make = async (name: string, status: "draft" | "published") => {
     const result = await importOne({ name, category: "Shirts", typeLabel: "Shirt", visibility: status, variants: [
       { name: "White / M", color: "White", sku: `${name.slice(0, 3).toUpperCase()}-M`, size: "M", price: 5000, stockQuantity: 4 },
@@ -53,14 +57,28 @@ async function main() {
   check("history: before/after recorded for the product page change", ordered.some((row) => (row.beforeJson ?? "").includes('"badge":null') && (row.afterJson ?? "").includes('"badge":"Sale"')));
   const sizeEntries = await db.select().from(adminAuditLog).where(eq(adminAuditLog.entityId, m.id));
   check("history: size change recorded with before and after", sizeEntries.length === 1 && (sizeEntries[0].beforeJson ?? "").includes('"price":5000') && (sizeEntries[0].afterJson ?? "").includes('"price":5500'), sizeEntries);
-  let reused = false;
-  try { await tool("apply_changes").run({ changes, confirm: prep.confirm }, ctx); } catch { reused = true; }
-  check("confirmation cannot be reused", reused);
+  // A confirmation is used up by its first apply: a stock-only change set that is valid before and after, replayed with the same confirmation.
+  const stockOnly = [{ sku: "ALP-L", stock: 7 }];
+  const stockPrep = (await tool("prepare_changes").run({ changes: stockOnly }, ctx)) as { confirm: string };
+  await tool("apply_changes").run({ changes: stockOnly, confirm: stockPrep.confirm }, ctx);
+  let reuseMessage = "";
+  try { await tool("apply_changes").run({ changes: stockOnly, confirm: stockPrep.confirm }, ctx); } catch (error) { reuseMessage = error instanceof Error ? error.message : String(error); }
+  check("confirmation cannot be reused (and the refusal says it was already used)", /already used/.test(reuseMessage), reuseMessage);
 
   // 2. refusals
   const bad = (await tool("prepare_changes").run({ changes: [{ product: "Nope" }, { sku: "ALP-M", price: -5 }, { product: "Alpha Shirt", status: "published" }, { product: "Alpha Shirt", colour: "Blue", addSizes: "S", price: 1 }, { sku: "ALP-M", price: 9000 }, { product: "Alpha Shirt", prise: 5 }] }, ctx)) as { ready: boolean; problems: string[] };
   check("bad changes refused with reasons", bad.ready === false && bad.problems.length >= 6, bad);
   console.log(bad.problems.join("\n"));
+
+  const more = (await tool("prepare_changes").run({ changes: [{ product: "Alpha Shirt", addSizes: "S, s", price: 100 }, { product: "Alpha Shirt", addSizes: "S", price: 100, oldPrice: 150.5 }, { product: "Beta Shirt", status: " Published " }, { product: "Alpha Shirt", addSizes: "M", price: 100 }] }, ctx)) as { ready: boolean; problems: string[] };
+  check("duplicate sizes, fractional old price, spaced status and existing size are all refused", more.ready === false && more.problems.some((m) => /listed twice/.test(m)) && more.problems.some((m) => /oldPrice must be a whole number/.test(m)) && more.problems.some((m) => /no pictures/.test(m)) && more.problems.some((m) => /already exists/.test(m)), more);
+  // the confirmation is tied to what was resolved: if the shop changed after the preview, a new preview is needed
+  const xlSku = variants.find((v) => v.size === "XL")!.sku;
+  const drift = (await tool("prepare_changes").run({ changes: [{ sku: xlSku, stock: 11 }] }, ctx)) as { confirm: string };
+  await db.update(productVariants).set({ stockQuantity: 99 }).where(eq(productVariants.sku, xlSku));
+  let driftMessage = "";
+  try { await tool("apply_changes").run({ changes: [{ sku: xlSku, stock: 11 }], confirm: drift.confirm }, ctx); } catch (error) { driftMessage = error instanceof Error ? error.message : String(error); }
+  check("a shop that changed after the preview needs a new preview", /not the same/.test(driftMessage), driftMessage);
 
   // 3. publish needs a picture, then works
   await db.insert(productImages).values({ productId: a, r2Key: "try/a.webp", altText: "a", contentType: "image/webp", byteSize: 10 } as never);

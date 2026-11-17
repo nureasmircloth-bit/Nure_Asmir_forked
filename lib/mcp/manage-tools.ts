@@ -4,7 +4,7 @@
 // website (drafts and archived ones) can be deleted for good, and never without their own preview and confirmation.
 
 import { and, eq, inArray, sql } from "drizzle-orm";
-import { db } from "@/db";
+import { db, runAtomically } from "@/db";
 import { chunked } from "@/db/sql-compat";
 import { categories, orderItems, productImages, products, productVariants } from "@/db/schema";
 import { auditLogEntry } from "@/lib/admin/audit";
@@ -19,7 +19,7 @@ import { suggestSku } from "@/lib/sku";
 import { checkStockAlerts } from "@/lib/stock-alerts";
 import { deleteObject } from "@/lib/storage";
 import { refreshStorefront } from "@/lib/storefront-cache";
-import { issueConfirmation, redeemConfirmation } from "./guards";
+import { confirmationProblem, issueConfirmation, redeemConfirmation } from "./guards";
 import { ToolInputError, type ToolDef } from "./protocol";
 
 const PRODUCT_FIELDS = ["product", "status", "category", "subcategory", "badge", "featured", "priceOnRequest", "comingSoon", "seoTitle", "seoDescription", "seoKeywords", "regenerateSeo"];
@@ -37,7 +37,7 @@ async function digestOfValue(value: unknown): Promise<string> {
 type Row = Record<string, unknown>;
 type ProductRow = typeof products.$inferSelect;
 type VariantRow = typeof productVariants.$inferSelect;
-type Plan = { label: string; what: string[]; productId: string; apply: () => Promise<void>; variantId?: string; entity: { type: "product" | "variant"; id: string }; before?: Row; after?: Row };
+type Plan = { label: string; what: string[]; productId: string; apply: () => Promise<void>; variantId?: string; skus?: string[]; bind?: unknown; entity: { type: "product" | "variant"; id: string }; before?: Row; after?: Row };
 
 const text = (value: unknown) => String(value ?? "").trim();
 const isWhole = (value: unknown, min = 0) => typeof value === "number" && Number.isInteger(value) && value >= min;
@@ -66,7 +66,6 @@ async function plan(rows: unknown[]): Promise<{ plans: Plan[]; problems: string[
   const plans: Plan[] = [];
   const touched = new Set<string>();
   const objects = rows.map((row, index) => (row && typeof row === "object" && !Array.isArray(row) ? (row as Row) : (problems.push(`Change ${index + 1} must be an object.`), {} as Row)));
-  const digest = await digestOfValue(rows);
 
   const productKeys = objects.map((row) => text(row.product)).filter(Boolean);
   const skus = objects.map((row) => text(row.sku).toUpperCase()).filter(Boolean);
@@ -86,6 +85,8 @@ async function plan(rows: unknown[]): Promise<{ plans: Plan[]; problems: string[
     for (const row of await db.select().from(products).where(inArray(products.id, part))) productById.set(row.id, row);
   }
   const removing = new Map<string, number>(); // sizes taken off in this call, for each product
+  const removingIds = new Set<string>(); // the sizes taken off in this call: none of them may become the main size of a product
+  const newSkus = new Set<string>();
 
   objects.forEach((row, index) => {
     const at = `Change ${index + 1}`;
@@ -130,6 +131,7 @@ async function plan(rows: unknown[]): Promise<{ plans: Plan[]; problems: string[
         if (active - gone < 1) return void problems.push(`${at}: that would remove the last size of “${owner?.name}”. Archive the product instead.`);
         removing.set(variant.productId, gone);
         set.status = "archived";
+        removingIds.add(variant.id);
         what.push("size hidden (archived)");
       }
       plans.push({
@@ -141,10 +143,21 @@ async function plan(rows: unknown[]): Promise<{ plans: Plan[]; problems: string[
         before: variantSnapshot(variant),
         after: { ...variantSnapshot(variant), ...Object.fromEntries(Object.entries({ price: set.price, compareAtPrice: set.compareAtPrice, stockQuantity: set.stockQuantity, status: set.status }).filter(([, value]) => value !== undefined)) },
         apply: async () => {
-          await db.update(productVariants).set({ ...set, updatedAt: new Date() }).where(eq(productVariants.id, variant.id));
-          if (set.status === "archived" && variant.isDefault) {
-            const [other] = (variantsOf.get(variant.productId) ?? []).filter((item) => item.id !== variant.id && item.status === "active");
-            if (other) await db.update(productVariants).set({ isDefault: true }).where(eq(productVariants.id, other.id));
+          if (set.status !== "archived") {
+            await db.update(productVariants).set({ ...set, updatedAt: new Date() }).where(eq(productVariants.id, variant.id));
+            return;
+          }
+          // The size is hidden only if the product still has another active size at this very moment (checked and written in one statement).
+          const archived = await db
+            .update(productVariants)
+            .set({ ...set, isDefault: false, updatedAt: new Date() })
+            .where(and(eq(productVariants.id, variant.id), sql`(select count(*) from product_variants pv where pv.product_id = ${variant.productId} and pv.status = 'active' and pv.id <> ${variant.id}) >= 1`))
+            .returning({ id: productVariants.id });
+          if (archived.length === 0) throw new Error("This is now the last active size of the product, so it was not hidden.");
+          if (variant.isDefault) {
+            // The main size goes to a size that stays: never one that this same call is hiding.
+            const survivor = (variantsOf.get(variant.productId) ?? []).find((item) => item.id !== variant.id && item.status === "active" && !removingIds.has(item.id));
+            if (survivor) await db.update(productVariants).set({ isDefault: true }).where(eq(productVariants.id, survivor.id));
           }
         },
       });
@@ -160,8 +173,11 @@ async function plan(rows: unknown[]): Promise<{ plans: Plan[]; problems: string[
 
     // --- new sizes ---
     if (kind === "add") {
-      const sizes = listOf(row.addSizes);
+      const listed = listOf(row.addSizes);
+      const sizes = [...new Map(listed.map((size) => [size.toLowerCase(), size])).values()];
       if (!sizes.length) return void problems.push(`${at}: addSizes is empty.`);
+      if (sizes.length !== listed.length) return void problems.push(`${at}: a size is listed twice in addSizes.`);
+      if (row.oldPrice !== undefined && row.oldPrice !== null && !isWhole(row.oldPrice, 1)) return void problems.push(`${at}: oldPrice must be a whole number, or null for none.`);
       if (!isWhole(row.price, 1) && row.price !== undefined) return void problems.push(`${at}: price must be a whole number of rupees.`);
       if (row.stock !== undefined && !isWhole(row.stock)) return void problems.push(`${at}: stock must be a whole number.`);
       const own = (variantsOf.get(product.id) ?? []).filter((item) => item.status === "active");
@@ -177,7 +193,10 @@ async function plan(rows: unknown[]): Promise<{ plans: Plan[]; problems: string[
         if (oldPrice !== null && oldPrice <= price) return void problems.push(`${at}: the old price must be higher than the price.`);
         for (const size of sizes) {
           if (sameColour.some((item) => (item.size ?? "").toLowerCase() === size.toLowerCase())) { what.push(`${model.color} ${size}: already exists, skipped`); continue; }
-          inserts.push({ productId: product.id, name: `${model.color} / ${size}`, sku: suggestSku(product.name, product.typeLabel, size, colours.length > 1 || new Set(own.map((item) => item.color)).size > 1 ? model.color : undefined), color: model.color, size, price, compareAtPrice: oldPrice, stockQuantity: (row.stock as number | undefined) ?? 0, lowStockThreshold: 3, isDefault: false, status: "active" });
+          const code = suggestSku(product.name, product.typeLabel, size, colours.length > 1 || new Set(own.map((item) => item.color)).size > 1 ? model.color : undefined);
+          if (newSkus.has(code.toUpperCase())) return void problems.push(`${at}: the size ${size} would get the code ${code}, which another size in this call gets too.`);
+          newSkus.add(code.toUpperCase());
+          inserts.push({ productId: product.id, name: `${model.color} / ${size}`, sku: code, color: model.color, size, price, compareAtPrice: oldPrice, stockQuantity: (row.stock as number | undefined) ?? 0, lowStockThreshold: 3, isDefault: false, status: "active" });
           what.push(`${model.color} ${size}: new size, price ${price}, stock ${(row.stock as number | undefined) ?? 0}`);
         }
       }
@@ -187,9 +206,15 @@ async function plan(rows: unknown[]): Promise<{ plans: Plan[]; problems: string[
         what,
         productId: product.id,
         entity: { type: "product", id: product.id },
+        skus: inserts.map((insert) => insert.sku as string),
+        bind: inserts.map((insert) => [insert.sku, insert.size, insert.price, insert.compareAtPrice, insert.stockQuantity]),
+        // All the new sizes of the row are saved together or not at all.
         apply: async () => {
-          for (const insert of inserts) {
-            try { await db.insert(productVariants).values(insert); } catch (error) { if (isUniqueViolation(error)) throw new Error(`The code ${insert.sku} is already used by another size.`); throw error; }
+          try {
+            await runAtomically(inserts.map((insert) => sql`insert into product_variants (product_id, name, sku, color, size, price, compare_at_price, stock_quantity, low_stock_threshold, is_default, status) values (${insert.productId}, ${insert.name}, ${insert.sku}, ${insert.color}, ${insert.size ?? null}, ${insert.price}, ${insert.compareAtPrice ?? null}, ${insert.stockQuantity ?? 0}, ${insert.lowStockThreshold ?? 3}, 0, 'active')`));
+          } catch (error) {
+            if (isUniqueViolation(error)) throw new Error("One of the new product codes is already used by another size. Nothing of this change was saved.");
+            throw error;
           }
         },
       });
@@ -202,13 +227,14 @@ async function plan(rows: unknown[]): Promise<{ plans: Plan[]; problems: string[
     const what: string[] = [];
     let newCategoryName: string | undefined;
     if (row.status !== undefined) {
-      if (!["published", "draft", "archived"].includes(text(row.status))) return void problems.push(`${at}: status must be published, draft or archived.`);
-      if (row.status === "published" && product.status !== "published") {
+      const status = text(row.status).toLowerCase();
+      if (!["published", "draft", "archived"].includes(status)) return void problems.push(`${at}: status must be published, draft or archived.`);
+      if (status === "published" && product.status !== "published") {
         if ((pictureCount.get(product.id) ?? 0) === 0) return void problems.push(`${at}: “${product.name}” has no pictures, so it cannot be shown on the website yet.`);
         set.publishedAt = new Date();
       }
-      set.status = row.status as "published" | "draft" | "archived";
-      what.push(`status ${product.status} → ${row.status}${row.status === "published" ? " (goes on the website)" : ""}`);
+      set.status = status as "published" | "draft" | "archived";
+      what.push(`status ${product.status} → ${status}${status === "published" ? " (goes on the website)" : ""}`);
     }
     if (row.category !== undefined) {
       if (!text(row.category)) return void problems.push(`${at}: category is empty.`);
@@ -266,6 +292,14 @@ async function plan(rows: unknown[]): Promise<{ plans: Plan[]; problems: string[
     });
     touched.add(product.id);
   });
+  // The new codes must not belong to any size yet.
+  const wanted = [...newSkus];
+  for (const part of chunked(wanted)) {
+    for (const row of await db.select({ sku: productVariants.sku }).from(productVariants).where(inArray(sql`upper(${productVariants.sku})`, part))) problems.push(`The code ${row.sku} is already used by another size, so the size that would get it cannot be added.`);
+  }
+  // The confirmation is tied to what was RESOLVED and shown (the products and sizes found, what each would change from what it is now), not just to the words that were sent:
+  // if anything changed in the shop between the preview and the apply, the digest differs and a new preview is needed.
+  const digest = await digestOfValue({ rows, resolved: plans.map((item) => [item.productId, item.variantId ?? null, item.what, item.bind ?? null]) });
   return { plans, problems, touched, digest };
 }
 
@@ -319,7 +353,7 @@ const applyChanges: ToolDef = {
     const { plans, problems, touched, digest } = await plan(rows);
     if (problems.length) throw new ToolInputError(`These changes cannot be made, nothing was changed: ${problems.slice(0, 12).join(" | ")}`);
     if (!(await redeemConfirmation(ctx.tokenId, text(args.confirm), digest))) {
-      throw new ToolInputError("The confirmation is wrong, was already used, has expired, or belongs to other changes. Call prepare_changes again, show the owner the preview and use the new confirm value. Nothing was changed.");
+      throw new ToolInputError(`${await confirmationProblem(ctx.tokenId, text(args.confirm), digest)} Call prepare_changes again, show the owner the preview and use the new confirm value. Nothing was changed.`);
     }
     const results: Array<{ item: string; ok: boolean; changes?: string[]; message?: string }> = [];
     const done = new Set<string>();
@@ -403,7 +437,7 @@ const deleteProducts: ToolDef = {
     const { problems, rows, digest } = await planDelete(Array.isArray(args.products) ? args.products : []);
     if (problems.length) throw new ToolInputError(`These products cannot be deleted, nothing was deleted: ${problems.slice(0, 12).join(" | ")}`);
     if (!rows.length) throw new ToolInputError("Nothing to delete.");
-    if (!(await redeemConfirmation(ctx.tokenId, text(args.confirm), digest))) throw new ToolInputError("The confirmation is wrong, was already used, has expired, or belongs to other products. Call prepare_delete again and use the new confirm value. Nothing was deleted.");
+    if (!(await redeemConfirmation(ctx.tokenId, text(args.confirm), digest))) throw new ToolInputError(`${await confirmationProblem(ctx.tokenId, text(args.confirm), digest)} Call prepare_delete again and use the new confirm value. Nothing was deleted.`);
     const results: Array<{ product: string; ok: boolean; pictures?: number; message?: string }> = [];
     const removed: string[] = [];
     for (const row of rows) {
@@ -413,11 +447,14 @@ const deleteProducts: ToolDef = {
         if (!now) { results.push({ product: row.name, ok: false, message: "Already gone." }); continue; }
         if (now.status === "published") { results.push({ product: row.name, ok: false, message: "It was put on the website meanwhile, so it was not deleted." }); continue; }
         const images = await db.select({ r2Key: productImages.r2Key, variantWidths: productImages.variantWidths }).from(productImages).where(eq(productImages.productId, row.id));
-        await db.delete(products).where(and(eq(products.id, row.id), eq(products.status, now.status)));
-        await Promise.all(images.flatMap((image) => [deleteObject(image.r2Key), ...(image.variantWidths ?? []).map((width) => deleteObject(variantKeyFor(image.r2Key, width)))])).catch((error) => console.error("mcp delete: pictures not removed", error));
-        await auditLogEntry({ actorEmail: `AI assistant: ${ctx.label}`, action: "product.delete_permanent", entityType: "product", entityId: row.id, detail: { name: row.name, imagesDeleted: images.length, token: ctx.label } });
+        const gone = await db.delete(products).where(and(eq(products.id, row.id), eq(products.status, now.status))).returning({ id: products.id });
+        if (gone.length === 0) { results.push({ product: row.name, ok: false, message: "It changed meanwhile, so it was not deleted." }); continue; }
+        // From here the product IS deleted: what is left to tidy up can fail without changing that.
         removed.push(row.id);
-        results.push({ product: row.name, ok: true, pictures: images.length });
+        const followUp: string[] = [];
+        await Promise.all(images.flatMap((image) => [deleteObject(image.r2Key), ...(image.variantWidths ?? []).map((width) => deleteObject(variantKeyFor(image.r2Key, width)))])).catch((error) => { console.error("mcp delete: pictures not removed", error); followUp.push("some picture files could not be removed from storage"); });
+        await auditLogEntry({ actorEmail: `AI assistant: ${ctx.label}`, action: "product.delete_permanent", entityType: "product", entityId: row.id, detail: { name: row.name, imagesDeleted: images.length, token: ctx.label } }).catch((error) => { console.error("mcp delete: history entry failed", error); followUp.push("the history entry could not be written"); });
+        results.push({ product: row.name, ok: true, pictures: images.length, ...(followUp.length ? { message: `Deleted, but ${followUp.join(" and ")}.` } : {}) });
       } catch (error) {
         console.error("mcp product delete failed", error);
         results.push({ product: row.name, ok: false, message: "Could not be deleted (it may still be in use). Nothing of it was removed." });
