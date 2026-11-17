@@ -76,15 +76,21 @@ function AddProducts({ categoryNames }: { categoryNames: string[] }) {
         const table = await readSheetFile(file);
         const parsed = parseProductTable(table);
         // Colours of one product must agree: all priced, or all “Price on request”.
+        // A product whose colours disagree is left out completely (never imported with the first colour's mode) and named in the problems.
         const firstOf = new Map<string, ParsedProduct>();
+        const disagreeing = new Set<string>();
         for (const entry of parsed.products) {
           const key = `${entry.name.toLowerCase()}|${entry.category.toLowerCase()}`;
           const first = firstOf.get(key);
           if (!first) firstOf.set(key, entry);
-          else if (first.priceOnRequest !== entry.priceOnRequest) parsed.problems.push({ row: entry.row, message: `“${entry.name}” has a price on one colour and none on another. Give every colour a price, or leave all of them empty for “Price on request”.` });
+          else if (first.priceOnRequest !== entry.priceOnRequest && !disagreeing.has(key)) {
+            disagreeing.add(key);
+            parsed.problems.push({ row: entry.row, message: `“${entry.name}” has a price on one colour and none on another, so it is NOT added. Give every colour a price, or leave all of them empty for “Price on request”.` });
+          }
         }
+        const importable = parsed.products.filter((entry) => !disagreeing.has(`${entry.name.toLowerCase()}|${entry.category.toLowerCase()}`));
         setAskOk(false);
-        setProducts(parsed.products);
+        setProducts(importable);
         setProblems(parsed.problems);
         setFileName(file.name);
         setStep("review");

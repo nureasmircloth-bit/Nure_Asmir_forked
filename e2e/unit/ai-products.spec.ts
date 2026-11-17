@@ -174,3 +174,13 @@ test.describe("Price on request", () => {
     expect(await digestOf(a)).not.toBe(await digestOf(b));
   });
 });
+
+test.describe("Price on request: rows of one colour", () => {
+  test("two rows of the same product and colour must both be priced or both empty", () => {
+    const mixed = readRows([{ ...shirt, name: "Mode Shirt", size: "M", price: "5000" }, { ...shirt, name: "Mode Shirt", size: "L", price: "", code: "MS-L" }]);
+    expect(mixed.problems.some((m) => /has a price on one row and none on another/.test(m))).toBe(true);
+    expect(mixed.parsed.products[0].variants).toHaveLength(1);
+    const same = readRows([{ ...shirt, name: "Mode Shirt", size: "M", price: "" }, { ...shirt, name: "Mode Shirt", size: "L", price: "", code: "MS-L" }]);
+    expect(same.problems).toEqual([]);
+  });
+});
