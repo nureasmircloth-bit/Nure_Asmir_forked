@@ -236,6 +236,40 @@ export function CollectionManager({ products }: { products: Product[] }) {
     if (response.ok) await refreshCategories();
   }
 
+  /** Hides ("archive") or deletes for good every product of a category and the categories inside it. Always shows the count first. */
+  async function clearCategoryProducts(category: Category, mode: "archive" | "delete") {
+    const call = (extra: Record<string, unknown>) => fetch(`/api/admin/categories/${category.id}/products`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode, includeInside: true, ...extra }) });
+    const preview = await (await call({ dryRun: true })).json().catch(() => ({} as { count?: number; categories?: string[]; sample?: string[]; error?: string }));
+    if (!preview.count) { setMessage(preview.error ?? `“${category.name}” has no products to ${mode === "archive" ? "hide" : "delete"}.`); return; }
+    const where = (preview.categories ?? []).length > 1 ? ` in “${category.name}” and the categories inside it (${(preview.categories ?? []).join(", ")})` : ` in “${category.name}”`;
+    let confirmName = "";
+    if (mode === "archive") {
+      if (!window.confirm(`Hide ${preview.count} product${preview.count === 1 ? "" : "s"}${where} from the website?
+
+They are kept and can be shown again later.`)) return;
+    } else {
+      const typed = window.prompt(`DELETE FOR GOOD ${preview.count} product${preview.count === 1 ? "" : "s"}${where}, with their sizes and pictures?
+This cannot be undone. Past orders are not affected.
+
+Examples: ${(preview.sample ?? []).join(", ")}
+
+To continue, type the category name: ${category.name}`);
+      if (typed === null) return;
+      confirmName = typed;
+    }
+    let done = 0;
+    for (let round = 0; round < 200; round += 1) {
+      const response = await call({ confirmName });
+      const result = await response.json().catch(() => ({} as { done?: number; remaining?: number; error?: string }));
+      if (!response.ok) { setMessage(result.error ?? "Could not finish. Press the button again to continue."); await refreshCategories(); return; }
+      done += result.done ?? 0;
+      setMessage(`${mode === "archive" ? "Hidden" : "Deleted"} ${done} of ${preview.count}…`);
+      if (!result.remaining) break;
+    }
+    setMessage(`${mode === "archive" ? "Hidden" : "Deleted"} ${done} product${done === 1 ? "" : "s"}${where}.`);
+    await refreshCategories();
+  }
+
   /** Puts a hidden category back in the shop menu. */
   async function showInMenu(category: Category) {
     const response = await fetch(`/api/admin/categories/${category.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "active" }) });
@@ -441,6 +475,13 @@ export function CollectionManager({ products }: { products: Product[] }) {
                           ) : (
                             <button type="button" disabled={busy} onClick={() => startPhotoEdit(category.id)}>Change pictures</button>
                           )}
+                        </div>
+                        <div className="cat-danger">
+                          <small>Starting again with this category? Remove all its products at once (the categories inside it are included).</small>
+                          <div className="cat-actions">
+                            <button type="button" onClick={() => void clearCategoryProducts(category, "archive")}>Hide all its products</button>
+                            <button type="button" className="admin-danger" onClick={() => void clearCategoryProducts(category, "delete")}>Delete all its products for good</button>
+                          </div>
                         </div>
                       </article>
                     );
