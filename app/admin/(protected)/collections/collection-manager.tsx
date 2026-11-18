@@ -220,13 +220,17 @@ export function CollectionManager({ products }: { products: Product[] }) {
 
   async function saveCategory(event: FormEvent<HTMLFormElement>, id: string) {
     event.preventDefault();
-    const body = { ...Object.fromEntries(new FormData(event.currentTarget)), parentId: new FormData(event.currentTarget).get("parentId") || null };
-    const response = await fetch(`/api/admin/categories/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const result = await response.json().catch(() => ({}));
+    const body: Record<string, unknown> = { ...Object.fromEntries(new FormData(event.currentTarget)), parentId: new FormData(event.currentTarget).get("parentId") || null };
+    const send = () => fetch(`/api/admin/categories/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    let response = await send();
+    let result = await response.json().catch(() => ({}));
+    // Hiding a category that still has products on the website needs a clear yes (it disappears from the shop menu).
+    if (response.status === 409 && result.needsConfirm) {
+      if (!window.confirm(`${result.error}\n\nHide it anyway?`)) { setMessage("Not hidden. The category stays in the menu."); await refreshCategories(); return; }
+      body.confirmHide = true;
+      response = await send();
+      result = await response.json().catch(() => ({}));
+    }
     setMessage(response.ok ? "Category updated." : result.error ?? "Category could not be updated.");
     if (response.ok) await refreshCategories();
   }
