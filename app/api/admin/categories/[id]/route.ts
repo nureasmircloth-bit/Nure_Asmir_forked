@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { runInBackground } from "@/lib/background";
 import { reindexAll } from "@/lib/search/algolia";
-import { and, eq, sql } from "drizzle-orm";
+import { and, count, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { categories } from "@/db/schema";
+import { categories, products } from "@/db/schema";
 import { getAdminUser } from "@/lib/auth/admin-auth";
 import { slugify } from "@/lib/slug";
 import { auditLogEntry } from "@/lib/admin/audit";
@@ -20,6 +20,8 @@ const updateSchema = z.object({
   status: z.enum(["active", "inactive"]).optional(),
   sortOrder: z.coerce.number().int().optional(),
   parentId: z.string().min(1).nullable().optional(),
+  /** The owner has seen the warning that products on the website would disappear from the menu, and still wants the category hidden. */
+  confirmHide: z.boolean().optional(),
 });
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -30,6 +32,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const parsed = updateSchema.safeParse(await request.json().catch(() => ({})));
   if (!parsed.success) return Response.json({ error: "Invalid category payload." }, { status: 400 });
   const data = parsed.data;
+
+  // Hiding a category takes it out of the shop menu. If it still holds products that are on the website, that needs a clear yes.
+  if (data.status === "inactive" && !data.confirmHide) {
+    const [{ live }] = await db.select({ live: count() }).from(products).where(and(eq(products.categoryId, id), eq(products.status, "published")));
+    if (live > 0) return Response.json({ error: `This category has ${live} product${live === 1 ? "" : "s"} on the website. Hiding it removes it from the shop menu. Confirm to hide it anyway.`, needsConfirm: true, live }, { status: 409 });
+  }
 
   if (data.parentId) {
     const problem = await parentProblem(id, data.parentId);
