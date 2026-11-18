@@ -1,4 +1,4 @@
-import { hasFilters, type CatalogFilters } from "@/lib/catalog-filters";
+import { hasFilters, sizeRank, type CatalogFilters } from "@/lib/catalog-filters";
 import { cache } from "react";
 import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/db";
@@ -397,7 +397,11 @@ export async function getProductBySlug(slug: string): Promise<CatalogProduct | n
   ]);
 
   const sales = await getActiveSales();
-  const variants: CatalogVariant[] = variantRows.map((v) => {
+  // Colours stay in the order they were added; inside a colour the sizes follow the usual order (S, M, MC, L, XL), not the order they were uploaded.
+  const colourOrder = new Map<string, number>();
+  for (const v of variantRows) if (!colourOrder.has(v.color)) colourOrder.set(v.color, colourOrder.size);
+  const orderedRows = [...variantRows].sort((a, b) => colourOrder.get(a.color)! - colourOrder.get(b.color)! || sizeRank(a.size) - sizeRank(b.size));
+  const variants: CatalogVariant[] = orderedRows.map((v) => {
     const sale = applySales(v.price, row.id, sales);
     return {
       id: v.id,

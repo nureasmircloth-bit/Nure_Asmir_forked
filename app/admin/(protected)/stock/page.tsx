@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
+import { categories as categoryTable } from "@/db/schema";
+import { flattenTree, pathLabel } from "@/lib/category-tree";
 import { mediaUrl } from "@/lib/media-url";
 import { HelpBox } from "../../_ui/client";
 import { Icon } from "../../_ui/icons";
@@ -39,7 +41,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
   const productFilter = sql`p.status <> 'archived' ${cat ? sql`and p.category_id = ${cat}` : sql``}
     and exists (select 1 from product_variants v where v.product_id = p.id and ${variantMatch})`;
 
-  const [productsResult, countResult, totalsResult, categoriesResult] = await Promise.all([
+  const [productsResult, countResult, totalsResult, categoriesResult, allCategories] = await Promise.all([
     db.execute(sql`
       select p.id, p.name, p.status, c.name as category,
              (select i.r2_key from product_images i where i.product_id = p.id and i.status = 'active' order by i.is_primary desc, i.sort_order limit 1) as "imageKey",
@@ -60,12 +62,15 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
       from categories c join products p on p.category_id = c.id and p.status <> 'archived'
       join product_variants v on v.product_id = p.id and v.status = 'active'
       group by c.id, c.name order by c.name`),
+    db.select({ id: categoryTable.id, name: categoryTable.name, slug: categoryTable.slug, parentId: categoryTable.parentId, sortOrder: categoryTable.sortOrder }).from(categoryTable),
   ]);
 
   const productRows = rowsOf<ProductRaw>(productsResult);
   const total = Number(rowsOf<{ n: number }>(countResult)[0]?.n ?? 0);
   const counts = rowsOf<{ low: number; out: number; all: number }>(totalsResult)[0] ?? { low: 0, out: 0, all: 0 };
-  const categories = rowsOf<{ id: string; name: string; n: number }>(categoriesResult);
+  // Buttons carry the full path ("Kurta Pajama › Embroidered Kurta") so categories with the same name are never mixed up.
+  const paths = new Map(flattenTree(allCategories).map((entry) => [entry.id, pathLabel(entry.path)]));
+  const categories = rowsOf<{ id: string; name: string; n: number }>(categoriesResult).map((item) => ({ ...item, name: paths.get(item.id) ?? item.name }));
   const totalAll = categories.reduce((sum, item) => sum + item.n, 0);
 
   // Second, small query: every colour and size of just the products on this page.

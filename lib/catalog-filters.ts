@@ -67,13 +67,16 @@ export function countFilters(filters: CatalogFilters): number {
 }
 
 /** Size names in the order a shopper expects: XS S M L XL XXL, then waist numbers, then anything else. */
+const SIZE_ORDER = ["XXS", "XS", "S", "M", "MC", "L", "XL", "XXL", "2XL", "3XL", "4XL", "5XL"];
+/** Where a size belongs in the usual order (S, M, MC, L, XL...); waist numbers come after the letters, anything unknown last. */
+export function sizeRank(size: string | null | undefined): number {
+  if (!size) return 2000;
+  const key = size.trim().toUpperCase();
+  const index = SIZE_ORDER.indexOf(key);
+  if (index >= 0) return index;
+  const numeric = parseFloat(key);
+  return Number.isNaN(numeric) ? 1000 : 100 + numeric;
+}
 export function sortSizes(sizes: string[]): string[] {
-  const order = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "2XL", "3XL", "4XL", "5XL"];
-  const rank = (size: string) => {
-    const index = order.indexOf(size.toUpperCase());
-    if (index >= 0) return index;
-    const numeric = parseFloat(size);
-    return Number.isNaN(numeric) ? 1000 : 100 + numeric;
-  };
-  return [...sizes].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+  return [...sizes].sort((a, b) => sizeRank(a) - sizeRank(b) || a.localeCompare(b));
 }

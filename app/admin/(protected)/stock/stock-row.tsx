@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
+import { sizeRank } from "@/lib/catalog-filters";
 import { useLockedAction } from "@/lib/use-locked-action";
 import { callApi, useToast } from "../../_ui/client";
 import { Icon } from "../../_ui/icons";
@@ -11,15 +12,6 @@ import { Badge, Thumb } from "../../_ui/ui";
 export type StockRowData = { id: string; productId: string; product: string; color: string; size: string | null; sku: string; price: number; stock: number; reserved: number; low: number; matches: boolean };
 export type StockGroupData = { id: string; name: string; category: string; status: string; image: string | null; rows: StockRowData[] };
 
-const SIZE_ORDER = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "2XL", "3XL", "4XL", "5XL"];
-function sizeRank(size: string | null): number {
-  if (!size) return -1;
-  const key = size.trim().toUpperCase();
-  const index = SIZE_ORDER.indexOf(key);
-  if (index >= 0) return index;
-  const numeric = parseFloat(key);
-  return Number.isNaN(numeric) ? 100 : 20 + numeric;
-}
 
 function Availability({ available, low }: { available: number; low: number }) {
   return available <= 0 ? <Badge tone="bad">Sold out</Badge> : available <= low ? <Badge tone="new">{available} left</Badge> : <span>{available}</span>;
