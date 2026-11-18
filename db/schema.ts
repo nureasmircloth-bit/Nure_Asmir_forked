@@ -126,6 +126,8 @@ export const categories = sqliteTable("categories", {
   slug: text("slug").notNull().unique(),
   description: text("description"),
   status: text("status").notNull().default("active"),
+  // false = left off the home page cards only; the category stays in the menu, footer, shop tabs and its own page.
+  showOnHome: integer("show_on_home", { mode: "boolean" }).notNull().default(true),
   sortOrder: integer("sort_order").notNull().default(0),
   subcategories: text("subcategories"),
   // The category this one sits inside (empty for a top-level category); see lib/category-tree.ts.

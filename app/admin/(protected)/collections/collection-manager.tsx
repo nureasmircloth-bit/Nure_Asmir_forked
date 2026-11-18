@@ -49,6 +49,7 @@ type Category = {
   subcategories: string | null;
   parentId: string | null;
   status: string;
+  showOnHome: boolean;
   sortOrder: number;
   imageUrl: string | null;
   heroImageUrl: string | null;
@@ -356,6 +357,14 @@ export function CollectionManager({ products }: { products: Product[] }) {
                             <select name="status" defaultValue={category.status}>
                               <option value="active">Yes, shown</option>
                               <option value="inactive">No, hidden</option>
+                            </select>
+                          </label>
+                          <label>
+                            <span>Card on the home page?</span>
+                            <small>“No” keeps it off the home page cards only. It stays in the side menu, the shop and its own page.</small>
+                            <select name="showOnHome" defaultValue={category.showOnHome ? "true" : "false"}>
+                              <option value="true">Yes, show a card</option>
+                              <option value="false">No, not on the home page</option>
                             </select>
                           </label>
                           <label>

@@ -1,0 +1,1 @@
+ALTER TABLE `categories` ADD `show_on_home` integer DEFAULT true NOT NULL;
