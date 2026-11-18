@@ -874,3 +874,6 @@
 .adm .cat-photos .category-photo-preview i { font-style: normal; font-size: 12.5px; color: var(--muted); }
 .adm .file-pick { display: grid; gap: 4px; justify-items: start; }
 .adm .file-pick-name { color: var(--muted); font-size: 12.5px; overflow-wrap: anywhere; }
+
+.adm .cat-danger { border-top: 1px dashed var(--line); margin-top: 12px; padding-top: 12px; display: grid; gap: 8px; }
+.adm .cat-danger .admin-danger { border-color: #b3261e; color: #b3261e; }
