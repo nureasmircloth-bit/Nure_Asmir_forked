@@ -18,6 +18,8 @@ const updateSchema = z.object({
   description: z.string().optional(),
   subcategories: z.string().optional(),
   status: z.enum(["active", "inactive"]).optional(),
+  /** Whether the category gets a card on the home page (the form sends "true"/"false"). */
+  showOnHome: z.union([z.boolean(), z.enum(["true", "false"]).transform((value) => value === "true")]).optional(),
   sortOrder: z.coerce.number().int().optional(),
   parentId: z.string().min(1).nullable().optional(),
   /** The owner has seen the warning that products on the website would disappear from the menu, and still wants the category hidden. */
@@ -56,6 +58,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         ...(data.description !== undefined ? { description: data.description || null } : {}),
         ...(data.subcategories !== undefined ? { subcategories: data.subcategories || null } : {}),
         ...(data.status !== undefined ? { status: data.status } : {}),
+        ...(data.showOnHome !== undefined ? { showOnHome: data.showOnHome } : {}),
         ...(data.sortOrder !== undefined ? { sortOrder: data.sortOrder } : {}),
         ...(data.parentId !== undefined ? { parentId: data.parentId || null } : {}),
         updatedAt: new Date(),

@@ -608,6 +608,8 @@ export type CategoryWithImage = {
   subcategories?: string[];
   /** The category this one sits inside; undefined for a top-level category. */
   parentId?: string;
+  /** false = the owner keeps this category off the home page cards; it stays everywhere else. */
+  showOnHome: boolean;
   imageUrl?: string;
   blurDataUrl?: string;
   // The wide /collections/[slug] hero crop — undefined whenever no separate hero photo was ever
@@ -694,6 +696,7 @@ export async function getActiveCategories(): Promise<CategoryWithImage[]> {
         description: categories.description,
         subcategories: categories.subcategories,
         parentId: categories.parentId,
+        showOnHome: categories.showOnHome,
         imageR2Key: categories.imageR2Key,
         imageWidths: categories.imageVariantWidths,
         blurDataUrl: categories.imageBlurDataUrl,
@@ -716,6 +719,7 @@ export async function getActiveCategories(): Promise<CategoryWithImage[]> {
         ? row.subcategories.split(",").map((s) => s.trim()).filter(Boolean)
         : undefined,
       parentId: row.parentId ?? undefined,
+      showOnHome: row.showOnHome,
       imageUrl: row.imageR2Key ? mediaUrl(row.imageR2Key, row.imageWidths) : undefined,
       blurDataUrl: row.blurDataUrl ?? undefined,
       heroImageUrl: row.heroR2Key ? mediaUrl(row.heroR2Key, row.heroWidths) : undefined,

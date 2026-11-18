@@ -24,7 +24,7 @@ export default async function Home() {
     getCatalogProducts({ limit: 12 }),
     getCatalogProducts({ featuredOnly: true, limit: 8 }),
     getCampaignSlides(),
-    getActiveCategories().then(topLevel), // the cards are the top-level categories; the ones inside are reached from their page
+    getActiveCategories().then((list) => topLevel(list).filter((entry) => entry.showOnHome)), // the cards are the top-level categories; the ones inside are reached from their page
     getCategoryDiscounts().catch(() => new Map<string, number>()),
   ]);
 
