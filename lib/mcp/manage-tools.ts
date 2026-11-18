@@ -504,3 +504,6 @@ const seoReport: ToolDef = {
 
 /** The tools that change or delete existing products. */
 export const manageTools: ToolDef[] = [prepareChanges, applyChanges, prepareDelete, deleteProducts, refreshWebsite, seoReport];
+
+/** The planner and the refresh, for the admin's own bulk upload (app/api/admin/products/sheet-update). */
+export { plan as planChanges, refreshAfter };

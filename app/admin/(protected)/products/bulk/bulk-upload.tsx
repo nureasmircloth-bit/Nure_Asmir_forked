@@ -14,6 +14,8 @@ import { Badge, Note, pkr } from "../../../_ui/ui";
 type Mode = "add" | "update";
 type Step = "start" | "review" | "photos" | "working" | "done";
 type Outcome = { name: string; ok: boolean; message: string };
+/** What the server says about products in the sheet that already exist in the shop. */
+type ExistingInfo = { existing: string[]; notes: string[]; problems: string[]; preview: Array<{ item: string; changes: string[] }>; truncated?: boolean };
 
 const fileKey = (name: string) => name.trim().toLowerCase();
 const stem = (name: string) => fileKey(name).replace(/\.[a-z0-9]+$/, "");
@@ -51,6 +53,8 @@ function AddProducts({ categoryNames }: { categoryNames: string[] }) {
   const [pictures, setPictures] = useState<Map<string, File>>(new Map());
   const [createCategories, setCreateCategories] = useState(true);
   const [askOk, setAskOk] = useState(false);
+  const [existingInfo, setExistingInfo] = useState<ExistingInfo | null>(null);
+  const [updateExisting, setUpdateExisting] = useState(false);
   const [outcomes, setOutcomes] = useState<Outcome[]>([]);
   const [progress, setProgress] = useState({ done: 0, total: 0, label: "" });
   const [over, setOver] = useState(false);
@@ -64,11 +68,24 @@ function AddProducts({ categoryNames }: { categoryNames: string[] }) {
   const newCategories = [...new Set(products.map((p) => categoryPathOf(p)).filter((name) => !known.has(norm(name))))];
   // Products with no price in the sheet: the shop will say “Price on request”. The owner must agree to the list before going on, so a forgotten price is never silent.
   const noPrice = products.filter((p) => p.priceOnRequest);
+  // Products of the sheet that already exist are UPDATED (new sizes added), never created a second time.
+  const existingNames = new Set((existingInfo?.existing ?? []).map((name) => name.trim().toLowerCase()));
+  const creatable = products.filter((p) => !existingNames.has(p.name.trim().toLowerCase()));
   const sizesTotal = products.reduce((sum, p) => sum + p.variants.length, 0);
 
   const pictureFor = (name: string) => pictures.get(fileKey(name)) ?? [...pictures.entries()].find(([key]) => stem(key) === stem(name))?.[1];
   const missingPhotos = products.reduce((n, p) => n + p.photos.filter((file) => !pictureFor(file)).length, 0);
   const withoutAnyPhoto = products.filter((p) => !p.photos.some((file) => pictureFor(file)));
+
+  /** Asks the server which products of the sheet already exist and what the sheet would change on them. */
+  async function loadExisting(list: ParsedProduct[], withUpdates: boolean) {
+    const response = await callApi<ExistingInfo>("/api/admin/products/sheet-update", "POST", {
+      products: list.map((p) => ({ name: p.name, colour: p.colour, variants: p.variants.map((v) => ({ size: v.size, price: v.price, oldPrice: v.oldPrice, stock: v.stock })) })),
+      updateExisting: withUpdates,
+      apply: false,
+    });
+    setExistingInfo(response.ok ? response.data : null);
+  }
 
   async function chooseSheet(file: File) {
     await reading.run(async () => {
@@ -90,6 +107,9 @@ function AddProducts({ categoryNames }: { categoryNames: string[] }) {
         }
         const importable = parsed.products.filter((entry) => !disagreeing.has(`${entry.name.toLowerCase()}|${entry.category.toLowerCase()}`));
         setAskOk(false);
+        setUpdateExisting(false);
+        setExistingInfo(null);
+        void loadExisting(importable, false);
         setProducts(importable);
         setProblems(parsed.problems);
         setFileName(file.name);
@@ -120,7 +140,7 @@ function AddProducts({ categoryNames }: { categoryNames: string[] }) {
       // Rows with the same product name are ONE product in several colours (the sheet has one row per colour and size).
       type Group = { key: string; first: ParsedProduct; colours: ParsedProduct[] };
       const grouped: Group[] = [];
-      for (const entry of products) {
+      for (const entry of creatable) {
         const key = `${entry.name.toLowerCase()}|${entry.category.toLowerCase()}`;
         const found = grouped.find((group) => group.key === key);
         if (found) found.colours.push(entry);
@@ -194,6 +214,21 @@ function AddProducts({ categoryNames }: { categoryNames: string[] }) {
         }
         const hidden = product.visible && !visible ? "Saved as hidden because it has no photo yet." : "";
         results.push({ name: product.name, ok: true, message: [`${colours.length > 1 ? `${colours.length} colours, ` : ""}${sizeCount} size${sizeCount === 1 ? "" : "s"} added`, uploaded ? `${uploaded} photo${uploaded === 1 ? "" : "s"}` : "", hidden, ...notes].filter(Boolean).join(" · ") });
+      }
+
+      if (existingNames.size > 0) {
+        setProgress({ done: total, total, label: "Adding the new sizes to products that already exist…" });
+        const updated = await callApi<{ results: Array<{ item: string; ok: boolean; changes?: string[]; message?: string }>; notes: string[] }>("/api/admin/products/sheet-update", "POST", {
+          products: products.filter((p) => existingNames.has(p.name.trim().toLowerCase())).map((p) => ({ name: p.name, colour: p.colour, variants: p.variants.map((v) => ({ size: v.size, price: v.price, oldPrice: v.oldPrice, stock: v.stock })) })),
+          updateExisting,
+          apply: true,
+        });
+        if (!updated.ok) results.push({ name: "Products that already exist", ok: false, message: updated.error });
+        else {
+          for (const item of updated.data.results) results.push({ name: item.item, ok: item.ok, message: item.ok ? (item.changes ?? []).join(" · ") : item.message ?? "Could not be changed." });
+          for (const note of updated.data.notes) results.push({ name: "Note", ok: false, message: note });
+          if (updated.data.results.length === 0 && updated.data.notes.length === 0) results.push({ name: "Products that already exist", ok: true, message: "Nothing to change: all those sizes are already there." });
+        }
       }
 
       setProgress({ done: total, total, label: "Updating website search…" });
@@ -324,6 +359,29 @@ function AddProducts({ categoryNames }: { categoryNames: string[] }) {
                     </tbody>
                   </table>
                 </div>
+                {existingInfo && existingInfo.existing.length > 0 && (
+                  <div className="a-card-pad" style={{ borderTop: "1px solid var(--line)" }}>
+                    <Note tone="info">
+                      <strong>{existingInfo.existing.length} product{existingInfo.existing.length === 1 ? " is" : "s are"} already in your shop.</strong> They are <strong>not created again</strong>: the sizes that are new in this sheet (for example XL) are added to them.
+                      {existingInfo.preview.length > 0 ? (
+                        <ul style={{ margin: "6px 0 0", paddingInlineStart: 18, maxHeight: 180, overflowY: "auto" }}>
+                          {existingInfo.preview.slice(0, 60).map((entry) => (
+                            <li key={entry.item}><strong>{entry.item}:</strong> {entry.changes.join(" · ")}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <span style={{ display: "block", marginTop: 6 }}>Nothing new to add to them: all their sizes are already there.</span>
+                      )}
+                      {existingInfo.truncated && <span style={{ display: "block", marginTop: 6 }}>Only the first 100 changes are done in one go. Upload the same sheet again for the rest.</span>}
+                      {existingInfo.problems.length > 0 && <span style={{ display: "block", marginTop: 6 }}>Cannot be done: {existingInfo.problems.slice(0, 5).join(" | ")}</span>}
+                      {existingInfo.notes.map((note) => <span key={note} style={{ display: "block", marginTop: 6 }}>{note}</span>)}
+                    </Note>
+                    <label className="a-check" style={{ marginTop: 10 }}>
+                      <input type="checkbox" checked={updateExisting} onChange={(event) => { setUpdateExisting(event.target.checked); void loadExisting(products, event.target.checked); }} />
+                      <span><strong>Also update the price, old price and stock of sizes that are already there.</strong><small className="a-help" style={{ display: "block" }}>Leave this off to only ADD the new sizes. Turn it on to make the existing sizes match this sheet (a price left empty keeps the shop&apos;s price).</small></span>
+                    </label>
+                  </div>
+                )}
                 {noPrice.length > 0 && (
                   <div className="a-card-pad" style={{ borderTop: "1px solid var(--line)" }}>
                     <Note tone="warn">
