@@ -689,6 +689,8 @@
 .slide-dots i.on { width: 18px; background: #fff; }
 .product-stage .slide-dots { right: auto; left: 12px; bottom: 18px; justify-content: flex-start; }
 @media (hover: hover) { .product-stage .slide-arrow { opacity: 0; } .product-stage:hover .slide-arrow:not(:disabled) { opacity: .94; } }
+/* Phones and tablets swipe; the arrows are for a mouse only. */
+@media (hover: none) { .product-stage .slide-arrow { display: none; } }
 @media (prefers-reduced-motion: reduce) { .slide-track, .slide-dots i, .slide-arrow { transition: none; } }
 /* the full-size viewer: the photo slides in from the side it came from */
 .lightbox-frame { animation: lb-in-next .32s cubic-bezier(.22, .8, .2, 1) both; }
