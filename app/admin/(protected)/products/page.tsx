@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { aiProducts, categories, products } from "@/db/schema";
+import { flattenTree, pathLabel } from "@/lib/category-tree";
 import { mediaUrl } from "@/lib/media-url";
 import { HelpBox } from "../../_ui/client";
 import { PrefetchExcel } from "../../_ui/prefetch-excel";
@@ -53,7 +54,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
   const [result, totalResult, catRows, counts] = await Promise.all([
     db.execute(sql`select * from (${base}) s ${having} order by created desc limit ${PAGE_SIZE} offset ${(page - 1) * PAGE_SIZE}`),
     db.execute(sql`select count(*) as n from (${base}) s ${having}`),
-    db.select({ id: categories.id, name: categories.name }).from(categories).orderBy(asc(categories.sortOrder), asc(categories.name)),
+    db.select({ id: categories.id, name: categories.name, slug: categories.slug, parentId: categories.parentId, sortOrder: categories.sortOrder, status: categories.status }).from(categories),
     db.select({ status: products.status, n: sql<number>`count(*)` }).from(products).groupBy(products.status),
   ]);
   // Products an AI assistant added are hidden drafts until the owner adds their pictures and publishes them.
@@ -111,9 +112,10 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
         </div>
         <select name="cat" defaultValue={cat ?? ""} aria-label="Category" style={{ width: 220 }}>
           <option value="">All categories</option>
-          {catRows.map((c) => (
+          {/* Full path, parents first ("Kurta Pajama › Embroidered Kurta"), so two categories with the same name can never be confused. Hidden categories are left out unless that one is already chosen. */}
+          {flattenTree(catRows).filter((c) => c.status === "active" || c.id === cat).map((c) => (
             <option key={c.id} value={c.id}>
-              {c.name}
+              {pathLabel(c.path)}{c.status === "active" ? "" : " (hidden)"}
             </option>
           ))}
         </select>

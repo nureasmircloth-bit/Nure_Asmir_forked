@@ -100,6 +100,7 @@ test.describe("shop filters", () => {
     expect(hasFilters(EMPTY_FILTERS)).toBe(false);
     expect(filtersToParams(EMPTY_FILTERS).toString()).toBe("");
     expect(sortSizes(["XL", "S", "32", "M", "30", "XXL", "One size", "L"])).toEqual(["S", "M", "L", "XL", "XXL", "30", "32", "One size"]);
+    expect(sortSizes(["XL", "MC", "L", "S", "M"])).toEqual(["S", "M", "MC", "L", "XL"]);
   });
 });
 
