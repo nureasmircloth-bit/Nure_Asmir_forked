@@ -34,7 +34,7 @@ const PANTS = {
 const isPants = (product: Pick<CatalogProduct, "type" | "category" | "name">) => /pant|trouser|jean|chino|cargo/i.test(`${product.type} ${product.category} ${product.name}`);
 
 /** "Size guide" link beside the size choice; opens a table of measurements for this kind of product. */
-export function SizeGuideLink({ product }: { product: Pick<CatalogProduct, "type" | "category" | "name"> }) {
+export function SizeGuideLink({ product }: { product: Pick<CatalogProduct, "type" | "category" | "name" | "sizeChartUrl"> }) {
   const [open, setOpen] = useState(false);
   const titleId = useId();
   const dialog = useRef<HTMLDivElement>(null);
@@ -55,6 +55,13 @@ export function SizeGuideLink({ product }: { product: Pick<CatalogProduct, "type
                 ×
               </button>
               <h2 id={titleId}>Size guide</h2>
+              {product.sizeChartUrl ? (
+                <>
+                  {/* The owner's own chart for this kind of product, shown whole. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img className="size-guide-chart" src={product.sizeChartUrl} alt={`Size chart for ${product.name}`} loading="lazy" />
+                </>
+              ) : (<>
               <p className="size-guide-sub">{guide.title} · inches</p>
               <table>
                 <thead>
@@ -73,6 +80,7 @@ export function SizeGuideLink({ product }: { product: Pick<CatalogProduct, "type
                 </tbody>
               </table>
               <p className="size-guide-note">{guide.note}</p>
+              </>)}
               <p className="size-guide-note">Between two sizes? Choose the larger one for a relaxed fit. Not sure — message us on WhatsApp and we will help you pick.</p>
             </div>
           </div>

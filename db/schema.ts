@@ -151,6 +151,8 @@ export const categories = sqliteTable("categories", {
   heroByteSize: integer("hero_byte_size"),
   heroBlurDataUrl: text("hero_blur_data_url"),
   heroVariantWidths: jsonb("hero_variant_widths").$type<number[]>(),
+  // A picture of the size chart for this category (and the categories inside it, unless they have their own). Shown in the product page "Size guide".
+  sizeChartR2Key: text("size_chart_r2_key"),
   ...timestamps,
 }, (table) => [index("categories_status_idx").on(table.status), index("categories_parent_idx").on(table.parentId)]);
 

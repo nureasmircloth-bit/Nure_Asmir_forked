@@ -877,3 +877,11 @@
 
 .adm .cat-danger { border-top: 1px dashed var(--line); margin-top: 12px; padding-top: 12px; display: grid; gap: 8px; }
 .adm .cat-danger .admin-danger { border-color: #b3261e; color: #b3261e; }
+
+.adm .cat-card button:not(.admin-primary) { border: 1px solid var(--line); border-radius: 8px; background: transparent; color: inherit; padding: 8px 14px; font: inherit; cursor: pointer; }
+.adm .cat-card button:not(.admin-primary):hover:not(:disabled) { border-color: currentColor; }
+.adm .cat-card button.admin-danger { border-color: #b3261e; color: #b3261e; }
+.adm .cat-chart { border-top: 1px dashed var(--line); padding-top: 12px; display: grid; gap: 8px; }
+.adm .cat-chart-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+.adm .cat-chart-preview { position: relative; width: 160px; height: 120px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; display: grid; place-items: center; background: rgba(127,127,127,.08); font-size: 13px; }
+.adm .cat-chart-preview img { object-fit: contain; }

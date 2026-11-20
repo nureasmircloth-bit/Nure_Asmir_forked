@@ -85,6 +85,13 @@
       "when": 1794987633581,
       "tag": "0011_category_show_on_home",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1795193922396,
+      "tag": "0012_category_size_chart",
+      "breakpoints": true
     }
   ]
 }
