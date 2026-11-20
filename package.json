@@ -86,7 +86,16 @@
       "esbuild": "^0.25.12"
     },
     "@node-minify/core": {
-      "glob": "^10.5.0"
+      "glob": "^14.0.2"
+    },
+    "@opennextjs/cloudflare": {
+      "glob": "^14.0.2"
+    },
+    "@sentry/bundler-plugins": {
+      "glob": "^14.0.2"
+    },
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "^11.0.1"
     },
     "re2js": "^2.9.1"
   }
