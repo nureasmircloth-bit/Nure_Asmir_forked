@@ -53,6 +53,8 @@ type Category = {
   sortOrder: number;
   imageUrl: string | null;
   heroImageUrl: string | null;
+  /** The size chart picture shown on product pages of this category (null = none). */
+  sizeChartUrl: string | null;
   /** How many published products sit in this category. */
   liveProducts: number;
 };
@@ -270,6 +272,29 @@ To continue, type the category name: ${category.name}`);
     await refreshCategories();
   }
 
+  /** Saves a size chart picture for a category (kept whole, not cropped) and refreshes the list. */
+  async function uploadSizeChart(category: Category, file: File | null) {
+    if (!file) return;
+    const body = new FormData();
+    body.set("file", file);
+    setImageBusyId(category.id);
+    try {
+      const response = await fetch(`/api/admin/categories/${category.id}/size-chart`, { method: "POST", body });
+      const result = await response.json().catch(() => ({}));
+      setMessage(response.ok ? `Size chart saved for “${category.name}”.` : result.error ?? "The size chart could not be saved.");
+      if (response.ok) await refreshCategories();
+    } finally {
+      setImageBusyId(null);
+    }
+  }
+
+  async function removeSizeChart(category: Category) {
+    if (!window.confirm(`Remove the size chart of “${category.name}”?`)) return;
+    const response = await fetch(`/api/admin/categories/${category.id}/size-chart`, { method: "DELETE" });
+    setMessage(response.ok ? "Size chart removed." : "The size chart could not be removed.");
+    if (response.ok) await refreshCategories();
+  }
+
   /** Puts a hidden category back in the shop menu. */
   async function showInMenu(category: Category) {
     const response = await fetch(`/api/admin/categories/${category.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "active" }) });
@@ -475,6 +500,19 @@ To continue, type the category name: ${category.name}`);
                           ) : (
                             <button type="button" disabled={busy} onClick={() => startPhotoEdit(category.id)}>Change pictures</button>
                           )}
+                        </div>
+                        <div className="cat-chart">
+                          <strong>Size chart picture</strong>
+                          <small>Shoppers see it when they press “Size guide” on a product of this category and of the categories inside it. A sub-category can have its own picture.</small>
+                          <div className="cat-chart-row">
+                            <span className="cat-chart-preview">
+                              {category.sizeChartUrl ? <Image src={category.sizeChartUrl} alt="" fill unoptimized sizes="160px" /> : <i aria-hidden="true">No chart yet</i>}
+                            </span>
+                            <div className="cat-actions">
+                              <FilePick name={undefined} onPick={(file) => void uploadSizeChart(category, file)} />
+                              {category.sizeChartUrl && <button type="button" disabled={busy} onClick={() => void removeSizeChart(category)}>Remove chart</button>}
+                            </div>
+                          </div>
                         </div>
                         <div className="cat-danger">
                           <small>Starting again with this category? Remove all its products at once (the categories inside it are included).</small>

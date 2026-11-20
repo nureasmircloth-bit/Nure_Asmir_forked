@@ -1,0 +1,1 @@
+ALTER TABLE `categories` ADD `size_chart_r2_key` text;

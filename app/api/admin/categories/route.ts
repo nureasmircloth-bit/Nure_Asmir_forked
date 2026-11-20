@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { mediaUrl } from "@/lib/media-url";
 import { sandboxRoomMessage } from "@/lib/sandbox";
 import { asc, count, eq } from "drizzle-orm";
 import { db } from "@/db";
@@ -35,6 +36,7 @@ export async function GET() {
       // Versioned so the admin's own preview thumbnail updates immediately after a replace —
       // /api/category-media is cached at Cloudflare's edge as immutable for a year, keyed by URL,
       // and this row's id (unlike a fresh upload's r2Key) never changes across replacements.
+      sizeChartUrl: row.sizeChartR2Key ? `${mediaUrl(row.sizeChartR2Key)}${mediaUrl(row.sizeChartR2Key).includes("?") ? "&" : "?"}v=${row.updatedAt.getTime()}` : null,
       imageUrl: row.imageR2Key ? `/api/category-media/${row.id}?v=${row.updatedAt.getTime()}` : null,
       heroImageUrl: row.heroR2Key ? `/api/category-media/${row.id}?variant=hero&v=${row.updatedAt.getTime()}` : null,
     })),

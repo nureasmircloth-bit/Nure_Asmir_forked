@@ -74,6 +74,8 @@ export type CatalogProduct = {
   name: string;
   category: string;
   categoryId: string;
+  /** Picture of the size chart of this product's category (or the nearest category above it that has one). */
+  sizeChartUrl?: string;
   type: string;
   price: number;
   compareAtPrice?: number | null;
@@ -333,6 +335,22 @@ export async function getCatalogProducts(query: CatalogQuery = {}): Promise<Cata
   });
 }
 
+/** The size chart picture of a category, or of the nearest category above it that has one (so one chart on "Shirts" covers every shirt sub-category). */
+async function sizeChartUrlFor(categoryId: string): Promise<string | undefined> {
+  try {
+    const rows = await db.select({ id: categories.id, parentId: categories.parentId, key: categories.sizeChartR2Key }).from(categories);
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    let current = byId.get(categoryId);
+    for (let depth = 0; current && depth < 10; depth += 1) {
+      if (current.key) return mediaUrl(current.key);
+      current = current.parentId ? byId.get(current.parentId) : undefined;
+    }
+  } catch (error) {
+    console.warn("Could not load the size chart:", error);
+  }
+  return undefined;
+}
+
 export async function getProductBySlug(slug: string): Promise<CatalogProduct | null> {
   const [row] = await db
     .select({
@@ -429,6 +447,7 @@ export async function getProductBySlug(slug: string): Promise<CatalogProduct | n
     variantId: img.variantId ?? undefined,
   }));
   const defaultVariant = variants.find((v) => v.isDefault) ?? variants[0];
+  const sizeChartUrl = await sizeChartUrlFor(row.categoryId);
 
   return {
     id: row.id,
@@ -436,6 +455,7 @@ export async function getProductBySlug(slug: string): Promise<CatalogProduct | n
     name: row.name,
     category: row.categorySlug,
     categoryId: row.categoryId,
+    sizeChartUrl,
     type: row.type,
     price: defaultVariant?.price ?? 0,
     compareAtPrice: defaultVariant?.compareAtPrice,

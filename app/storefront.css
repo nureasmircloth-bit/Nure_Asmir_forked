@@ -812,3 +812,6 @@ p, .pcard-title { text-wrap: pretty; }
 
 /* Very small phones (320px): the sort control must not be wider than the screen. */
 @media (max-width: 380px) { .sort-label, .shop-toolbar .ts, .sort-label .ts { width: 100%; min-width: 0; max-width: 100%; } }
+
+.size-guide:has(.size-guide-chart) { width: min(760px, 100%); }
+.size-guide-chart { display: block; width: 100%; height: auto; margin-top: 14px; }
