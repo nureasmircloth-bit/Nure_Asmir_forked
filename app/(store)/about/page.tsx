@@ -18,7 +18,7 @@ export default async function AboutPage() {
   const [images, settings] = await Promise.all([getSiteImages(), getPublicSettings()]);
   const photo = images.about_hero;
   const photoMobile = images.about_hero_mobile;
-  const fallbackUrl = "/cdn/products/seed-noir-kameez-shalwar-with-waistcoat-1-w960.webp";
+  const fallbackUrl = "/placeholder.webp";
   const heading = settings.aboutHeading.trim() || DEFAULT_ABOUT_HEADING;
   const body = settings.aboutBody.trim() || DEFAULT_ABOUT_BODY;
   return (
