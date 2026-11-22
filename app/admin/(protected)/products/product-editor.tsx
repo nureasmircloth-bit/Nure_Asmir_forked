@@ -483,17 +483,6 @@ export function ProductEditor({ categories, product, variants: initialVariants, 
             </datalist>
           </div>
           <div className="a-field">
-            <label htmlFor="pe-sub">
-              Subcategory (optional) <Hint text="Leave it empty if the product has none. Pick one of this category's subcategories or type a new one: it is added to the category's list and shows as a button on the category page." />
-            </label>
-            <input id="pe-sub" list="pe-sub-list" autoComplete="off" value={form.subcategory} onChange={setField("subcategory")} placeholder="Optional, e.g. Casual" maxLength={60} />
-            <datalist id="pe-sub-list">
-              {(categories.find((c) => c.name.toLowerCase() === form.categoryText.trim().toLowerCase())?.subcategories ?? []).map((name) => (
-                <option key={name} value={name} />
-              ))}
-            </datalist>
-          </div>
-          <div className="a-field">
             <label htmlFor="pe-type">
               What is it? <Hint text="Pick from the list or type your own. It helps customers searching on Google." />
             </label>
