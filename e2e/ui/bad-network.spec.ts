@@ -233,10 +233,9 @@ test.describe("a bad connection, in the admin", () => {
     });
     await page.getByRole("button", { name: "Save settings" }).click();
     await expect(page.locator(".a-toast.bad")).toContainText(/Could not reach the server/, { timeout: 20_000 });
-    await expect(page.locator(".a-delay-note")).toHaveCount(0);
     await page.getByRole("button", { name: "Save settings" }).click();
     await expect(page.locator(".a-toast.good")).toContainText("Settings saved", { timeout: 20_000 });
-    await expect(page.locator(".a-delay-note")).toContainText(/about 5 minutes/);
+    await expect(page.locator(".a-delay-note")).toHaveCount(0); // changes show at once: no waiting note
   });
 
   test("sending a notification to many phones in slices: one slice fails, the page says so, shows what was reached and can be used again", async ({ page }) => {

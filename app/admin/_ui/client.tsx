@@ -5,7 +5,6 @@
 
 import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { storefrontDelayMessage, storefrontDelayMinutes } from "@/lib/storefront-delay";
 import { useLockedAction } from "@/lib/use-locked-action";
 import { Icon } from "./icons";
 
@@ -15,10 +14,9 @@ type ToastTone = "good" | "bad" | "info";
 type ToastItem = { id: number; text: string; tone: ToastTone };
 const ToastContext = createContext<(text: string, tone?: ToastTone) => void>(() => {});
 
-/** Provides timed admin notices and storefront-refresh feedback, clearing pending timers on unmount. */
+/** Provides timed admin notices, clearing pending timers on unmount. */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ToastItem[]>([]);
-  const [note, setNote] = useState<{ id: number; text: string } | null>(null);
   const counter = useRef(0);
   const timers = useRef(new Set<number>());
   const later = useCallback((work: () => void, ms: number) => {
@@ -34,48 +32,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     // Errors stay longer: people need time to read what went wrong.
     later(() => setItems((current) => current.filter((item) => item.id !== id)), tone === "good" ? 4500 : 9000);
   }, [later]);
-  // After any successful change to something shoppers see, say when it will show up: the website keeps saved copies of its pages, so
-  // a change is not instant. One place watches every admin save (instead of every form promising its own, possibly wrong, time).
   useEffect(() => {
-    const original = window.fetch;
-    let lastAt = 0;
-    window.fetch = async (input, init) => {
-      const response = await original(input, init);
-      try {
-        const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url, window.location.origin);
-        const method = init?.method ?? (typeof input === "object" && "method" in input ? input.method : "GET");
-        const minutes = response.ok && url.origin === window.location.origin ? storefrontDelayMinutes(url.pathname, method) : null;
-        const practising = Boolean(document.querySelector('[data-sandbox="1"]')); // practice changes never reach the website
-        if (minutes && !practising && Date.now() - lastAt > 20_000) {
-          lastAt = Date.now();
-          const id = ++counter.current;
-          setNote({ id, text: storefrontDelayMessage(minutes) });
-          later(() => setNote((current) => (current?.id === id ? null : current)), 12_000);
-        }
-      } catch {
-        // the notice is a courtesy; it must never break a save
-      }
-      return response;
-    };
     const pending = timers.current;
     return () => {
-      window.fetch = original;
       pending.forEach((handle) => window.clearTimeout(handle)); // nothing may touch the screen after the provider is gone
       pending.clear();
     };
-  }, [later]);
+  }, []);
   return (
     <ToastContext.Provider value={push}>
       {children}
-      {note && (
-        <div className="a-delay-note" role="status" aria-live="polite">
-          <Icon name="info" />
-          <span>{note.text}</span>
-          <button type="button" aria-label="Close note" onClick={() => setNote(null)}>
-            ×
-          </button>
-        </div>
-      )}
       <div className="a-toasts" aria-live="polite" aria-atomic="false">
         {items.map((item) => (
           <div key={item.id} className={`a-toast ${item.tone}`} role={item.tone === "bad" ? "alert" : "status"}>

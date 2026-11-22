@@ -151,7 +151,7 @@ export const UR: Record<string, LessonText> = {
       "Save dabayein. “Go back to the original wording” kabhi bhi aap ki tabdeeliyan wapas kar deta hai. Saath wali tasveer Website pictures mein badli jati hai.",
       "Settings → Top bar: chunein ke lines kaise chalein – ek ek line, ya left ya right taraf scroll hoti hui news ticker ki tarah. Chhoone se scrolling ruk jati hai.",
       "Preview asli top bar ko chalte hue dikhata hai, phone ke frame mein aur computer ke frame mein. Pasand aaye to band karein aur “Save settings” dabayein.",
-      "Jo kuch customers dekhte hain us ko save karne ke baad ek note aata hai: “Your website will show this in about 3 minutes”. Website apne pages ki saved copies customers ke qareeb rakhti hai taake tez khule, aur wo har chand minute mein naye ho jate hain.",
+      "Jo kuch customers dekhte hain us ko save karne ke baad website foran naya data dikhane lagti hai. Jo customer pehle se page khole baitha ho wo refresh kare to naya dekhega.",
       "Zyada jagah chahiye? Logo ke saath wala chota panel button menu ko choti icons ki patti bana deta hai – icon par mouse le jayein to naam dikhta hai. Dobara dabayein to menu wapas. Aap ki pasand yaad rakhta hai.",
     ],
   },

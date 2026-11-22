@@ -2,29 +2,7 @@ import { expect, test } from "@playwright/test";
 import { DEFAULT_ABOUT_BODY, parseStory } from "../../lib/about-content";
 import { customEmailHtml, fillPreset, MESSAGE_PRESETS } from "../../lib/messages";
 import { isAnnouncementStyle } from "../../lib/shop-rules";
-import { FAST_MINUTES, SLOW_MINUTES, storefrontDelayMessage, storefrontDelayMinutes } from "../../lib/storefront-delay";
 import { unsubscribeToken, verifyUnsubscribeToken } from "../../lib/unsubscribe";
-
-test.describe("how long until a change shows on the website", () => {
-  test("changes to what shoppers see promise a wait; reading, push and unrelated changes do not", () => {
-    expect(storefrontDelayMinutes("/api/admin/products/123", "PATCH")).toBe(FAST_MINUTES);
-    expect(storefrontDelayMinutes("/api/admin/delivery-zones", "POST")).toBe(FAST_MINUTES);
-    expect(storefrontDelayMinutes("/api/admin/campaign", "POST")).toBe(FAST_MINUTES);
-    expect(storefrontDelayMinutes("/api/admin/settings", "PATCH")).toBe(SLOW_MINUTES);
-    expect(storefrontDelayMinutes("/api/admin/faqs/9", "DELETE")).toBe(SLOW_MINUTES);
-    expect(storefrontDelayMinutes("/api/admin/story", "PATCH")).toBe(SLOW_MINUTES);
-    expect(storefrontDelayMinutes("/api/admin/products", "GET")).toBeNull();
-    expect(storefrontDelayMinutes("/api/admin/orders/5", "PATCH")).toBeNull();
-    expect(storefrontDelayMinutes("/api/admin/push", "POST")).toBeNull();
-    expect(storefrontDelayMinutes("/api/admin/messages/push", "POST")).toBeNull();
-  });
-
-  test("the promise names the minutes and the clock time, in Pakistan time", () => {
-    const text = storefrontDelayMessage(3, new Date("2026-10-08T10:00:00Z")); // 15:00 in Karachi
-    expect(text).toContain("about 3 minutes");
-    expect(text).toMatch(/3:03\s?pm/i);
-  });
-});
 
 test.describe("Our story text", () => {
   test("paragraphs, the quote and links are read; nothing typed can become markup", () => {
