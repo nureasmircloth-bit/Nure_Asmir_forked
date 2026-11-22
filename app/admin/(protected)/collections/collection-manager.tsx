@@ -40,7 +40,6 @@ function FilePick({ name, onPick }: { name?: string; onPick: (file: File | null)
   );
 }
 
-type Product = { id: string; name: string; slug: string; status: string };
 type Category = {
   id: string;
   name: string;
@@ -58,23 +57,8 @@ type Category = {
   /** How many published products sit in this category. */
   liveProducts: number;
 };
-type Collection = {
-  id: string;
-  name: string;
-  slug: string;
-  description: string | null;
-  status: string;
-  sortOrder: number;
-  productCount: number;
-};
-type Assignment = { collectionId: string; productId: string };
-
-export function CollectionManager({ products }: { products: Product[] }) {
-  const [tab, setTab] = useState<"collections" | "categories">("collections");
+export function CollectionManager() {
   const [categories, setCategories] = useState<Category[]>([]);
-  const [collections, setCollections] = useState<Collection[]>([]);
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
-  const [selected, setSelected] = useState<Collection | null>(null);
   const [message, setMessage] = useState("");
   const [imageBusyId, setImageBusyId] = useState<string | null>(null);
 
@@ -91,22 +75,12 @@ export function CollectionManager({ products }: { products: Product[] }) {
     const response = await fetch("/api/admin/categories", { cache: "no-store" });
     if (response.ok) setCategories((await response.json()).categories);
   }, []);
-  const refreshCollections = useCallback(async () => {
-    const response = await fetch("/api/admin/collections", { cache: "no-store" });
-    if (response.ok) {
-      const data = await response.json();
-      setCollections(data.collections);
-      setAssignments(data.assignments);
-    }
-  }, []);
-
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void refreshCategories();
-      void refreshCollections();
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [refreshCategories, refreshCollections]);
+  }, [refreshCategories]);
 
   // The categories as a folder tree: parents first, each followed by what is inside it.
   const tree = useMemo(() => flattenTree(categories), [categories]);
@@ -303,64 +277,17 @@ To continue, type the category name: ${category.name}`);
     if (response.ok) await refreshCategories();
   }
 
-  async function createCollection(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const body = Object.fromEntries(new FormData(event.currentTarget));
-    const response = await fetch("/api/admin/collections", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const result = await response.json();
-    setMessage(response.ok ? "Collection created." : result.error ?? "Collection could not be created.");
-    if (response.ok) {
-      event.currentTarget.reset();
-      await refreshCollections();
-    }
-  }
-
-  async function saveCollectionMeta(event: FormEvent<HTMLFormElement>, id: string) {
-    event.preventDefault();
-    const body = Object.fromEntries(new FormData(event.currentTarget));
-    const response = await fetch(`/api/admin/collections/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    setMessage(response.ok ? "Collection updated." : "Collection could not be updated.");
-    if (response.ok) await refreshCollections();
-  }
-
-  async function saveProducts(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!selected) return;
-    const productIds = new FormData(event.currentTarget).getAll("productId");
-    const response = await fetch(`/api/admin/collections/${selected.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ productIds }),
-    });
-    setMessage(response.ok ? "Collection products updated." : "Collection could not be updated.");
-    if (response.ok) await refreshCollections();
-  }
-
   return (
     <section className="admin-main">
       <header className="admin-topbar">
         <div>
           <h1>Categories</h1>
           <p className="a-muted" style={{ marginTop: 5, maxWidth: 680 }}>
-            <strong>Categories</strong> are the groups customers shop by, like Shirts or Pants. <strong>Collections</strong> are hand-picked lists you create for a season or event, like “Eid Edit”.
+            <strong>Categories</strong> are the groups customers shop by, like Shirts or Pants. A category can have categories inside it, like Formal Shirts inside Shirts.
           </p>
         </div>
         <div className="admin-top-actions">
           <Link href="/admin/products">← Products</Link>
-          <button className={tab === "collections" ? "active" : ""} onClick={() => setTab("collections")}>
-            Collections
-          </button>
-          <button className={tab === "categories" ? "active" : ""} onClick={() => setTab("categories")}>
-            Categories
-          </button>
         </div>
       </header>
 
@@ -371,7 +298,7 @@ To continue, type the category name: ${category.name}`);
         </div>
       )}
 
-      {tab === "categories" ? (
+      {(
         <div className="collection-manager">
           <section>
             <div className="admin-table-card">
@@ -450,11 +377,6 @@ To continue, type the category name: ${category.name}`);
                             <span>Short description (optional)</span>
                             <small>A line shown at the top of the category page.</small>
                             <input name="description" defaultValue={category.description ?? ""} />
-                          </label>
-                          <label>
-                            <span>Quick groups (optional)</span>
-                            <small>Words shown under this category, separated by commas. Example: Casual, Festive.</small>
-                            <input name="subcategories" defaultValue={category.subcategories ?? ""} />
                           </label>
                           <div className="cat-actions"><button className="admin-primary">Save changes</button></div>
                         </form>
@@ -541,10 +463,6 @@ To continue, type the category name: ${category.name}`);
               <input name="slug" placeholder="eid-edit" />
             </label>
             <label>
-              <span>Subcategories (comma separated)</span>
-              <input name="subcategories" placeholder="Casual, Festive, Embroidered" />
-            </label>
-            <label>
               <span>Description</span>
               <textarea name="description" rows={3} />
             </label>
@@ -553,100 +471,6 @@ To continue, type the category name: ${category.name}`);
               <input type="number" min="0" name="sortOrder" defaultValue={categories.length} />
             </label>
             <button className="admin-primary">Create category</button>
-          </form>
-        </div>
-      ) : (
-        <div className="collection-manager">
-          <section>
-            <div className="admin-table-card">
-              <div className="admin-table-tools">
-                <div>
-                  <h2>Your catalogues</h2>
-                  <span>{collections.length} collections</span>
-                </div>
-              </div>
-              {collections.map((collection) => (
-                <button key={collection.id} className={selected?.id === collection.id ? "active" : ""} onClick={() => setSelected(collection)}>
-                  <div>
-                    <strong>{collection.name}</strong>
-                    <small>/collections/{collection.slug}</small>
-                  </div>
-                  <span>{collection.productCount} pieces</span>
-                </button>
-              ))}
-            </div>
-            {selected && (
-              <>
-                <form key={`${selected.id}-meta`} className="admin-settings-card" onSubmit={(event) => saveCollectionMeta(event, selected.id)}>
-                  <div className="admin-form-grid">
-                    <label>
-                      <span>Name</span>
-                      <input name="name" defaultValue={selected.name} />
-                    </label>
-                    <label>
-                      <span>Slug</span>
-                      <input name="slug" defaultValue={selected.slug} />
-                    </label>
-                    <label className="field-wide">
-                      <span>Description</span>
-                      <textarea name="description" rows={3} defaultValue={selected.description ?? ""} />
-                    </label>
-                    <label>
-                      <span>Status</span>
-                      <select name="status" defaultValue={selected.status}>
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                      </select>
-                    </label>
-                    <label>
-                      <span>Sequence</span>
-                      <input type="number" min="0" name="sortOrder" defaultValue={selected.sortOrder} />
-                    </label>
-                  </div>
-                  <button className="admin-primary">Save collection details</button>
-                </form>
-                <form key={selected.id} className="collection-products" onSubmit={saveProducts}>
-                  <p className="eyebrow">{selected.name}</p>
-                  <h2>Included products</h2>
-                  {products.map((product) => (
-                    <label key={product.id}>
-                      <input
-                        type="checkbox"
-                        name="productId"
-                        value={product.id}
-                        defaultChecked={assignments.some((entry) => entry.collectionId === selected.id && entry.productId === product.id)}
-                      />
-                      <span>
-                        {product.name}
-                        <small>{product.status}</small>
-                      </span>
-                    </label>
-                  ))}
-                  <button className="admin-primary">Save product selection</button>
-                </form>
-              </>
-            )}
-          </section>
-          <form className="campaign-upload" onSubmit={createCollection}>
-            <p className="eyebrow">New catalogue</p>
-            <h2>Create collection</h2>
-            <label>
-              <span>Name</span>
-              <input required name="name" placeholder="The Evening Edit" />
-            </label>
-            <label>
-              <span>URL slug (optional)</span>
-              <input name="slug" placeholder="evening-edit" />
-            </label>
-            <label>
-              <span>Description</span>
-              <textarea name="description" rows={4} />
-            </label>
-            <label>
-              <span>Sequence</span>
-              <input type="number" min="0" name="sortOrder" defaultValue={collections.length} />
-            </label>
-            <button className="admin-primary">Create collection</button>
           </form>
         </div>
       )}

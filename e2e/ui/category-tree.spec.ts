@@ -64,7 +64,6 @@ test.describe("category tree", () => {
   test("the owner sees the folder tree and can move a category", async ({ page }) => {
     await login(page);
     await page.goto("/admin/collections");
-    await page.getByRole("button", { name: "Categories", exact: true }).click();
     const row = page.locator("article.cat-card", { has: page.locator(`input[name="slug"][value="${grandchild.slug}"]`) });
     await expect(row).toHaveCount(1);
     await expect(row.locator('select[name="parentId"]')).toHaveValue(child.id);
