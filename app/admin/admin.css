@@ -722,10 +722,6 @@
 @media (max-width: 1100px) { .a-msg-grid { grid-template-columns: minmax(0, 1fr); } }
 
 /* "your website will show this in about N minutes" – its own note, so it never competes with the form's own "Saved" message */
-.a-delay-note { position: fixed; z-index: 95; left: 50%; bottom: 20px; width: min(560px, calc(100vw - 32px)); padding: 12px 14px; display: flex; align-items: flex-start; gap: 10px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--surface); color: var(--text); box-shadow: 0 10px 34px rgba(0,0,0,.18); transform: translateX(-50%); }
-.a-delay-note svg { flex: none; margin-top: 2px; color: var(--primary); }
-.a-delay-note span { flex: 1; line-height: 1.45; }
-.a-delay-note button { border: 0; background: transparent; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; }
 
 
 /* Smooth fold: the menu keeps ONE layout and only its width, opacity and heights animate, so nothing jumps. The folded rail is 64 px wide;

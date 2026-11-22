@@ -173,8 +173,8 @@ test.describe("admin: menu, messages, story, top bar", () => {
     const [row] = (await sql`select about_heading as h, about_body as b from site_settings where id = 'store'`) as Array<{ h: string; b: string }>;
     expect(row.h).toBe("E2E Our new heading");
     expect(row.b).toContain("A big quote");
-    // the shop says when the change will be visible
-    await expect(page.locator(".a-delay-note")).toContainText(/about 5 minutes/, { timeout: 10_000 });
+    // changes show at once: there is no waiting note
+    await expect(page.locator(".a-delay-note")).toHaveCount(0);
 
     await page.getByRole("button", { name: "Go back to the original wording" }).click();
     await page.getByRole("button", { name: "Save", exact: true }).click();

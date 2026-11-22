@@ -469,14 +469,6 @@ To continue, type the category name: ${category.name}`);
                               <small className="muted">Shown on the home page tile.</small>
                               {category.imageUrl && <button type="button" disabled={busy} onClick={() => removeCategoryImage(category, "card")}>Remove</button>}
                             </div>
-                            <div className="category-photo-slot is-wide">
-                              <span className="category-photo-preview category-photo-preview-hero">
-                                {category.heroImageUrl ? <Image src={category.heroImageUrl} alt="" fill sizes="180px" /> : <i aria-hidden="true">No picture yet</i>}
-                              </span>
-                              <small>Wide banner picture</small>
-                              <small className="muted">Shown at the top of the category page.</small>
-                              {category.heroImageUrl && <button type="button" disabled={busy} onClick={() => removeCategoryImage(category, "hero")}>Remove</button>}
-                            </div>
                           </div>
                           {photoEditId === category.id ? (
                             <div className="category-photo-editor">
@@ -485,12 +477,6 @@ To continue, type the category name: ${category.name}`);
                                   {cardSlot.previewUrl ? <Image src={cardSlot.previewUrl} alt="" fill unoptimized sizes="90px" /> : <i aria-hidden="true">New card picture</i>}
                                 </span>
                                 <FilePick name={cardSlot.file?.name} onPick={(file) => pickPhoto("card", file)} />
-                              </div>
-                              <div className="category-photo-slot is-wide">
-                                <span className="category-photo-preview category-photo-preview-hero">
-                                  {heroSlot.previewUrl ? <Image src={heroSlot.previewUrl} alt="" fill unoptimized sizes="180px" /> : <i aria-hidden="true">New wide picture</i>}
-                                </span>
-                                <FilePick name={heroSlot.file?.name} onPick={(file) => pickPhoto("hero", file)} />
                               </div>
                               <div className="cat-actions">
                                 <button type="button" className="admin-primary" disabled={busy || (!cardSlot.crop && !heroSlot.crop)} onClick={() => saveCategoryPhotos(category)}>{busy ? "Saving…" : "Save pictures"}</button>
