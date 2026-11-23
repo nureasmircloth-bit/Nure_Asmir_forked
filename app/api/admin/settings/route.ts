@@ -252,11 +252,11 @@ export async function PATCH(request: Request) {
 
   const [currentRow] = await db.select().from(siteSettings).where(eq(siteSettings.id, "store")).limit(1);
 
-  // The safety buffer defaults to 5 minutes; SETTINGS_BUFFER_SECONDS=0 (used by the automated tests) makes every save apply at once.
+  // Saved settings apply at once. Setting SETTINGS_BUFFER_SECONDS to a number of seconds (up to a day) brings back a wait-and-revert buffer.
   const rawBuffer = (process.env.SETTINGS_BUFFER_SECONDS ?? "").trim();
   const configuredBuffer = rawBuffer === "" ? Number.NaN : Number(rawBuffer);
-  // blank, non-numeric, negative or absurdly large (over a day) values fall back to the default 5 minutes
-  const bufferSeconds = Number.isFinite(configuredBuffer) && configuredBuffer >= 0 && configuredBuffer <= 86_400 ? configuredBuffer : 300;
+  // blank, non-numeric, negative or absurdly large (over a day) values mean no buffer: the change is applied at once
+  const bufferSeconds = Number.isFinite(configuredBuffer) && configuredBuffer >= 0 && configuredBuffer <= 86_400 ? configuredBuffer : 0;
   if (raw?.immediate === true || bufferSeconds <= 0) {
     const fullValues = {
       ...values,
@@ -271,7 +271,7 @@ export async function PATCH(request: Request) {
     return Response.json({ settings: row, pending: null });
   }
 
-  // 5-minute safety buffer before applying changes to live site
+  // optional safety buffer before applying changes to the live site (off unless SETTINGS_BUFFER_SECONDS is set)
   const bufferMs = bufferSeconds * 1000;
   const applyAt = new Date(Date.now() + bufferMs);
   const pendingData = JSON.stringify(values);

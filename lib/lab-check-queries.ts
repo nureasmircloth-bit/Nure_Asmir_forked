@@ -45,9 +45,4 @@ export const LAB_CHECKS: Record<string, string[]> = {
     `select exists (select 1 from orders o where ${madeByTrainee("orders", "o")}) as ok`,
     `select exists (select 1 from orders o where ${madeByTrainee("orders", "o")} and o.order_status in ('confirmed', 'processing', 'packed', 'shipped') limit -1 offset 1) as ok`,
   ],
-  "settings-buffer": [
-    `select exists (select 1 from site_settings s where s.id = 'store') as ok`,
-    `select exists (select 1 from site_settings s where s.id = 'store' and (s.pending_apply_at is not null or s.previous_settings is not null or s.updated_at is not null)) as ok`,
-    `select exists (select 1 from site_settings s where s.id = 'store' and s.pending_apply_at is null) as ok`,
-  ],
 };

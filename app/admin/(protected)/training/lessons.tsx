@@ -250,7 +250,7 @@ const LESSON_DEFS: Array<Omit<Lesson, "minutes">> = [
     title: "10. Settings, safety and cleaning up",
     blurb: "What to set once, and the few advanced choices you can safely ignore.",
     steps: [
-      { say: "Settings holds your phone, WhatsApp, social links, TCS pickup address, bank details and refund days. When you press “Save settings”, a 5-minute safety buffer starts: you get a live countdown and can press “Revert changes” anytime within 5 minutes to cancel a mistake, or “Apply immediately” to make it live right away.", screen: (s) => (<Shell nav="Settings" title="Settings"><Card title="Your shop and how customers reach you"><Grid cols={2}><Field id="f-phone" s={s} k="ph" label="Phone number" placeholder="+92 311 6111963" /><Field id="f-wa" s={s} k="wa" label="WhatsApp link" placeholder="https://wa.me/…" /></Grid></Card><Btn id="b-ss" s={s} primary>Save settings</Btn></Shell>), actions: [{ t: "type", into: "f-phone", key: "ph", text: "+92 311 6111963" }, { t: "click", on: "b-ss" }] },
+      { say: "Settings holds your phone, WhatsApp, social links, TCS pickup address, bank details and refund days. When you press “Save settings”, the change goes live at once. Check the number or link before you press the button.", screen: (s) => (<Shell nav="Settings" title="Settings"><Card title="Your shop and how customers reach you"><Grid cols={2}><Field id="f-phone" s={s} k="ph" label="Phone number" placeholder="+92 311 6111963" /><Field id="f-wa" s={s} k="wa" label="WhatsApp link" placeholder="https://wa.me/…" /></Grid></Card><Btn id="b-ss" s={s} primary>Save settings</Btn></Shell>), actions: [{ t: "type", into: "f-phone", key: "ph", text: "+92 311 6111963" }, { t: "click", on: "b-ss" }] },
       { say: "Turn on order alerts on every computer you use: bottom-left, “Turn on order alerts”, then Allow. You will hear about new orders, receipts, refunds and low stock.", screen: (s) => (<Shell nav="Home" title="Order alerts"><Card><Btn id="b-alerts" s={s}>Turn on order alerts</Btn>{s.al && <Badge tone="done">On for this computer ✓</Badge>}</Card></Shell>), actions: [{ t: "click", on: "b-alerts", set: { al: "1" } }] },
       { say: "“Advanced” is closed on purpose – most shops never touch it. One choice lives here: hide sold-out products after this many days (0 keeps them forever).", screen: (s) => (<Shell nav="Settings" title="Advanced"><Card><Field id="f-days" s={s} k="days" label="Hide sold-out products after (days)" placeholder="90" w={300} /><div className="a-muted">Nothing is deleted. Show it again any time you restock.</div></Card></Shell>), actions: [{ t: "type", into: "f-days", key: "days", text: "90" }] },
       { say: "Old sold-out photos can be “made smaller” in the same place. They stay for your records but free space for new products.", screen: (s) => (<Shell nav="Settings" title="Advanced"><Card><Btn id="b-shrink" s={s} primary>Make them smaller</Btn>{s.sh && <Badge tone="done">25 pictures smaller · 18 MB freed ✓</Badge>}</Card></Shell>), actions: [{ t: "click", on: "b-shrink", set: { sh: "1" } }] },
@@ -428,16 +428,6 @@ const LESSON_DEFS: Array<Omit<Lesson, "minutes">> = [
           </Shell>
         ),
         actions: [{ t: "click", on: "mv-save" }],
-      },
-      {
-        say: "Settings has a 5-minute safety buffer with 1-click revert: after you press Save settings, a live countdown banner appears. During these 5 minutes, you can press “Revert changes” to cancel any mistake and restore your previous settings instantly, or press “Apply immediately” to make changes live right away.",
-        screen: () => (
-          <Shell nav="Settings" title="Saved with 5-minute safety buffer">
-            <Tip><strong>5-minute safety buffer active.</strong> You can review the countdown banner and press “Revert changes” to undo any mistake instantly before changes go live.</Tip>
-            <Slide title="5-minute safety buffer &amp; live updates" points={[["Accident prevention", "Mistyped a price or phone number? You have 5 full minutes to review."], ["1-Click Revert", "Press 'Revert changes' to instantly roll back to previous settings."], ["Apply immediately", "In a hurry? Press 'Apply immediately' to bypass the buffer and publish now."], ["Page cache", "Shoppers who already have the page open will see fresh settings on their next refresh."]]} />
-          </Shell>
-        ),
-        actions: [{ t: "wait", ms: 300 }],
       },
       {
         say: "Need more room? The little panel button next to the logo folds the menu into a slim row of icons – hover an icon to read its name. Press it again to bring the menu back. It remembers your choice.",
