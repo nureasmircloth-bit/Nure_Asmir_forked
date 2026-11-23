@@ -587,6 +587,8 @@ export const siteSettings = sqliteTable("site_settings", {
   pendingChanges: text("pending_changes"),
   pendingApplyAt: timestamp("pending_apply_at", { withTimezone: true }),
   previousSettings: text("previous_settings"),
+  // How long saved settings wait before the shop sees them (0 = at once, otherwise 1 to 5 minutes during which they can be undone). Chosen by the owner on the Settings page.
+  applyDelayMinutes: integer("apply_delay_minutes").notNull().default(0),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().default(nowMs),
 });
 

@@ -92,6 +92,13 @@
       "when": 1795193922396,
       "tag": "0012_category_size_chart",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1795421820001,
+      "tag": "0013_settings_apply_delay",
+      "breakpoints": true
     }
   ]
 }
