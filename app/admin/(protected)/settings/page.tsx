@@ -105,16 +105,16 @@ async function loadSettingsData() {
     spamShield: Boolean(process.env.TURNSTILE_SECRET_KEY),
   };
 
-  return { values, initialPending, status };
+  return { values, initialPending, status, applyDelayMinutes: row?.applyDelayMinutes ?? 0 };
 }
 
 export default async function SettingsPage() {
-  const { values, initialPending, status } = await loadSettingsData();
+  const { values, initialPending, status, applyDelayMinutes } = await loadSettingsData();
 
   return (
     <>
       <PageHeader title="Settings" intro="Your shop details, delivery, payments and connections. Change what you need and press Save at the bottom." />
-      <SettingsForm initial={values} status={status} initialPending={initialPending} />
+      <SettingsForm initial={values} status={status} initialPending={initialPending} applyDelayMinutes={applyDelayMinutes} />
     </>
   );
 }

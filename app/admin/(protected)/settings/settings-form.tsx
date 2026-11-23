@@ -100,7 +100,7 @@ function formatSeconds(total: number) {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-export function SettingsForm({ initial, status, initialPending }: { initial: SettingsValues; status: SystemStatus; initialPending?: PendingSettings | null }) {
+export function SettingsForm({ initial, status, initialPending, applyDelayMinutes = 0 }: { initial: SettingsValues; status: SystemStatus; initialPending?: PendingSettings | null; applyDelayMinutes?: number }) {
   const router = useRouter();
   const toast = useToast();
   const saving = useLockedAction();
@@ -111,6 +111,22 @@ export function SettingsForm({ initial, status, initialPending }: { initial: Set
   const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, setPending] = useState<PendingSettings | null>(initialPending ?? null);
   const [countdown, setCountdown] = useState<number>(initialPending?.remainingSeconds ?? 0);
+  const [delay, setDelay] = useState<number>(applyDelayMinutes);
+  const choosing = useLockedAction();
+
+  /** Saves how long a Save waits before the shop sees it (0 = at once). This choice itself takes effect at once. */
+  async function chooseDelay(minutes: number) {
+    const before = delay;
+    setDelay(minutes);
+    await choosing.run(async () => {
+      const result = await callApi<{ ok: boolean; minutes: number }>("/api/admin/settings", "PATCH", { action: "wait", minutes });
+      if (result.ok) toast(minutes === 0 ? "Saved. Your changes will now go live at once." : `Saved. Your changes will now wait ${minutes} minute${minutes === 1 ? "" : "s"} before going live, and you can undo them during the wait.`, "good");
+      else {
+        setDelay(before);
+        toast(result.error, "bad");
+      }
+    });
+  }
 
   useEffect(() => {
     if (!pending) return;
@@ -222,7 +238,7 @@ export function SettingsForm({ initial, status, initialPending }: { initial: Set
         if (result.data.pending) {
           setPending(result.data.pending);
           setCountdown(result.data.pending.remainingSeconds || 300);
-          toast("Settings saved with a 5-minute safety buffer. You can revert at any time before it applies.", "good");
+          toast(`Settings saved. They go live in ${delay || 5} minute${(delay || 5) === 1 ? "" : "s"}; press "Revert changes" before then to undo.`, "good");
         } else {
           const saved = result.data.settings ?? {};
           setForm((current) => ({ ...current, ...Object.fromEntries((Object.keys(current) as Array<keyof SettingsValues>).filter((key) => saved[key] !== undefined).map((key) => [key, saved[key]])) }));
@@ -310,7 +326,7 @@ export function SettingsForm({ initial, status, initialPending }: { initial: Set
               </div>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <strong style={{ color: "#92400e", fontSize: 15 }}>5-Minute Safety Buffer Active</strong>
+                  <strong style={{ color: "#92400e", fontSize: 15 }}>Safety wait active</strong>
                   <span style={{ background: "#b45309", color: "#fff", fontWeight: 700, fontSize: 12, padding: "2px 8px", borderRadius: 6, fontVariantNumeric: "tabular-nums" }}>
                     {formatSeconds(countdown)}
                   </span>
@@ -906,6 +922,29 @@ export function SettingsForm({ initial, status, initialPending }: { initial: Set
           <PhotoShrinker />
         </div>
       </details>
+
+      <section className="a-card" aria-label="When changes go live">
+        <header className="a-card-head">
+          <h2>When do my changes go live?</h2>
+        </header>
+        <div className="a-card-pad" style={{ display: "grid", gap: 10 }}>
+          <label className="a-check">
+            <input type="checkbox" checked={delay === 0} disabled={choosing.pending} onChange={(event) => void chooseDelay(event.target.checked ? 0 : 5)} />
+            <span><strong>Apply immediately.</strong> When I press Save, my changes go live on the website at once.</span>
+          </label>
+          {delay !== 0 && (
+            <label className="a-field" style={{ maxWidth: 360 }}>
+              <span>Wait before going live</span>
+              <select value={delay} disabled={choosing.pending} onChange={(event) => void chooseDelay(Number(event.target.value))}>
+                {[1, 2, 3, 4, 5].map((minutes) => (
+                  <option key={minutes} value={minutes}>{minutes} minute{minutes === 1 ? "" : "s"}</option>
+                ))}
+              </select>
+              <small className="a-help">During the wait a banner counts down and you can press “Revert changes” to undo a mistake, or “Apply immediately” to go live early.</small>
+            </label>
+          )}
+        </div>
+      </section>
 
       <div className="a-savebar">
         <span className="a-muted">{dirty ? "You have changes that are not saved yet." : "Everything is saved."}</span>

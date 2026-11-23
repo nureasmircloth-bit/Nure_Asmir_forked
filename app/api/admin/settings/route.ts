@@ -136,6 +136,15 @@ export async function PATCH(request: Request) {
 
   const raw = await request.json().catch(() => ({}));
 
+  // Action 0: choose how long saved settings wait before they go live (0 = apply at once). This choice itself is saved at once.
+  if (raw?.action === "wait") {
+    const minutes = Number(raw.minutes);
+    if (!Number.isInteger(minutes) || minutes < 0 || minutes > 5) return Response.json({ error: "Choose between 0 and 5 minutes." }, { status: 400 });
+    const row = await saveSettingsRow({ applyDelayMinutes: minutes, updatedAt: new Date() });
+    await auditLogEntry({ actorEmail: admin.email, action: "settings.wait-choice", entityType: "site-settings", entityId: "store", detail: { minutes } });
+    return Response.json({ ok: true, minutes: row.applyDelayMinutes });
+  }
+
   // Action 1: Revert pending changes
   if (raw?.action === "revert") {
     const [row] = await db.select().from(siteSettings).where(eq(siteSettings.id, "store")).limit(1);
@@ -252,11 +261,11 @@ export async function PATCH(request: Request) {
 
   const [currentRow] = await db.select().from(siteSettings).where(eq(siteSettings.id, "store")).limit(1);
 
-  // The safety buffer defaults to 5 minutes; SETTINGS_BUFFER_SECONDS=0 (used by the automated tests) makes every save apply at once.
+  // How long a save waits is the owner's choice on the Settings page (0 = at once, up to 5 minutes). SETTINGS_BUFFER_SECONDS, when set, overrides it (the tests use 0).
   const rawBuffer = (process.env.SETTINGS_BUFFER_SECONDS ?? "").trim();
   const configuredBuffer = rawBuffer === "" ? Number.NaN : Number(rawBuffer);
-  // blank, non-numeric, negative or absurdly large (over a day) values fall back to the default 5 minutes
-  const bufferSeconds = Number.isFinite(configuredBuffer) && configuredBuffer >= 0 && configuredBuffer <= 86_400 ? configuredBuffer : 300;
+  // blank, non-numeric, negative or absurdly large (over a day) values mean the owner's own choice is used
+  const bufferSeconds = Number.isFinite(configuredBuffer) && configuredBuffer >= 0 && configuredBuffer <= 86_400 ? configuredBuffer : (currentRow?.applyDelayMinutes ?? 0) * 60;
   if (raw?.immediate === true || bufferSeconds <= 0) {
     const fullValues = {
       ...values,

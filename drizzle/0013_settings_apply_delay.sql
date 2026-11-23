@@ -1,0 +1,1 @@
+ALTER TABLE `site_settings` ADD `apply_delay_minutes` integer DEFAULT 0 NOT NULL;
