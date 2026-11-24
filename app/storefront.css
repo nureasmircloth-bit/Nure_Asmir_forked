@@ -813,5 +813,7 @@ p, .pcard-title { text-wrap: pretty; }
 /* Very small phones (320px): the sort control must not be wider than the screen. */
 @media (max-width: 380px) { .sort-label, .shop-toolbar .ts, .sort-label .ts { width: 100%; min-width: 0; max-width: 100%; } }
 
-.size-guide:has(.size-guide-chart) { width: min(760px, 100%); }
-.size-guide-chart { display: block; width: 100%; height: auto; margin-top: 14px; }
+.size-guide:has(.size-guide-chart) { width: min(820px, 100%); padding: 0; background: transparent; }
+.size-guide-chart { display: block; width: 100%; height: auto; }
+/* With a picture the box shows only the picture; the close button sits on its top-right corner. */
+.size-guide:has(.size-guide-chart) .size-guide-close { top: 10px; right: 10px; width: 40px; height: 40px; border-radius: 50%; background: #fff; color: #111; box-shadow: 0 2px 10px rgba(0,0,0,.3); font-size: 26px; z-index: 2; }

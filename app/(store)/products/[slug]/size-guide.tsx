@@ -50,16 +50,16 @@ export function SizeGuideLink({ product }: { product: Pick<CatalogProduct, "type
       {open && (
         <Portal>
           <div className="size-guide-scrim" onClick={() => setOpen(false)}>
-            <div ref={dialog} className="size-guide" role="dialog" aria-modal="true" aria-labelledby={titleId} onClick={(event) => event.stopPropagation()}>
+            <div ref={dialog} className="size-guide" role="dialog" aria-modal="true" {...(product.sizeChartUrl ? { "aria-label": "Size guide" } : { "aria-labelledby": titleId })} onClick={(event) => event.stopPropagation()}>
               <button type="button" className="size-guide-close" aria-label="Close size guide" onClick={() => setOpen(false)}>
                 ×
               </button>
-              <h2 id={titleId}>Size guide</h2>
+              {!product.sizeChartUrl && <h2 id={titleId}>Size guide</h2>}
               {product.sizeChartUrl ? (
                 <>
                   {/* The owner's own chart for this kind of product, shown whole. */}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img className="size-guide-chart" src={product.sizeChartUrl} alt={`Size chart for ${product.name}`} loading="lazy" />
+                  <img className="size-guide-chart" src={product.sizeChartUrl} alt={`Size chart for ${product.name}`} />
                 </>
               ) : (<>
               <p className="size-guide-sub">{guide.title} · inches</p>
@@ -81,7 +81,7 @@ export function SizeGuideLink({ product }: { product: Pick<CatalogProduct, "type
               </table>
               <p className="size-guide-note">{guide.note}</p>
               </>)}
-              <p className="size-guide-note">Between two sizes? Choose the larger one for a relaxed fit. Not sure — message us on WhatsApp and we will help you pick.</p>
+              {!product.sizeChartUrl && <p className="size-guide-note">Between two sizes? Choose the larger one for a relaxed fit. Not sure — message us on WhatsApp and we will help you pick.</p>}
             </div>
           </div>
         </Portal>

@@ -6,6 +6,16 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import { cropImageClientSide, processImageClientSide } from "@/lib/client-image-processing";
 import { ImageCropper } from "../campaign/image-cropper";
 import { descendantIds, flattenTree, MAX_DEPTH, pathLabel } from "@/lib/category-tree";
+import { useToast } from "../../_ui/client";
+
+/** Like fetch, but a dropped connection gives a normal "could not reach the server" answer instead of an error nobody catches. */
+async function request(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch {
+    return new Response(JSON.stringify({ error: "Could not reach the server. Check your internet and try again." }), { status: 503, headers: { "Content-Type": "application/json" } });
+  }
+}
 
 const CARD_ASPECT = 3 / 4;
 const HERO_ASPECT = 21 / 9;
@@ -59,7 +69,11 @@ type Category = {
 };
 export function CollectionManager() {
   const [categories, setCategories] = useState<Category[]>([]);
-  const [message, setMessage] = useState("");
+  const toast = useToast();
+  // Messages appear as a notice on the screen (a banner at the top of a long list is out of sight).
+  const setMessage = useCallback((text: string) => { if (text) toast(text, /could not|couldn.t|failed|went wrong|not hidden|choose|cannot|error/i.test(text) ? "bad" : "good"); }, [toast]);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [find, setFind] = useState("");
   const [imageBusyId, setImageBusyId] = useState<string | null>(null);
 
   // Which category's photo picker is currently open, plus its pending (uncropped-yet-confirmed or
@@ -72,7 +86,7 @@ export function CollectionManager() {
   const [cropTarget, setCropTarget] = useState<"card" | "hero" | null>(null);
 
   const refreshCategories = useCallback(async () => {
-    const response = await fetch("/api/admin/categories", { cache: "no-store" });
+    const response = await request("/api/admin/categories", { cache: "no-store" });
     if (response.ok) setCategories((await response.json()).categories);
   }, []);
   useEffect(() => {
@@ -84,13 +98,14 @@ export function CollectionManager() {
 
   // The categories as a folder tree: parents first, each followed by what is inside it.
   const tree = useMemo(() => flattenTree(categories), [categories]);
+  const shown = useMemo(() => (find.trim() ? tree.filter((entry) => pathLabel(entry.path).toLowerCase().includes(find.trim().toLowerCase())) : tree), [tree, find]);
   /** A category cannot be put inside itself or inside one of its own categories. */
   const blocked = (id: string) => new Set(descendantIds(categories, id));
 
   async function createCategory(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const body = { ...Object.fromEntries(new FormData(event.currentTarget)), parentId: new FormData(event.currentTarget).get("parentId") || null };
-    const response = await fetch("/api/admin/categories", {
+    const response = await request("/api/admin/categories", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -165,7 +180,7 @@ export function CollectionManager() {
       await processPhotoSlot(heroSlot, "hero", form);
 
       setMessage("Uploading…");
-      const response = await fetch(`/api/admin/categories/${category.id}/image`, { method: "POST", body: form });
+      const response = await request(`/api/admin/categories/${category.id}/image`, { method: "POST", body: form });
       const result = await response.json().catch(() => ({}));
       setMessage(response.ok ? "Category photos updated." : (result.error ?? "Image upload failed."));
       if (response.ok) {
@@ -185,7 +200,7 @@ export function CollectionManager() {
     if (!window.confirm(`Remove the ${label} for "${category.name}"?`)) return;
     setImageBusyId(category.id);
     try {
-      const response = await fetch(`/api/admin/categories/${category.id}/image${target === "hero" ? "?target=hero" : ""}`, {
+      const response = await request(`/api/admin/categories/${category.id}/image${target === "hero" ? "?target=hero" : ""}`, {
         method: "DELETE",
       });
       setMessage(response.ok ? "Photo removed." : "Photo could not be removed.");
@@ -198,7 +213,7 @@ export function CollectionManager() {
   async function saveCategory(event: FormEvent<HTMLFormElement>, id: string) {
     event.preventDefault();
     const body: Record<string, unknown> = { ...Object.fromEntries(new FormData(event.currentTarget)), parentId: new FormData(event.currentTarget).get("parentId") || null };
-    const send = () => fetch(`/api/admin/categories/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const send = () => request(`/api/admin/categories/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     let response = await send();
     let result = await response.json().catch(() => ({}));
     // Hiding a category that still has products on the website needs a clear yes (it disappears from the shop menu).
@@ -214,7 +229,7 @@ export function CollectionManager() {
 
   /** Hides ("archive") or deletes for good every product of a category and the categories inside it. Always shows the count first. */
   async function clearCategoryProducts(category: Category, mode: "archive" | "delete") {
-    const call = (extra: Record<string, unknown>) => fetch(`/api/admin/categories/${category.id}/products`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode, includeInside: true, ...extra }) });
+    const call = (extra: Record<string, unknown>) => request(`/api/admin/categories/${category.id}/products`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode, includeInside: true, ...extra }) });
     const preview = await (await call({ dryRun: true })).json().catch(() => ({} as { count?: number; categories?: string[]; sample?: string[]; error?: string }));
     if (!preview.count) { setMessage(preview.error ?? `“${category.name}” has no products to ${mode === "archive" ? "hide" : "delete"}.`); return; }
     const where = (preview.categories ?? []).length > 1 ? ` in “${category.name}” and the categories inside it (${(preview.categories ?? []).join(", ")})` : ` in “${category.name}”`;
@@ -253,7 +268,7 @@ To continue, type the category name: ${category.name}`);
     body.set("file", file);
     setImageBusyId(category.id);
     try {
-      const response = await fetch(`/api/admin/categories/${category.id}/size-chart`, { method: "POST", body });
+      const response = await request(`/api/admin/categories/${category.id}/size-chart`, { method: "POST", body });
       const result = await response.json().catch(() => ({}));
       setMessage(response.ok ? `Size chart saved for “${category.name}”.` : result.error ?? "The size chart could not be saved.");
       if (response.ok) await refreshCategories();
@@ -264,14 +279,14 @@ To continue, type the category name: ${category.name}`);
 
   async function removeSizeChart(category: Category) {
     if (!window.confirm(`Remove the size chart of “${category.name}”?`)) return;
-    const response = await fetch(`/api/admin/categories/${category.id}/size-chart`, { method: "DELETE" });
+    const response = await request(`/api/admin/categories/${category.id}/size-chart`, { method: "DELETE" });
     setMessage(response.ok ? "Size chart removed." : "The size chart could not be removed.");
     if (response.ok) await refreshCategories();
   }
 
   /** Puts a hidden category back in the shop menu. */
   async function showInMenu(category: Category) {
-    const response = await fetch(`/api/admin/categories/${category.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "active" }) });
+    const response = await request(`/api/admin/categories/${category.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "active" }) });
     const result = await response.json().catch(() => ({}));
     setMessage(response.ok ? `“${category.name}” is now shown in the menu.` : result.error ?? "Could not show the category.");
     if (response.ok) await refreshCategories();
@@ -291,12 +306,6 @@ To continue, type the category name: ${category.name}`);
         </div>
       </header>
 
-      {message && (
-        <div className="admin-message" role="status">
-          {message}
-          <button onClick={() => setMessage("")}>×</button>
-        </div>
-      )}
 
       {(
         <div className="collection-manager">
@@ -305,17 +314,19 @@ To continue, type the category name: ${category.name}`);
               <div className="admin-table-tools">
                 <div>
                   <h2>Categories</h2>
-                  <span>{categories.length} categories</span>
+                  <span>{categories.length} categories. Press one to open it and change it.</span>
                 </div>
+                <input type="search" className="cat-find" placeholder="Find a category…" aria-label="Find a category" value={find} onChange={(event) => setFind(event.target.value)} />
               </div>
               <div className="admin-table-wrap">
                 <div className="cat-list">
-                  {tree.map((category) => {
+                  {shown.map((category) => {
+                    const open = openId === category.id;
                     const hidden = category.status !== "active";
                     const busy = imageBusyId === category.id;
                     return (
                       <article className={`cat-card${hidden ? " is-hidden" : ""}`} key={category.id} style={{ marginInlineStart: Math.min(category.depth, 5) * 20 }}>
-                        <header className="cat-card-head">
+                        <header className="cat-card-head is-toggle" role="button" tabIndex={0} aria-expanded={open} onClick={() => setOpenId(open ? null : category.id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setOpenId(open ? null : category.id); } }}>
                           <div>
                             <h3>{category.name}</h3>
                             {category.depth > 0 && <small className="category-trail">Inside: {category.path.slice(0, -1).join(" › ")}</small>}
@@ -323,6 +334,7 @@ To continue, type the category name: ${category.name}`);
                           <div className="cat-badges">
                             <span className={`cat-badge ${hidden ? "off" : "on"}`}>{hidden ? "Not in the shop menu" : "Shown in the shop menu"}</span>
                             <span className="cat-badge">{category.liveProducts} product{category.liveProducts === 1 ? "" : "s"} on the website</span>
+                            <span className="cat-chevron" aria-hidden="true">{open ? "▲" : "▼"}</span>
                           </div>
                         </header>
                         {hidden && category.liveProducts > 0 && (
@@ -331,6 +343,7 @@ To continue, type the category name: ${category.name}`);
                             <button type="button" className="admin-primary" onClick={() => void showInMenu(category)}>Show it in the menu</button>
                           </div>
                         )}
+                        {open && (<>
                         <form className="cat-form" onSubmit={(event) => saveCategory(event, category.id)}>
                           <label>
                             <span>Name</span>
@@ -429,6 +442,7 @@ To continue, type the category name: ${category.name}`);
                             <button type="button" className="admin-danger" onClick={() => void clearCategoryProducts(category, "delete")}>Delete all its products for good</button>
                           </div>
                         </div>
+                        </>)}
                       </article>
                     );
                   })}
