@@ -12,6 +12,8 @@ export function onRequestError(
   // The visitor left (closed the tab, lost signal, pressed reload) while the page was still streaming – not a fault of ours. A message alone is
   // not proof, so it must be the exact wording AND happen while a page is being rendered; any other error with these words is still reported.
   if (context.routeType === "render" && /^(The destination stream closed early|Connection closed)\.?$/.test((err.message ?? "").trim())) return;
+  // A browser, extension or scanner sent a damaged "router state" header with its request (nothing in our pages makes one). The request is simply refused; the exact wording during a page render is not a fault of ours.
+  if (context.routeType === "render" && (err.message ?? "").trim() === "The router state header was sent but could not be parsed.") return;
   logError({ source: `${context.routeType}:${context.routePath}`, message: `${err.name ?? "Error"}: ${err.message ?? "Unknown error"}`, path: request.path, stack: err.stack });
   reportServerError(err, {
     method: request.method,

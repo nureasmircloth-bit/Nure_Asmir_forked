@@ -881,3 +881,10 @@
 .adm .cat-chart-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
 .adm .cat-chart-preview { position: relative; width: 160px; height: 120px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; display: grid; place-items: center; background: rgba(127,127,127,.08); font-size: 13px; }
 .adm .cat-chart-preview img { object-fit: contain; }
+
+.adm .cat-card-head.is-toggle { cursor: pointer; }
+.adm .cat-card-head.is-toggle:hover h3 { text-decoration: underline; }
+.adm .cat-card-head.is-toggle:focus-visible { outline: 2px solid var(--primary, #4aa391); outline-offset: 4px; border-radius: 6px; }
+.adm .cat-chevron { font-size: 12px; opacity: .7; padding-left: 4px; align-self: center; }
+.adm .cat-find { max-width: 280px; }
+.adm .cat-card[aria-expanded] { }
