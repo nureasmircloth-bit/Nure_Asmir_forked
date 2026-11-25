@@ -402,6 +402,11 @@ It disappears from the shop and from this list, with its pictures. This cannot b
                             <small>A line shown at the top of the category page.</small>
                             <input name="description" defaultValue={category.description ?? ""} />
                           </label>
+                          <label>
+                            <span>Quick tags (optional)</span>
+                            <small>Words like Blue, White, separated by commas. Shoppers press one to see the products with that word. Delete the words and save to remove them.</small>
+                            <input name="subcategories" defaultValue={category.subcategories ?? ""} placeholder="e.g. Blue, White" />
+                          </label>
                           <div className="cat-actions"><button className="admin-primary">Save changes</button></div>
                         </form>
                         <div className="cat-photos">
@@ -490,8 +495,12 @@ It disappears from the shop and from this list, with its pictures. This cannot b
               </select>
             </label>
             <label>
+              <span>Quick tags (optional, comma separated)</span>
+              <input name="subcategories" placeholder="Blue, White" />
+            </label>
+            <label>
               <span>URL slug (optional)</span>
-              <input name="slug" placeholder="eid-edit" />
+              <input name="slug" placeholder="formal-shirts" />
             </label>
             <label>
               <span>Description</span>

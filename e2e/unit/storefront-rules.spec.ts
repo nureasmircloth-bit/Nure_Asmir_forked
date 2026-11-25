@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { visibleTags } from "../../lib/category-tree";
 import { countFilters, EMPTY_FILTERS, filtersToParams, hasFilters, parseFilters, parseList, sortSizes } from "../../lib/catalog-filters";
 import { currencyForCountry, flagSrc, CURRENCIES, FLAG_OF } from "../../lib/currency";
 import { fillFaqTokens } from "../../lib/faqs";
@@ -205,5 +206,14 @@ test.describe("which delivery area a place belongs to", () => {
     expect(matchZone(zones, "", "")).toBeNull();
     expect(matchZone(zones, null, undefined)).toBeNull();
     expect(matchZone([], "Lahore", "Punjab")).toBeNull();
+  });
+});
+
+test.describe("quick tags on a category", () => {
+  test("a tag that only repeats the category (or one above it) is left out; the others stay in order", () => {
+    expect(visibleTags("Leather Accessories", ["Leather Accessories", "Accessories"])).toEqual([]);
+    expect(visibleTags(" formal  SHIRTS , Blue,White ", ["Designer Formal Shirts", "Formal Shirts", "Shirts"])).toEqual(["Blue", "White"]);
+    expect(visibleTags(null, ["Shirts"])).toEqual([]);
+    expect(visibleTags(" , ,", ["Shirts"])).toEqual([]);
   });
 });
