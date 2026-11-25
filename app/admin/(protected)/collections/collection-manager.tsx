@@ -284,6 +284,17 @@ To continue, type the category name: ${category.name}`);
     if (response.ok) await refreshCategories();
   }
 
+  /** Removes an empty category for good (the server refuses while it has products or categories inside it, and says why). */
+  async function deleteCategory(category: Category) {
+    if (!window.confirm(`Delete the category “${category.name}” for good?
+
+It disappears from the shop and from this list, with its pictures. This cannot be undone. It only works when the category has no products and no categories inside it.`)) return;
+    const response = await request(`/api/admin/categories/${category.id}?permanent=true`, { method: "DELETE" });
+    const result = await response.json().catch(() => ({}));
+    setMessage(response.ok ? `“${category.name}” was deleted.` : result.error ?? "Could not delete the category.");
+    if (response.ok) { setOpenId(null); await refreshCategories(); }
+  }
+
   /** Puts a hidden category back in the shop menu. */
   async function showInMenu(category: Category) {
     const response = await request(`/api/admin/categories/${category.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "active" }) });
@@ -440,6 +451,12 @@ To continue, type the category name: ${category.name}`);
                           <div className="cat-actions">
                             <button type="button" onClick={() => void clearCategoryProducts(category, "archive")}>Hide all its products</button>
                             <button type="button" className="admin-danger" onClick={() => void clearCategoryProducts(category, "delete")}>Delete all its products for good</button>
+                          </div>
+                        </div>
+                        <div className="cat-danger">
+                          <small>Made by mistake, or twice? An empty category (no products, nothing inside) can be removed completely.</small>
+                          <div className="cat-actions">
+                            <button type="button" className="admin-danger" onClick={() => void deleteCategory(category)}>Delete this category</button>
                           </div>
                         </div>
                         </>)}

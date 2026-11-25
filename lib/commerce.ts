@@ -718,7 +718,6 @@ export async function getActiveCategories(): Promise<CategoryWithImage[]> {
         slug: categories.slug,
         sortOrder: categories.sortOrder,
         description: categories.description,
-        subcategories: categories.subcategories,
         parentId: categories.parentId,
         showOnHome: categories.showOnHome,
         imageR2Key: categories.imageR2Key,
@@ -739,9 +738,9 @@ export async function getActiveCategories(): Promise<CategoryWithImage[]> {
       slug: row.slug,
       sortOrder: row.sortOrder,
       description: row.description ?? undefined,
-      subcategories: row.subcategories
-        ? row.subcategories.split(",").map((s) => s.trim()).filter(Boolean)
-        : undefined,
+      // The old "quick groups" words stored on a category are no longer shown: they doubled a category in the menu (for example "Leather
+      // Accessories" inside "Leather Accessories") and cannot be edited. Categories inside categories replace them.
+      subcategories: undefined,
       parentId: row.parentId ?? undefined,
       showOnHome: row.showOnHome,
       imageUrl: row.imageR2Key ? mediaUrl(row.imageR2Key, row.imageWidths) : undefined,

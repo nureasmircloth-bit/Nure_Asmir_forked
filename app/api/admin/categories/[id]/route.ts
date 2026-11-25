@@ -9,6 +9,8 @@ import { slugify } from "@/lib/slug";
 import { auditLogEntry } from "@/lib/admin/audit";
 import { isUniqueViolation } from "@/lib/db/errors";
 import { parentProblem } from "@/lib/categories";
+import { variantKeyFor } from "@/lib/image-variants";
+import { deleteObject } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
 
@@ -87,10 +89,40 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   return Response.json({ category: row });
 }
 
-export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
   const admin = await getAdminUser();
   if (!admin) return Response.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await context.params;
+
+  // "permanent=true" removes the category itself (for example one made twice by mistake). Only an empty one can go: no products at all
+  // (hidden ones included) and no categories inside it, so nothing is ever left without a place.
+  if (new URL(request.url).searchParams.get("permanent") === "true") {
+    const [category] = await db.select().from(categories).where(eq(categories.id, id)).limit(1);
+    if (!category) return Response.json({ error: "Category not found." }, { status: 404 });
+    const [{ held }] = await db.select({ held: count() }).from(products).where(eq(products.categoryId, id));
+    const [{ inside }] = await db.select({ inside: count() }).from(categories).where(eq(categories.parentId, id));
+    if (held > 0 || inside > 0) {
+      const reasons = [held > 0 ? `it still has ${held} product${held === 1 ? "" : "s"} (hidden ones count too): delete them or move them to another category first` : "", inside > 0 ? `it has ${inside} categor${inside === 1 ? "y" : "ies"} inside it: delete or move ${inside === 1 ? "that one" : "those"} first` : ""].filter(Boolean);
+      return Response.json({ error: `“${category.name}” cannot be deleted yet because ${reasons.join(", and ")}.` }, { status: 409 });
+    }
+    try {
+      // the emptiness is checked again by the delete itself, so a product added in the same moment keeps its category
+      const removed = await db.delete(categories).where(and(eq(categories.id, id), sql`not exists (select 1 from products where category_id = ${id}) and not exists (select 1 from categories k where k.parent_id = ${id})`)).returning({ id: categories.id });
+      if (removed.length === 0) return Response.json({ error: "Something was added to this category just now. Try again." }, { status: 409 });
+    } catch (error) {
+      console.error("category.delete_permanent failed", error);
+      return Response.json({ error: "Could not delete the category. It may still be in use." }, { status: 500 });
+    }
+    const files = [
+      ...(category.imageR2Key ? [category.imageR2Key, ...(category.imageVariantWidths ?? []).map((width) => variantKeyFor(category.imageR2Key!, width))] : []),
+      ...(category.heroR2Key ? [category.heroR2Key, ...(category.heroVariantWidths ?? []).map((width) => variantKeyFor(category.heroR2Key!, width))] : []),
+      ...(category.sizeChartR2Key ? [category.sizeChartR2Key] : []),
+    ];
+    await Promise.all(files.map((key) => deleteObject(key).catch(() => undefined)));
+    await auditLogEntry({ actorEmail: admin.email, action: "category.delete_permanent", entityType: "category", entityId: id, detail: { name: category.name, slug: category.slug } });
+    runInBackground(reindexAll(), "reindexAll");
+    return Response.json({ ok: true, deleted: true });
+  }
 
   const [row] = await db
     .update(categories)
