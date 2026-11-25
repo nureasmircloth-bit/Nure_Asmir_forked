@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { chunked, likeEsc } from "@/db/sql-compat";
 import { BRAND } from "@/lib/brand";
 import { mediaUrl } from "@/lib/media-url";
+import { visibleTags } from "@/lib/category-tree";
 import { applySales, getActiveSales, getActiveSalesChecked } from "@/lib/sales";
 import { campaignSlides, categories, collections, productCollections, productImages, products, productVariants, siteSettings } from "@/db/schema";
 import { refreshStorefront } from "@/lib/storefront-cache";
@@ -733,15 +734,21 @@ export async function getActiveCategories(): Promise<CategoryWithImage[]> {
       .where(eq(categories.status, "active"))
       .orderBy(asc(categories.sortOrder), asc(categories.name));
 
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    const tagsOf = (row: (typeof rows)[number]) => {
+      const names: string[] = [];
+      for (let current: (typeof rows)[number] | undefined = row, depth = 0; current && depth < 10; current = current.parentId ? byId.get(current.parentId) : undefined, depth += 1) names.push(current.name);
+      const tags = visibleTags(row.subcategories, names);
+      return tags.length ? tags : undefined;
+    };
+
     return rows.map((row) => ({
       id: row.id,
       name: row.name,
       slug: row.slug,
       sortOrder: row.sortOrder,
       description: row.description ?? undefined,
-      subcategories: row.subcategories
-        ? row.subcategories.split(",").map((s) => s.trim()).filter(Boolean)
-        : undefined,
+      subcategories: tagsOf(row),
       parentId: row.parentId ?? undefined,
       showOnHome: row.showOnHome,
       imageUrl: row.imageR2Key ? mediaUrl(row.imageR2Key, row.imageWidths) : undefined,

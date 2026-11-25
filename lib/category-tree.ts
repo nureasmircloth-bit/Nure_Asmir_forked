@@ -94,3 +94,11 @@ export function topLevel<T extends { id: string; parentId?: string | null }>(ite
   const ids = new Set(items.map((item) => item.id));
   return items.filter((item) => !item.parentId || !ids.has(item.parentId));
 }
+
+/** A category's quick tags ("Blue, White") as shoppers should see them. A tag that only repeats the name of the category, or of a category
+ * it sits inside, is left out: it would show the same thing twice in the menu (for example "Leather Accessories" inside "Leather Accessories"). */
+export function visibleTags(raw: string | null | undefined, ownNames: string[]): string[] {
+  const same = (value: string) => value.trim().toLowerCase().replace(/\s+/g, " ");
+  const taken = new Set(ownNames.map(same));
+  return (raw ?? "").split(",").map((tag) => tag.trim()).filter((tag) => tag && !taken.has(same(tag)));
+}
