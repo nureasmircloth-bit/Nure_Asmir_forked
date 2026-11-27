@@ -42,6 +42,8 @@ function useSubmit(url: string, method: "POST" | "PATCH", success: string, onDon
         toast(success, "good");
         const warning = (result.data as { courierWarning?: string | null }).courierWarning;
         if (warning) toast(warning, "info");
+        const notice = (result.data as { courierNotice?: { tone: "good" | "bad" | "info"; text: string } | null }).courierNotice;
+        if (notice) toast(notice.text, notice.tone);
         onDone();
         router.refresh();
       } else {
@@ -267,28 +269,35 @@ export function BookTcsButton({ orderId, defaults, connected }: { orderId: strin
   );
 }
 
-export function ManualTrackingButton({ orderId }: { orderId: string }) {
+export function ManualTrackingButton({ orderId, international = false }: { orderId: string; international?: boolean }) {
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState("");
+  const [courier, setCourier] = useState("DHL");
   const { submit, pending, error } = useSubmit(`/api/admin/orders/${orderId}/courier`, "POST", "Tracking number saved.", () => setOpen(false));
   return (
     <>
       <button type="button" className="a-btn" onClick={() => setOpen(true)}>
-        I booked it on the TCS website
+        {international ? "Add courier and tracking number" : "I booked it on the TCS website"}
       </button>
       {open && (
-        <Dialog title="Save the TCS tracking number" onClose={() => (pending ? undefined : setOpen(false))}>
+        <Dialog title={international ? "Save the courier and tracking number" : "Save the TCS tracking number"} onClose={() => (pending ? undefined : setOpen(false))}>
           <form
             className="a-stack"
             style={{ gap: 14 }}
             onSubmit={(event: FormEvent) => {
               event.preventDefault();
-              void submit({ action: "manual", trackingNumber: value });
+              void submit({ action: "manual", trackingNumber: value, ...(international ? { courierName: courier } : {}) });
             }}
           >
-            <p className="a-muted">Type the consignment (CN) number TCS gave you. The customer will see it when they track their order.</p>
+            <p className="a-muted">{international ? "Type the courier you used and the tracking number they gave you. The customer will see them when they track their order." : "Type the consignment (CN) number TCS gave you. The customer will see it when they track their order."}</p>
+            {international && (
+              <div className="a-field">
+                <label htmlFor="mt-courier">Courier</label>
+                <input id="mt-courier" value={courier} onChange={(event) => setCourier(event.target.value)} required maxLength={40} placeholder="e.g. DHL, FedEx, TCS International" />
+              </div>
+            )}
             <div className="a-field">
-              <label htmlFor="mt-cn">TCS tracking number</label>
+              <label htmlFor="mt-cn">{international ? "Tracking number" : "TCS tracking number"}</label>
               <input id="mt-cn" value={value} onChange={(event) => setValue(event.target.value)} required placeholder="e.g. 779412326902" inputMode="numeric" />
             </div>
             {error && <p className="a-error" role="alert">{error}</p>}

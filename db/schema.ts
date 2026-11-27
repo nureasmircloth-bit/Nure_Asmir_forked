@@ -371,6 +371,8 @@ export const orders = sqliteTable("orders", {
   courierSyncedAt: timestamp("courier_synced_at", { withTimezone: true }),
   courierAutoAttempts: integer("courier_auto_attempts").notNull().default(0),
   courierAutoError: text("courier_auto_error"),
+  // An order going outside Pakistan: it is shipped by hand and is never sent to the TCS booking API.
+  isInternational: integer("is_international", { mode: "boolean" }).notNull().default(false),
   // The moment TCS physically took the parcel. From here on the order can no longer be cancelled
   // (lib/order-rules.ts) — a refusal at the door comes back as a return instead.
   handedOverAt: timestamp("handed_over_at", { withTimezone: true }),
@@ -589,6 +591,8 @@ export const siteSettings = sqliteTable("site_settings", {
   previousSettings: text("previous_settings"),
   // How long saved settings wait before the shop sees them (0 = at once, otherwise 1 to 5 minutes during which they can be undone). Chosen by the owner on the Settings page.
   applyDelayMinutes: integer("apply_delay_minutes").notNull().default(0),
+  // When on, a Pakistan order is booked with TCS by itself the moment it is confirmed.
+  tcsAutoBook: integer("tcs_auto_book", { mode: "boolean" }).notNull().default(false),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().default(nowMs),
 });
 

@@ -77,8 +77,12 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
       case "processing":
       case "packed":
         return tracking
-          ? { title: "Waiting for TCS to collect it", text: "When the TCS rider takes the parcel, press the button. (If TCS is connected this happens by itself within a few minutes.) After that the order can no longer be cancelled.", button: <ApiButton url={`/api/admin/orders/${id}/status`} body={{ toStatus: "shipped" }} label="TCS has collected it" busyLabel="Saving…" variant="primary" size="lg" icon="truck" success="Marked as with TCS." confirm={{ title: "Has TCS taken the parcel?", body: "Once TCS has it, this order can no longer be cancelled.", confirmLabel: "Yes, TCS has it" }} /> }
-          : { title: "Pack it and send it with TCS", text: "Pack the parcel, then book it with TCS to get a tracking number.", button: <BookTcsButton orderId={id} connected={connected} defaults={{ phone: order.customerPhone, city: order.city, address: order.address, cod: codAmountFor(order), pieces, weight: defaultWeightKg(pieces) }} /> };
+          ? order.isInternational
+            ? { title: "Waiting for the courier to take it", text: "When the courier has the parcel, press the button. Overseas parcels are updated by hand.", button: <ApiButton url={`/api/admin/orders/${id}/status`} body={{ toStatus: "shipped" }} label="The courier has it" busyLabel="Saving…" variant="primary" size="lg" icon="truck" success="Marked as with the courier." /> }
+            : { title: "Waiting for TCS to collect it", text: "When the TCS rider takes the parcel, press the button. (If TCS is connected this happens by itself within a few minutes.) After that the order can no longer be cancelled.", button: <ApiButton url={`/api/admin/orders/${id}/status`} body={{ toStatus: "shipped" }} label="TCS has collected it" busyLabel="Saving…" variant="primary" size="lg" icon="truck" success="Marked as with TCS." confirm={{ title: "Has TCS taken the parcel?", body: "Once TCS has it, this order can no longer be cancelled.", confirmLabel: "Yes, TCS has it" }} /> }
+          : order.isInternational
+            ? { title: "Overseas order: ship it yourself", text: "This parcel is never booked through TCS automatically. Send it with the courier you choose, then add the courier name and tracking number.", button: null }
+            : { title: "Pack it and send it with TCS", text: "Pack the parcel, then book it with TCS to get a tracking number.", button: <BookTcsButton orderId={id} connected={connected} defaults={{ phone: order.customerPhone, city: order.city, address: order.address, cod: codAmountFor(order), pieces, weight: defaultWeightKg(pieces) }} /> };
       case "shipped":
         return { title: "On its way to the customer", text: "TCS is delivering it. It will be marked Delivered automatically when TCS confirms. You can also mark it yourself.", button: <ApiButton url={`/api/admin/orders/${id}/status`} body={{ toStatus: "delivered" }} label="Mark as delivered" busyLabel="Saving…" variant="primary" icon="checkCircle" success="Marked as delivered." confirm={{ title: "Mark as delivered?", body: "Do this only when the customer has received the parcel.", confirmLabel: "Yes, delivered" }} /> };
       default:
@@ -144,9 +148,10 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
                     <Icon name="whatsapp" /> WhatsApp the customer
                   </a>
                 )}
-                {tracking == null && ["confirmed", "processing", "packed"].includes(order.orderStatus) && <ManualTrackingButton orderId={id} />}
+                {tracking == null && ["confirmed", "processing", "packed"].includes(order.orderStatus) && <ManualTrackingButton orderId={id} international={order.isInternational} />}
               </div>
-              {!connected && ["confirmed", "processing", "packed"].includes(order.orderStatus) && !tracking && (
+              {order.courierAutoError && !tracking && <div style={{ marginTop: 14 }}><Note tone="warn">{order.courierAutoError}</Note></div>}
+              {!order.isInternational && !connected && ["confirmed", "processing", "packed"].includes(order.orderStatus) && !tracking && (
                 <div style={{ marginTop: 14 }}>
                   <Note tone="warn">
                     TCS is not connected yet, so one-click booking is switched off. Book the parcel on the TCS website, then press <strong>I booked it on the TCS website</strong> and type the tracking number. You can connect TCS in <Link href="/admin/settings#tcs" style={{ textDecoration: "underline" }}>Settings</Link>.
@@ -299,8 +304,8 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
 
           <section className="a-card">
             <header className="a-card-head">
-              <h2>TCS parcel</h2>
-              {tracking ? <Badge tone="ship">Booked</Badge> : <Badge tone="muted">Not booked</Badge>}
+              <h2>{order.isInternational ? "Overseas parcel" : "TCS parcel"}</h2>
+              {tracking ? <Badge tone="ship">{order.isInternational ? `With ${order.courierName}` : "TCS booked ✓"}</Badge> : <Badge tone="muted">Not booked</Badge>}
             </header>
             <div className="a-card-pad a-stack" style={{ gap: 12 }}>
               {tracking ? (
@@ -313,14 +318,14 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
                     </div>
                   </div>
                   <p>
-                    <span className="a-muted">TCS says: </span>
+                    <span className="a-muted">{order.isInternational ? "Courier status: " : "TCS says: "}</span>
                     <strong>{order.courierStatus ?? "Booked"}</strong>
                     {order.courierStatus && <small className="a-muted"> ({customerFacingCourierStatus(order.courierStatus)})</small>}
                     {order.courierSyncedAt && <small className="a-muted" style={{ display: "block" }}>Checked {when(order.courierSyncedAt)}</small>}
                   </p>
                   <div className="a-row">
-                    {connected && <ApiButton url={`/api/admin/orders/${id}/courier`} body={{ action: "sync" }} label="Check TCS now" busyLabel="Checking…" size="sm" icon="refund" success="Updated from TCS." />}
-                    {connected && (
+                    {connected && !order.isInternational && <ApiButton url={`/api/admin/orders/${id}/courier`} body={{ action: "sync" }} label="Check TCS now" busyLabel="Checking…" size="sm" icon="refund" success="Updated from TCS." />}
+                    {connected && !order.isInternational && (
                       <a className="a-btn a-btn-sm" href={`/api/admin/orders/${id}/label`} target="_blank" rel="noopener noreferrer">
                         <Icon name="print" size={15} /> TCS label
                       </a>

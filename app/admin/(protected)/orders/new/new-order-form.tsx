@@ -24,6 +24,8 @@ export function NewOrderForm() {
   const [search, setSearch] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
   const [form, setForm] = useState({ name: "", phone: "", email: "", city: "", province: "Punjab", address: "", zoneId: "", payment: "cod" as "cod" | "bank_deposit", paid: false, discount: "", notes: "" });
+  const [international, setInternational] = useState(false);
+  const [quotedDelivery, setQuotedDelivery] = useState("");
   // One key per order form, so a double click or a retry can never create two orders.
   const key = useRef<string | null>(null);
 
@@ -78,6 +80,7 @@ export function NewOrderForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           idempotencyKey: (key.current ??= crypto.randomUUID()),
+          autoBook: true,
           order: {
             customerName: form.name,
             customerPhone: form.phone,
@@ -85,7 +88,8 @@ export function NewOrderForm() {
             city: form.city,
             province: form.province,
             address: form.address,
-            zoneId: form.zoneId || undefined,
+            zoneId: international ? undefined : form.zoneId || undefined,
+            ...(international ? { international: true, deliveryCharge: Number(quotedDelivery || 0) } : {}),
             paymentMethod: form.payment,
             paymentStatus: form.payment === "bank_deposit" && form.paid ? "paid" : "pending",
             discount: discount || undefined,
@@ -94,12 +98,13 @@ export function NewOrderForm() {
           },
         }),
       }).catch(() => null);
-      const data = (await response?.json().catch(() => null)) as { order?: { orderId: string; orderNumber: string }; errors?: string[] } | null;
+      const data = (await response?.json().catch(() => null)) as { order?: { orderId: string; orderNumber: string }; errors?: string[]; courierNotice?: { tone: "good" | "bad" | "info"; text: string } | null } | null;
       if (!response || !response.ok || !data?.order) {
         setErrors(data?.errors?.length ? data.errors : ["Could not place the order. Please check your internet and try again."]);
         return;
       }
       toast(`Order ${data.order.orderNumber} placed.`, "good");
+      if (data.courierNotice) toast(data.courierNotice.text, data.courierNotice.tone);
       router.push(`/admin/orders/${data.order.orderId}`);
     });
   }
@@ -115,6 +120,16 @@ export function NewOrderForm() {
         <section className="a-card">
           <header className="a-card-head"><h2>1. Who is it for?</h2></header>
           <div className="a-card-pad a-form-grid">
+            <label className="a-check wide">
+              <input type="checkbox" checked={international} onChange={(event) => setInternational(event.target.checked)} />
+              <span><strong>This customer is outside Pakistan.</strong> You ship it yourself; it is never booked through TCS automatically. Write the country in the address.</span>
+            </label>
+            {international && (
+              <div className="a-field wide">
+                <label htmlFor="no-intl-delivery">Delivery charge you quoted (PKR)</label>
+                <input id="no-intl-delivery" value={quotedDelivery} onChange={(event) => setQuotedDelivery(event.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="0" />
+              </div>
+            )}
             <div className="a-field">
               <label htmlFor="no-name">Customer name</label>
               <input id="no-name" value={form.name} onChange={set("name")} required autoComplete="off" />

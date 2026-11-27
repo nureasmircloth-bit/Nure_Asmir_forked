@@ -16,5 +16,5 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
   const result = await moveOrder(id, parsed.data.toStatus, admin.email, parsed.data.note);
   if (!result.ok) return Response.json({ error: result.error }, { status: result.status });
-  return Response.json({ order: result.order });
+  return Response.json({ order: result.order, courierNotice: result.courierNotice ?? null });
 }

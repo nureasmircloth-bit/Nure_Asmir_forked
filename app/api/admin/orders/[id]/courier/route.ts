@@ -16,7 +16,7 @@ const bodySchema = z.discriminatedUnion("action", [
     fragile: z.boolean().optional(),
     remarks: z.string().max(400).optional(),
   }),
-  z.object({ action: z.literal("manual"), trackingNumber: z.string().min(3).max(40) }),
+  z.object({ action: z.literal("manual"), trackingNumber: z.string().min(3).max(40), courierName: z.string().max(40).optional() }),
   z.object({ action: z.literal("sync") }),
 ]);
 
@@ -32,7 +32,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const summary = await syncCourierStatuses({ orderId: id, force: true });
     return Response.json({ ok: true, summary });
   }
-  const result = body.action === "manual" ? await saveManualTracking(id, body.trackingNumber, admin.email) : await bookOrderWithTcs(id, admin.email, body);
+  const result = body.action === "manual" ? await saveManualTracking(id, body.trackingNumber, admin.email, body.courierName) : await bookOrderWithTcs(id, admin.email, body);
   if (!result.ok) {
     const status = result.kind === "not_found" ? 404 : result.kind === "conflict" ? 409 : result.kind === "tcs" && result.retryable ? 502 : 400;
     return Response.json({ error: result.message, kind: result.kind }, { status });

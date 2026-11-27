@@ -145,6 +145,14 @@ export async function PATCH(request: Request) {
     return Response.json({ ok: true, minutes: row.applyDelayMinutes });
   }
 
+  // The automatic-booking switch is saved at once too (it changes nothing shoppers see).
+  if (raw?.action === "tcs-auto") {
+    if (typeof raw.on !== "boolean") return Response.json({ error: "Choose on or off." }, { status: 400 });
+    const row = await saveSettingsRow({ tcsAutoBook: raw.on, updatedAt: new Date() });
+    await auditLogEntry({ actorEmail: admin.email, action: "settings.tcs-auto-book", entityType: "site-settings", entityId: "store", detail: { on: raw.on } });
+    return Response.json({ ok: true, on: row.tcsAutoBook });
+  }
+
   // Action 1: Revert pending changes
   if (raw?.action === "revert") {
     const [row] = await db.select().from(siteSettings).where(eq(siteSettings.id, "store")).limit(1);

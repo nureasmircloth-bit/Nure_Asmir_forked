@@ -2,6 +2,7 @@
 // the WhatsApp Cancel button and the reservation-expiry job – so the rule "cancellable only until TCS has
 // the parcel" is enforced in exactly one place, atomically.
 
+import { autoBookOnConfirm, type CourierNotice } from "@/lib/courier";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { orderStatusHistory, orders } from "@/db/schema";
@@ -67,7 +68,7 @@ const FORWARD: Record<string, string[]> = {
   returned: [],
 };
 
-export type MoveResult = { ok: true; order: typeof orders.$inferSelect } | { ok: false; status: 400 | 404 | 409; error: string };
+export type MoveResult = { ok: true; order: typeof orders.$inferSelect; courierNotice?: CourierNotice | null } | { ok: false; status: 400 | 404 | 409; error: string };
 
 /** Moves an order one step forward (confirm → pack → with TCS → delivered/returned) and does the stock,
  * payment and notification side effects exactly once, even if clicked twice. */
@@ -111,5 +112,6 @@ export async function moveOrder(orderId: string, toStatus: MoveTarget, adminEmai
   if (kind) announceOrderEvent(orderId, kind, "admin");
 
   await auditLogEntry({ actorEmail: adminEmail, action: "order.status", entityType: "order", entityId: orderId, detail: { from: order.orderStatus, to: toStatus, note } });
-  return { ok: true, order: row };
+  const courierNotice = toStatus === "confirmed" ? await autoBookOnConfirm(orderId, adminEmail) : null;
+  return { ok: true, order: row, courierNotice };
 }

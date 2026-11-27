@@ -2,6 +2,7 @@
 // (app/api/cron/courier-sync). One place decides how an order is booked and what a courier status means,
 // so a button click and the automation can never disagree.
 
+import { isPracticeRequest } from "@/lib/practice-context";
 import { and, eq, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { orderItems, orderStatusHistory, orders, siteSettings } from "@/db/schema";
@@ -86,6 +87,7 @@ export async function bookOrderWithTcs(orderId: string, actorEmail: string, over
     return fail("not_bookable", `A "${order.orderStatus.replaceAll("_", " ")}" order can't be booked with TCS. Confirm it first.`);
   }
   if (order.courierTrackingNumber && order.courierTrackingNumber !== PENDING) return fail("conflict", "This order already has a TCS tracking number.");
+  if (order.isInternational) return fail("not_bookable", "This order goes outside Pakistan: ship it yourself, then add the courier name and tracking number by hand.");
 
   const phone = toPkMobile(overrides.customerPhone || order.customerPhone);
   if (!phone) return fail("invalid", "TCS needs a valid mobile number like 03001234567. Please correct the customer's phone number.");
@@ -149,20 +151,23 @@ export async function bookOrderWithTcs(orderId: string, actorEmail: string, over
 }
 
 /** The owner booked the parcel on the TCS website (or by phone) and types the tracking number in here. */
-export async function saveManualTracking(orderId: string, trackingNumber: string, actorEmail: string): Promise<BookResult> {
+export async function saveManualTracking(orderId: string, trackingNumber: string, actorEmail: string, courier?: string): Promise<BookResult> {
   const cn = trackingNumber.replace(/\s+/g, "");
   if (!/^[A-Za-z0-9-]{6,24}$/.test(cn)) return fail("invalid", "That doesn't look like a TCS tracking number. It is usually 10–14 digits.");
   const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
   if (!order) return fail("not_found", "Order not found.");
   if (!BOOKABLE_STATUSES.includes(order.orderStatus)) return fail("not_bookable", "Confirm the order first, then add the tracking number.");
+  // Only an overseas parcel can travel with another courier; a Pakistan order is always TCS.
+  const courierName = order.isInternational ? (courier ?? "").trim().slice(0, 40) || "TCS" : "TCS";
   const [saved] = await db
     .update(orders)
-    .set({ courierName: "TCS", courierTrackingNumber: cn, courierBookedAt: new Date(), courierStatus: "Booked", courierSyncedAt: null, courierAutoError: null })
+    .set({ courierName, courierTrackingNumber: cn, courierBookedAt: new Date(), courierStatus: "Booked", courierSyncedAt: null, courierAutoError: null })
     .where(and(eq(orders.id, orderId), inArray(orders.orderStatus, BOOKABLE_STATUSES), or(isNull(orders.courierTrackingNumber), ne(orders.courierTrackingNumber, PENDING))))
     .returning({ id: orders.id });
   if (!saved) return fail("conflict", "This order changed just now – refresh and try again.");
-  announceOrderEvent(orderId, "booked", "admin", cn); // right after the number is saved (see above); a corrected number is announced again
-  await db.insert(orderStatusHistory).values({ orderId, fromStatus: order.orderStatus, toStatus: order.orderStatus, note: `TCS tracking number added by hand: ${cn}`, actorEmail });
+  // The "booked" message to the customer names TCS, so it is not sent for a parcel travelling with another courier.
+  if (courierName === "TCS") announceOrderEvent(orderId, "booked", "admin", cn); // right after the number is saved (see above); a corrected number is announced again
+  await db.insert(orderStatusHistory).values({ orderId, fromStatus: order.orderStatus, toStatus: order.orderStatus, note: `${courierName} tracking number added by hand: ${cn}`, actorEmail });
   await auditLogEntry({ actorEmail, action: "order.tcs_manual", entityType: "order", entityId: orderId, detail: { trackingNumber: cn } });
   return { ok: true, trackingNumber: cn };
 }
@@ -172,12 +177,14 @@ export async function saveManualTracking(orderId: string, trackingNumber: string
  * `cancelled` says whether TCS confirmed; when it did not (TCS website booking, TCS down), the order is
  * still freed and the caller shows `warning` so the owner can also cancel it on the TCS website.
  */
-export async function releaseCourierBooking(order: Pick<OrderRow, "id" | "orderNumber" | "courierTrackingNumber">, actorEmail: string): Promise<{ had: boolean; cancelled: boolean; warning?: string }> {
+export async function releaseCourierBooking(order: Pick<OrderRow, "id" | "orderNumber" | "courierTrackingNumber"> & { isInternational?: boolean }, actorEmail: string): Promise<{ had: boolean; cancelled: boolean; warning?: string }> {
   const cn = order.courierTrackingNumber;
   if (!cn || cn === PENDING) return { had: false, cancelled: false };
   let cancelled = false;
   let warning: string | undefined;
-  if (isTcsConfigured()) {
+  if (order.isInternational) {
+    warning = `This was an overseas parcel: please also cancel tracking number ${cn} with the courier.`;
+  } else if (isTcsConfigured()) {
     try {
       await cancelTcsParcel(cn);
       cancelled = true;
@@ -229,6 +236,33 @@ export async function applyCourierTransition(order: OrderRow, target: "shipped" 
   return true;
 }
 
+/** What the admin screen shows right after a confirmation: the parcel was booked, or why it was not. */
+export type CourierNotice = { tone: "good" | "bad" | "info"; text: string };
+
+/**
+ * Books a freshly confirmed order with TCS when the owner has switched automatic booking on. "Booked" is only ever reported after TCS has
+ * answered with a tracking number. Overseas orders are never sent. It never throws: a failed booking must not undo the confirmation, so the
+ * reason is saved on the order (and returned) and the owner can fix it and press "Book with TCS".
+ */
+export async function autoBookOnConfirm(orderId: string, actorEmail: string): Promise<CourierNotice | null> {
+  try {
+    const [settings] = await db.select({ on: siteSettings.tcsAutoBook }).from(siteSettings).where(eq(siteSettings.id, "store")).limit(1);
+    if (!settings?.on || isPracticeRequest()) return null;
+    const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+    if (!order || order.courierTrackingNumber) return null;
+    if (order.isInternational) return { tone: "info", text: "Overseas order: not booked automatically. Ship it yourself and add the tracking number." };
+    const result = await bookOrderWithTcs(orderId, actorEmail);
+    if (result.ok) return { tone: "good", text: `TCS booked ✓ Tracking number ${result.trackingNumber}` };
+    if (result.kind === "conflict") return null; // someone else is booking it right now
+    const reason = `Automatic TCS booking did not happen: ${result.message}`;
+    await db.update(orders).set({ courierAutoError: reason.slice(0, 500) }).where(and(eq(orders.id, orderId), isNull(orders.courierTrackingNumber)));
+    return { tone: "bad", text: `${reason} Fix it on the order and press “Book with TCS”.` };
+  } catch (error) {
+    console.error("automatic TCS booking failed", orderId, error);
+    return { tone: "bad", text: "The order is confirmed, but automatic TCS booking failed. Open the order and press “Book with TCS”." };
+  }
+}
+
 export type SyncSummary = { checked: number; updated: number; moved: number; failed: number };
 
 /**
@@ -248,6 +282,7 @@ export async function syncCourierStatuses(options: { orderId?: string; force?: b
         inArray(orders.orderStatus, ["confirmed", "processing", "packed", "shipped"]),
         ne(orders.courierTrackingNumber, PENDING),
         sql`${orders.courierTrackingNumber} is not null`,
+        eq(orders.isInternational, false), // overseas parcels are followed by hand, not through TCS
         options.orderId ? eq(orders.id, options.orderId) : options.force ? undefined : or(isNull(orders.courierSyncedAt), lt(orders.courierSyncedAt, staleBefore)),
       ),
     )
