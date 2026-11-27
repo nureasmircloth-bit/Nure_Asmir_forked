@@ -52,7 +52,8 @@
 .drawer-cat-link { flex: 1; padding: 14px 12px; display: flex; align-items: center; justify-content: space-between; font-size: 13.5px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--ink); text-decoration: none; }
 .drawer-expand-btn { width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; transition: transform .25s cubic-bezier(0.16, 1, 0.3, 1), color .15s; }
 .drawer-expand-btn:hover { color: var(--ink); background: rgba(0,0,0,0.04); }
-.drawer-group.is-expanded .drawer-expand-btn svg { transform: rotate(180deg); }
+/* only this category's own arrow turns: an open parent must not make the closed categories inside it look open */
+.drawer-group.is-expanded > .drawer-cat-row .drawer-expand-btn svg { transform: rotate(180deg); }
 .drawer-sub-list { padding: 8px 12px 14px 20px; display: grid; gap: 8px; border-left: 2px solid var(--gold, #c5a059); margin: 2px 0 10px 14px; animation: ms-fade-in .2s ease both; }
 .drawer-sub-link { font-size: 13px; color: #555; font-weight: 450; letter-spacing: .04em; text-transform: capitalize; padding: 4px 0; text-decoration: none; transition: color .12s, transform .12s; display: block; }
 .drawer-sub-link:hover { color: var(--ink); transform: translateX(4px); }
