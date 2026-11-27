@@ -205,6 +205,9 @@ export function ApiButton({
         if (text) toast(text, "good");
         const warning = (result.data as { courierWarning?: string | null }).courierWarning;
         if (warning) toast(warning, "info");
+        // Whether the parcel was booked with TCS (or why not) after a confirmation.
+        const notice = (result.data as { courierNotice?: { tone: "good" | "bad" | "info"; text: string } | null }).courierNotice;
+        if (notice) toast(notice.text, notice.tone);
         if (refresh) router.refresh();
       } else {
         toast(result.error, "bad");

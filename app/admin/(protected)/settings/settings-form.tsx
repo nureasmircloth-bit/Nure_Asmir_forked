@@ -100,7 +100,7 @@ function formatSeconds(total: number) {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-export function SettingsForm({ initial, status, initialPending, applyDelayMinutes = 0 }: { initial: SettingsValues; status: SystemStatus; initialPending?: PendingSettings | null; applyDelayMinutes?: number }) {
+export function SettingsForm({ initial, status, initialPending, applyDelayMinutes = 0, tcsAutoBook = false }: { initial: SettingsValues; status: SystemStatus; initialPending?: PendingSettings | null; applyDelayMinutes?: number; tcsAutoBook?: boolean }) {
   const router = useRouter();
   const toast = useToast();
   const saving = useLockedAction();
@@ -113,6 +113,21 @@ export function SettingsForm({ initial, status, initialPending, applyDelayMinute
   const [countdown, setCountdown] = useState<number>(initialPending?.remainingSeconds ?? 0);
   const [delay, setDelay] = useState<number>(applyDelayMinutes);
   const choosing = useLockedAction();
+  const [autoBook, setAutoBook] = useState(tcsAutoBook);
+  const switching = useLockedAction();
+
+  /** Saves the automatic-booking switch at once. */
+  async function chooseAutoBook(on: boolean) {
+    setAutoBook(on);
+    await switching.run(async () => {
+      const result = await callApi<{ ok: boolean; on: boolean }>("/api/admin/settings", "PATCH", { action: "tcs-auto", on });
+      if (result.ok) toast(on ? "Automatic TCS booking is ON. Pakistan orders are booked when you confirm them." : "Automatic TCS booking is OFF. Press “Book with TCS” on each order.", "good");
+      else {
+        setAutoBook(!on);
+        toast(result.error, "bad");
+      }
+    });
+  }
 
   /** Saves how long a Save waits before the shop sees it (0 = at once). This choice itself takes effect at once. */
   async function chooseDelay(minutes: number) {
@@ -771,6 +786,13 @@ export function SettingsForm({ initial, status, initialPending, applyDelayMinute
       </Section>
 
       <Section id="tcs" title="TCS delivery" intro="Where TCS collects parcels from. The TCS account login is stored safely on the server — see the note below.">
+        <div className="wide" style={{ display: "grid", gap: 6 }}>
+          <label className="a-check">
+            <input type="checkbox" checked={autoBook} disabled={switching.pending} onChange={(event) => void chooseAutoBook(event.target.checked)} />
+            <span><strong>Book with TCS automatically when an order is confirmed.</strong> You see “TCS booked” with the tracking number once TCS has accepted it. Orders outside Pakistan are never booked automatically. Turn this off to press “Book with TCS” yourself.</span>
+          </label>
+          {autoBook && !status.tcs && <span className="a-help" style={{ color: "var(--red-text)" }}>TCS is not connected yet, so orders cannot be booked. Each confirmed order will show a warning until the TCS details are added.</span>}
+        </div>
         {text("tcsShipperName", "Name on the parcel (sender)", { hint: "The sender name TCS prints on the label." })}
         {text("tcsShipperPhone", "Pickup contact phone", { placeholder: "03116111963", hint: "The rider calls this number when coming to collect." })}
         <div className="a-field wide">
@@ -873,7 +895,7 @@ export function SettingsForm({ initial, status, initialPending, applyDelayMinute
           <legend style={{ fontWeight: 600, marginBottom: 6 }}>What customers pay for delivery <Hint text="This is what the CUSTOMER is charged. TCS bills you separately for carrying the parcel – the two do not have to be equal. Free delivery above the amount is always applied, whichever way you choose." /></legend>
           {choice("deliveryMode", "zones", "A price for each area (recommended)", "You set the price per area on the “Delivery charges” page, for example Karachi Rs 250, rest of Pakistan Rs 400.")}
           {choice("deliveryMode", "flat", "One price everywhere", "The same delivery charge for all of Pakistan.")}
-          {choice("deliveryMode", "tcs", "Follow TCS prices (when available)", "Uses TCS's own tariff by city once TCS is connected. Until then, or for any city TCS cannot price, your area prices are used – so an order is never blocked.")}
+          {form.deliveryMode === "tcs" && choice("deliveryMode", "tcs", "Follow TCS prices (not available)", "TCS does not offer a live price for deliveries inside Pakistan, so your area prices are being used. Choose one of the other options.")}
         </fieldset>
         {form.deliveryMode === "flat" && text("flatDeliveryCharge", "Delivery charge everywhere (PKR)", { hint: "Charged on every order below the free-delivery amount." })}
         <label className="a-check wide">

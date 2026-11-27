@@ -1,3 +1,5 @@
+import { autoBookOnConfirm } from "@/lib/courier";
+import { runInBackground } from "@/lib/background";
 import { siteOrigin } from "@/lib/brand";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { announceOrderEvent } from "@/lib/order-events";
@@ -128,6 +130,8 @@ async function handleButtonReply(repliedToMessageId: string, buttonPayload: stri
     actorEmail: "customer",
   });
   announceOrderEvent(order.id, "confirmed", "customer");
+  // The customer confirmed: book it now if automatic booking is on (in the background, WhatsApp wants a quick answer).
+  runInBackground(autoBookOnConfirm(order.id, "customer"), "autoBookOnConfirm");
   await auditLogEntry({ actorEmail: "customer", action: "order.whatsapp_reply", entityType: "order", entityId: order.id, detail: { buttonPayload, toStatus } });
   await sendWhatsAppText(toWhatsAppPhone(order.customerPhone), `Your order #${order.orderNumber} has been confirmed. You can track it on our website: ${siteUrl}/track-order`);
 }

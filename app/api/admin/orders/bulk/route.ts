@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     } else {
       const to = action === "confirm" ? "confirmed" : action === "packed" ? "packed" : "shipped";
       const result = await moveOrder(id, to, admin.email);
-      results.push({ id, ok: result.ok, message: result.ok ? "Done" : result.error });
+      results.push({ id, ok: result.ok, message: result.ok ? (result.courierNotice?.text ?? "Done") : result.error });
     }
   }
   return Response.json({ results, done: results.filter((r) => r.ok).length, failed: results.filter((r) => !r.ok).length });

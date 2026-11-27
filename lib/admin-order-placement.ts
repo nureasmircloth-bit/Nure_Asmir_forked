@@ -58,6 +58,8 @@ const orderSchema = z
     deliveryCharge: z.number("deliveryCharge must be a number").int().min(0).max(100000).optional(),
     discount: z.number("discount must be a number").int().min(0).max(10000000).optional(),
     notes: z.string().trim().max(1000).nullish(),
+    // Going outside Pakistan: shipped by hand, never booked through TCS. No delivery area is needed; the charge is the one quoted.
+    international: z.boolean().optional(),
     items: z.array(itemSchema).min(1, "at least one item is required").max(MAX_ITEMS_PER_ORDER, `at most ${MAX_ITEMS_PER_ORDER} items per order`),
   })
   .strict();
@@ -135,6 +137,7 @@ export type OrderPlan = {
   discount: number;
   total: number;
   estimatedDeliveryDate: string;
+  international: boolean;
 };
 
 export type ResolveResult = { ok: true; plan: OrderPlan } | { ok: false; errors: string[] };
@@ -213,7 +216,8 @@ export function resolveOrder(raw: unknown, catalog: Catalog, consumed?: Map<stri
   if (email && !EMAIL.test(email)) errors.push("customerEmail: not a valid email address (leave it out if there isn't one)");
 
   let zone: ZoneRow | undefined;
-  if (input.zoneId) zone = catalog.zones.find((candidate) => candidate.id === input.zoneId);
+  if (input.international && !input.zoneId && !input.zone) zone = catalog.zones[0];
+  else if (input.zoneId) zone = catalog.zones.find((candidate) => candidate.id === input.zoneId);
   else if (input.zone) zone = catalog.zones.find((candidate) => lower(candidate.name) === lower(input.zone as string));
   if (!zone) {
     errors.push(
@@ -263,7 +267,7 @@ export function resolveOrder(raw: unknown, catalog: Catalog, consumed?: Map<stri
   if (errors.length || !zone) return { ok: false, errors };
 
   const subtotal = lines.reduce((sum, line) => sum + line.lineTotal, 0);
-  const deliveryCharge = input.deliveryCharge ?? computeDeliveryCharge({ mode: catalog.deliveryMode, subtotal, freeAbove: catalog.freeDeliveryThreshold, zoneCharge: zone.deliveryCharge, flatCharge: catalog.flatDeliveryCharge });
+  const deliveryCharge = input.deliveryCharge ?? (input.international ? 0 : computeDeliveryCharge({ mode: catalog.deliveryMode, subtotal, freeAbove: catalog.freeDeliveryThreshold, zoneCharge: zone.deliveryCharge, flatCharge: catalog.flatDeliveryCharge }));
   const discount = input.discount ?? 0;
   if (discount > subtotal + deliveryCharge) return { ok: false, errors: [`discount: PKR ${discount} is more than the order's value (PKR ${subtotal + deliveryCharge})`] };
 
@@ -282,6 +286,7 @@ export function resolveOrder(raw: unknown, catalog: Catalog, consumed?: Map<stri
       paymentMethod: input.paymentMethod,
       paymentStatus: input.paymentStatus ?? "pending",
       notes: input.notes?.trim() || null,
+      international: input.international === true,
       lines,
       subtotal,
       deliveryCharge,
@@ -446,6 +451,7 @@ export async function placeAdminOrder(raw: unknown, adminEmail: string, idempote
       reservationExpiresAt: null,
       notes: plan.notes,
       estimatedDeliveryDate: plan.estimatedDeliveryDate,
+      isInternational: plan.international,
     });
     orderInserted = true;
 

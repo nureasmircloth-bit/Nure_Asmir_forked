@@ -1,6 +1,7 @@
 import { getAdminUser } from "@/lib/auth/admin-auth";
 import { sandboxRoomMessage } from "@/lib/sandbox";
 import { placeAdminOrder } from "@/lib/admin-order-placement";
+import { autoBookOnConfirm } from "@/lib/courier";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,7 @@ export async function POST(request: Request) {
   const full = await sandboxRoomMessage("orders"); // practice shop only: a small limit on how much can be created
   if (full) return Response.json({ error: full }, { status: 400 });
 
-  const body = (await request.json().catch(() => null)) as { order?: unknown; idempotencyKey?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as { order?: unknown; idempotencyKey?: unknown; autoBook?: unknown } | null;
   if (!body || typeof body.order !== "object" || body.order === null) {
     return Response.json({ errors: ["Request body must be { order: {...} }."] }, { status: 400 });
   }
@@ -21,5 +22,7 @@ export async function POST(request: Request) {
 
   const result = await placeAdminOrder(body.order, admin.email, key);
   if (!result.ok) return Response.json({ errors: result.errors }, { status: 422 });
-  return Response.json({ order: result.order }, { status: result.order.duplicate ? 200 : 201 });
+  // Only the single "new order" form asks for automatic booking; a spreadsheet import of many orders never books parcels by itself.
+  const courierNotice = body.autoBook === true && !result.order.duplicate ? await autoBookOnConfirm(result.order.orderId, admin.email) : null;
+  return Response.json({ order: result.order, courierNotice }, { status: result.order.duplicate ? 200 : 201 });
 }
